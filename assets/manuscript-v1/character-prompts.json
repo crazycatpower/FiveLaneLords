@@ -1,0 +1,17 @@
+{
+  "generator": "built-in image_gen",
+  "assets": [
+    {
+      "name": "militia-red",
+      "prompt": "Production 2D sprite for a medieval illuminated manuscript strategy game. One single full body character facing RIGHT in three quarter side view, entire weapon and feet visible. Genuine transparent background. Simplified medieval manuscript drawing, bold clean dark brown ink contour, large FLAT matte gouache color shapes, very minimal hatching, NO noisy texture, NO realistic anatomy, NO metal reflections, NO dense armor details. Charming slightly large head and short sturdy proportions, readable silhouette when rendered 70 pixels tall. Warm ivory, muted vermilion, indigo, ochre palette. No scenery, base, shadows, text, borders, extra poses. Ample padding. A humble RED militia spearman with solid vermilion tunic, simple brown boots, light grey kettle helmet, round ochre wooden shield with a RED center and small gold lion mark, short spear angled forward. Calm ready stance."
+    },
+    {
+      "name": "militia-blue",
+      "prompt": "Production 2D sprite for a medieval illuminated manuscript strategy game. One single full body character facing RIGHT in three quarter side view, entire weapon and feet visible. Genuine transparent background. Simplified medieval manuscript drawing, bold clean dark brown ink contour, large FLAT matte gouache color shapes, very minimal hatching, NO noisy texture, NO realistic anatomy, NO metal reflections, NO dense armor details. Charming slightly large head and short sturdy proportions, readable silhouette when rendered 70 pixels tall. Warm ivory, muted vermilion, indigo, ochre palette. No scenery, base, shadows, text, borders, extra poses. Ample padding. A humble BLUE militia spearman with solid INDIGO BLUE tunic, simple brown boots, light grey kettle helmet, round ochre wooden shield with a BLUE center and small gold fleur-de-lis mark, short spear angled forward. Calm ready stance."
+    },
+    {
+      "name": "lord-simple",
+      "prompt": "Production 2D sprite for a medieval illuminated manuscript strategy game. One single full body character facing RIGHT in three quarter side view, entire weapon and feet visible. Genuine transparent background. Simplified medieval manuscript drawing, bold clean dark brown ink contour, large FLAT matte gouache color shapes, very minimal hatching, NO noisy texture, NO realistic anatomy, NO metal reflections, NO dense armor details. Charming slightly large head and short sturdy proportions, readable silhouette when rendered 70 pixels tall. Warm ivory, muted vermilion, indigo, ochre palette. No scenery, base, shadows, text, borders, extra poses. Ample padding. A red faction LORD with a small gold crown, neatly shaped dark brown beard, simple red tunic, short flowing red cape, ochre belt, blue leggings and brown boots, holding a simple steel sword diagonally forward. Confident dignified humorous face. Only a few simple armor shapes."
+    }
+  ]
+}
