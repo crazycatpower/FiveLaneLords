@@ -1,6 +1,6 @@
 # 羊皮紙戰記
 
-Godot 4.7.1 五路出兵推塔原型。匯入 project.godot 後按 F6/F5 執行。
+Godot 4.7.1 五路出兵推塔原型。T0 已完成：1600×900（16:9）、118×116 格子、共用版面／平衡常數、單位 kind 與建築陣列。匯入 project.godot 後按 F6/F5 執行。
 
 - WASD：領主自由移動，靠近敵人自動攻擊。
 - Q：選擇民兵卡，再點我方格子部署，成功放置才花費 25 金幣。
@@ -21,3 +21,11 @@ Godot 4.7.1 五路出兵推塔原型。匯入 project.godot 後按 F6/F5 執行�
 使用已生成的五張 PNG；動畫目前為程序式紙偶晃動，尚無逐格動畫和音效。
 
 測試：`godot_console --headless --path . -s smoke_test.gd`（全過回傳 0，失敗回傳非 0）。不加 `--headless` 會順便重拍 preview.png。
+
+## 企劃實作進度
+
+- T0 已完成；目前仍保留 v1 金幣、手動領主與追擊規則。下一項為 T1（墨水／輪轉手牌／三類卡牌／農民）。
+- `layout.gd` 集中棋盤、部署、城門停點、領主邊界與 HUD 版面；`balance.gd` 集中現行玩法數值。
+- 單位介面：`spawn_unit(team, lane, kind, pos)`；農田改為 `buildings` 中具有 kind、team、cell、hp、expires、boost_until 的建築。
+- 可重現開局：`godot_console --path . -- --seed=42`。相同 seed 與相同輸入／步長可重現隨機序列。
+- Windows 沙箱若無法寫入預設 Godot 使用者資料，在測試 PowerShell 行程內先設定 `$env:APPDATA = (Resolve-Path .runtime).Path`，再執行上述測試指令；不需更動系統環境設定。

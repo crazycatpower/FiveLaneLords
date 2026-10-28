@@ -1,7 +1,9 @@
 extends CharacterBody2D
+const BALANCE = preload("res://balance.gd")
+const LAYOUT = preload("res://layout.gd")
 
 var game: Node2D
-var hp: float = 260.0
+var hp: float = BALANCE.LORD_HP
 var respawn: float = 0.0
 var attack_timer: float = 0.0
 var facing_left: bool = false
@@ -23,30 +25,30 @@ func _physics_process(delta: float) -> void:
 	if respawn > 0.0:
 		respawn -= delta
 		if respawn <= 0.0:
-			hp = 260.0
-			position = Vector2(300, 390)
+			hp = BALANCE.LORD_HP
+			position = LAYOUT.spawn_position(0, 2)
 			show()
 		return
 	var direction := Input.get_vector("left", "right", "up", "down")
-	velocity = direction * 205.0
+	velocity = direction * BALANCE.LORD_SPEED
 	move_and_slide()
-	position = position.clamp(Vector2(205, 155), Vector2(1090, 640))
+	position = position.clamp(LAYOUT.LORD_MIN, LAYOUT.LORD_MAX)
 	if direction.x != 0:
 		facing_left = direction.x < 0
 	bob = sin(game.elapsed * 13.0) * minf(velocity.length() / 70.0, 2.7)
 	attack_timer -= delta
 	if attack_timer <= 0:
-		var enemy: Dictionary = game.nearest_enemy(position, 88.0)
+		var enemy: Dictionary = game.nearest_enemy(position, BALANCE.LORD_RANGE)
 		if not enemy.is_empty():
-			enemy.hp -= 30.0
+			enemy.hp -= BALANCE.LORD_DAMAGE
 			game.burst(game.shown_at(enemy) + Vector2(0, -25), "−30", Color("922f25"))
-			attack_timer = 0.65
+			attack_timer = BALANCE.LORD_ATTACK_INTERVAL
 
 func damage(amount: float) -> void:
 	if respawn > 0:
 		return
 	hp -= amount
 	if hp <= 0:
-		respawn = 9.0
+		respawn = BALANCE.LORD_RESPAWN
 		hide()
 		game.notice = "領主倒下！9 秒後從後方重返戰場"
