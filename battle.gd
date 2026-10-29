@@ -544,7 +544,7 @@ func skill_state(team: int) -> Dictionary:
 	for hp: float in gates[team]:
 		gate_total += hp
 		if hp <= 0: broken += 1
-	return {"lord":lords[team].lord,"ready":lords[team].hp > 0 and skill_cd[team] <= 0,"ink":ink[team],"elapsed":elapsed,"farms":farms,"gate_share":gate_total/(5*B.GATE_HP),"broken":broken,"params":ai_params[team]}
+	return {"lord":lords[team].lord,"ready":lords[team].hp > 0 and skill_cd[team] <= 0,"ink":ink[team],"elapsed":elapsed,"farms":farms,"gate_share":gate_total/(5*B.GATE_HP),"broken":broken,"difficulty":difficulty,"params":ai_params[team]}
 
 func snapshot(team: int) -> Dictionary:
 	var candidates: Array = []

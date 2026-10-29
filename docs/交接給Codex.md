@@ -22,7 +22,8 @@
 | `sound_bank.gd` | 音效對照（Kenney CC0） |
 | `smoke_test.gd` | 自動測試（目前 **426 項**） |
 | `tools/autobalance.py` | **主要的平衡量測工具**：平行跑隨機牌組＋隨機領主的 AI 對戰，算每張牌與每位領主的勝率、前 3 分鐘被拆農田、第一次破門、技能次數，寫到 `docs/自動平衡報告.md`。不加 `--dry-run` 會**自動改 `balance.gd` 的費用** |
-| `tools/random_sim.gd` | autobalance 的工作程序（一場一行 JSON） |
+| `tools/random_sim.gd` | autobalance／evolve_ai 的工作程序（一場一行 JSON；`--mirror --cand --base` 比兩套 AI 參數，`--difficulty` 指定難度） |
+| `tools/evolve_ai.py` | AI 參數演化（對抗訓練）：突變 `enemy_ai.gd` 的約 30 個策略參數，和指定對手互打，留下贏的。`--base` 指定對手、`--round` 接續報告、`--validate-only` 只驗證；結果寫到 `tools/evolved_ai*.json` 與 `docs/AI演化報告.md` |
 | `tools/sim.gd` | 舊的預設牌組對打（3 套 × 3 套，18 局） |
 | `tools/capture_battle.gd` | 拍一張真實 AI 對戰中途的截圖：`godot_console --path . -s tools/capture_battle.gd -- --seed=3 --time=90 --out=C:/路徑/shot.png`（要有視窗） |
 | `tools/art_audit.gd` | 美術驗收截圖（見 `docs/美術驗收.md`） |
@@ -70,6 +71,7 @@
 - 觀戰模式先進設定畫面：雙方預設隨機牌組與領主，可切換、重新隨機、選領主、點卡換牌、互換雙方。
 - 戰場畫面：分區上色（我方草地綠、中間沙地、敵方淡藍），選牌時才用金框標出可放的格子，單位與建築滿血時不顯示血條。
 - 戰鬥中按 R 不重開。
+- **困難難度的 AI 用演化出的參數**（`enemy_ai.gd` 的 `EVOLVED`，必須等於 `tools/evolved_ai.json`，測試會檢查）；簡單、普通用手寫預設值。AI 參數一律用 `weights()` 取得，不要直接讀 `s.params`。
 
 ## 6. 最新量測（2026-10-29，v6.9：1000 場隨機牌組＋隨機領主，開局 25 金幣，三位領主都是 1000 血）
 

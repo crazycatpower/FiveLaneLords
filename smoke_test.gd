@@ -102,6 +102,10 @@ func ai_hand(kind: String, gold: float) -> Battle:
 
 func test_ai_cards() -> void:
 	var m := ai_hand("tower",20)
+	# 困難 plays with the evolved weights; they must stay equal to tools/evolved_ai.json.
+	var evolved = JSON.parse_string(FileAccess.get_file_as_string("res://tools/evolved_ai.json"))
+	check(evolved is Dictionary and evolved.size() == m.AI.EVOLVED.size() and evolved.keys().all(func(k: String) -> bool: return is_equal_approx(float(m.AI.EVOLVED.get(k,-999.0)),float(evolved[k]))),"the 困難 AI weights match tools/evolved_ai.json")
+	check(m.AI.weights({"difficulty":2}) == m.AI.EVOLVED and m.AI.weights({"difficulty":1}).is_empty() and m.AI.weights({"difficulty":2,"params":{"hoard":1.0}}) == {"hoard":1.0},"困難 uses the evolved weights; other levels and explicit weights are left alone")
 	check(m.AI.decide(m.snapshot(1)).is_empty(),"no farms to guard: the AI keeps its tower")
 	m.add_building(1,Vector2i(8,1),"farm")
 	var c: Dictionary = m.AI.decide(m.snapshot(1))

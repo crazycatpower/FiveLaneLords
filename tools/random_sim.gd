@@ -6,9 +6,12 @@ extends SceneTree
 #   --params-red=FILE --params-blue=FILE   weights for each side
 #   --mirror --cand=FILE [--base=FILE]     both sides get the same deck and lord; every seed is played
 #                                          twice, the candidate once as red and once as blue
+#   --difficulty=0|1|2                     AI difficulty (default 1; 2 = 困難, the evolved weights
+#                                          when a side's params are empty)
 const Battle = preload("res://battle.gd")
 const B = preload("res://balance.gd")
 const DeckStore = preload("res://deck_store.gd")
+var difficulty := 1
 
 func read_params(path: String) -> Dictionary:
 	if path.is_empty(): return {}
@@ -33,6 +36,7 @@ func _initialize() -> void:
 		elif arg.begins_with("--params-blue="): paths.blue = value
 		elif arg.begins_with("--cand="): paths.cand = value
 		elif arg.begins_with("--base="): paths.base = value
+		elif arg.begins_with("--difficulty="): difficulty = clampi(int(value),0,2)
 	var cand := read_params(paths.cand)
 	var base := read_params(paths.base)
 	var file := FileAccess.open(out,FileAccess.WRITE)
@@ -58,7 +62,7 @@ func _initialize() -> void:
 
 func play(seed_value: int, decks: Array, picks: Array, params: Array, cap: float) -> Dictionary:
 	var m := Battle.new(seed_value,decks[0].duplicate(),decks[1].duplicate(),picks[0],picks[1])
-	m.difficulty = 1
+	m.difficulty = difficulty
 	m.record_events = false
 	m.ai_enabled = [true,true]
 	var first_play: Array = [{},{}]

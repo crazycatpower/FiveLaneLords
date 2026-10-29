@@ -11,6 +11,17 @@ const DEFEND_REACH := 4.5
 # at the 50-ink cap (about 35% of all ink was wasted in tools/sim.gd).
 const SPEND_AT := 35.0 # columns from our gate at which an approaching enemy counts as a threat
 
+# 困難 plays with these weights: round 1 of tools/evolve_ai.py, 66.5% against the hand-written AI
+# over 200 mirror matches (docs/AI演化報告.md). They must equal tools/evolved_ai.json (tested).
+const EVOLVED := {"hoard":0.9521,"skill_after":65.7997,"harvest_max_farms":8.9992,"iron_gate_share":0.6,"iron_hoard":0.8958,"spend_at":33.8974,"wave_at":23.1776,"wave_time":6.0537,"defend_reach":4.5,"farm_goal":6.0,"farm_score":769.8742,"farmer_score":798.5413,"raid_score":700.0,"raid_min_farms":3.0,"guard_score":699.5859,"guard_after":9.7386,"ram_score":707.1471,"ram_reserve":11.3229,"ram_escort":281.8677,"healer_score":664.9564,"wave_score":643.607,"mill_score":636.083,"mill_min_farms":4.0,"harvest_score":647.8686,"harvest_min":2.0,"repair_below":0.6728,"atk_gate":0.4517,"atk_foes":0.8,"atk_recent":184.4357}
+
+# Weights for a snapshot: explicit params win; otherwise 困難 uses EVOLVED and the other levels the
+# hand-written defaults (an empty dictionary).
+static func weights(s: Dictionary) -> Dictionary:
+	var pr: Dictionary = s.get("params",{})
+	if pr.is_empty() and s.get("difficulty",1) == 2: return EVOLVED
+	return pr
+
 # Lord skill: {"cast": bool, "save": bool}. While saving, the AI only defends and repairs, so its
 # purse can reach the full SKILL_COST.
 #
@@ -18,7 +29,7 @@ const SPEND_AT := 35.0 # columns from our gate at which an approaching enemy cou
 # game) gives exactly the hand-written AI. tools/evolve_ai.py searches these weights.
 static func skill_plan(k: Dictionary) -> Dictionary:
 	if not k.ready: return {"cast":false,"save":false}
-	var pr: Dictionary = k.get("params",{})
+	var pr: Dictionary = weights(k)
 	var wanted := false
 	var hoard: bool = pr.get("hoard",1.0) >= 0.5
 	match k.lord:
@@ -30,7 +41,7 @@ static func skill_plan(k: Dictionary) -> Dictionary:
 	return {"cast":wanted and k.ink >= B.SKILL_COST,"save":wanted and hoard}
 
 static func decide(s: Dictionary) -> Dictionary:
-	var pr: Dictionary = s.get("params",{})
+	var pr: Dictionary = weights(s)
 	var team: int = s.team
 	var forward := 1.0 if team == 0 else -1.0
 	var home_x := L.gate_stop(team)
