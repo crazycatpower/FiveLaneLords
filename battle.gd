@@ -1,4 +1,5 @@
 extends RefCounted
+const AI = preload("res://enemy_ai.gd")
 const Lord = preload("res://lord.gd")
 const B = preload("res://balance.gd")
 const L = preload("res://layout.gd")
@@ -27,6 +28,13 @@ var winner := -2
 var paused := false
 var next_id := 0
 var ai_enabled: Array = [false,false]
+var difficulty := 1
+var ai_clock: Array = [0.0,0.0]
+var ai_pending: Array = [{},{}]
+var ai_delay: Array = [0.0,0.0]
+var wave_until: Array = [0.0,0.0]
+var memory: Array = [{},{}]
+var ai_start := 0.0
 
 func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = []) -> void:
 	rng.seed = seed_value
@@ -121,6 +129,7 @@ func play(team: int, slot: int, pos: Vector2) -> bool:
 			var u := spawn_unit(team,cell.y,kind,L.cell_center(cell))
 			u.spawn_delay = i*0.12
 	else: spells.append({"kind":kind,"team":team,"pos":pos,"delay":B.SPELL_DELAY})
+	memory[1-team] = {"card":kind,"lane":cell.y}
 	event("play",pos,team,{"card":kind})
 	return true
 
@@ -227,6 +236,7 @@ func cultivate(u: Dictionary, dt: float) -> bool:
 func step(dt: float) -> void:
 	if paused or ended: return
 	elapsed += dt
+	update_ai(dt)
 	for team: int in range(2):
 		cooldown[team] = maxf(0,cooldown[team]-dt)
 		base_clock[team] += dt*multiplier()
@@ -320,3 +330,31 @@ func update_clock() -> void:
 			event("overtime",Vector2(800,50))
 	if overtime and elapsed >= B.MATCH_TIME+B.OVERTIME:
 		finish(-1 if is_equal_approx(castle[0],castle[1]) else (0 if castle[0] > castle[1] else 1))
+
+func snapshot(team: int) -> Dictionary:
+	var candidates: Array = []
+	for slot: int in range(4):
+		for row: int in range(5):
+			for col: int in range(9):
+				var cell := Vector2i(col,row)
+				var pos := L.cell_center(cell)
+				if can_play(team,slot,pos): candidates.append({"slot":slot,"kind":decks[team][slot],"pos":pos,"cell":cell})
+	return {"team":team,"ink":ink[team],"enemy_ink":ink[1-team],"difficulty":difficulty,"elapsed":elapsed,"wave_until":wave_until[team],"memory":memory[team].duplicate(),"units":units.duplicate(true),"buildings":buildings.duplicate(true),"gates":gates.duplicate(true),"candidates":candidates}
+
+func update_ai(dt: float) -> void:
+	if elapsed < ai_start: return
+	for team: int in range(2):
+		if not ai_enabled[team]: continue
+		if not ai_pending[team].is_empty():
+			ai_delay[team] -= dt
+			if ai_delay[team] <= 0:
+				var c: Dictionary = ai_pending[team]
+				if c.kind == decks[team][c.slot] and play(team,c.slot,c.pos):
+					if c.get("wave",false) and elapsed >= wave_until[team]: wave_until[team] = elapsed+6.0
+				ai_pending[team] = {}
+			continue
+		ai_clock[team] -= dt
+		if ai_clock[team] <= 0:
+			ai_clock[team] = B.AI_TICK
+			ai_pending[team] = AI.decide(snapshot(team))
+			ai_delay[team] = [1.2,0.6,0.2][difficulty]

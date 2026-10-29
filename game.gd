@@ -34,6 +34,7 @@ func _ready() -> void:
 
 func start_battle() -> void:
 	model = Battle.new(seed_value)
+	model.ai_enabled[1] = true
 	selected = -1
 	screen = "battle"
 	effects.clear()

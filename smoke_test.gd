@@ -22,6 +22,7 @@ func run() -> void:
 	test_core()
 	test_lords()
 	test_match()
+	test_ai()
 	await preview()
 	print("%s: %d checks, %d failures" % ["PASS" if failures == 0 else "FAIL",checks,failures])
 	quit(0 if failures == 0 else 1)
@@ -177,3 +178,31 @@ func test_match() -> void:
 	m.overtime = true
 	m.update_clock()
 	check(m.ended and m.winner == -1,"equal health yields draw")
+
+func test_ai() -> void:
+	var m := Battle.new(3)
+	m.ink[1] = 0
+	check(m.AI.decide(m.snapshot(1)).is_empty(),"AI cannot afford a card with zero ink")
+	offer(m,"farm",1)
+	var c: Dictionary = m.AI.decide(m.snapshot(1))
+	check(c.kind == "farm","AI invests in economy")
+	m.add_building(1,Vector2i(7,1),"farm")
+	m.decks[1] = ["farmer","militia","rain","tower","farm","militia","rain","tower"]
+	m.ink[1] = 10
+	c = m.AI.decide(m.snapshot(1))
+	check(c.kind == "farmer" and c.cell == Vector2i(8,1),"AI farmers start behind fields")
+	m.buildings.clear()
+	m.decks[1] = ["militia","militia","militia","militia","farm","farmer","tower","rain"]
+	m.ink[1] = 24
+	check(m.AI.decide(m.snapshot(1)).is_empty(),"normal AI waits for 25 ink attack threshold")
+	m.ink[1] = 25
+	c = m.AI.decide(m.snapshot(1))
+	check(c.kind == "militia" and c.wave,"AI starts wave at threshold")
+	m.spawn_unit(0,0,"militia",L.cell_center(Vector2i(7,0)))
+	c = m.AI.decide(m.snapshot(1))
+	check(c.cell.y == 0 and c.pos.x >= L.cell_center(Vector2i(7,0)).x,"AI intercepts ahead of incoming attacker")
+	m = Battle.new(3)
+	m.ai_enabled[1] = true
+	tick(m,35)
+	check(m.stats[1].plays > 0 and m.ink[1] >= 0,"AI acts through shared paid play interface")
+
