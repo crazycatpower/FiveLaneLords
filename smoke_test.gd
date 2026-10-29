@@ -242,6 +242,12 @@ func test_ai() -> void:
 	c = m.AI.decide(m.snapshot(1))
 	check(c.cell.y == 0 and c.pos.x >= L.cell_center(Vector2i(7,0)).x,"AI intercepts ahead of incoming attacker")
 	m = Battle.new(3)
+	m.decks[1] = ["farm","farmer","harvest","mill","militia","rain","tower","scarecrow"]
+	m.ink[1] = 30
+	m.spawn_unit(0,1,"ram",Vector2(L.gate_stop(1),L.cell_center(Vector2i(0,1)).y))
+	c = m.AI.decide(m.snapshot(1))
+	check(c.get("kind","") == "farm","AI keeps playing when nothing in hand can answer a threat")
+	m = Battle.new(3)
 	m.ai_enabled[1] = true
 	tick(m,35)
 	check(m.stats[1].plays > 0 and m.ink[1] >= 0,"AI acts through shared paid play interface")

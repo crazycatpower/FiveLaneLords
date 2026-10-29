@@ -31,6 +31,7 @@ var ai_pending: Array = [{},{}]
 var ai_delay: Array = [0.0,0.0]
 var wave_until: Array = [0.0,0.0]
 var memory: Array = [{},{}]
+var recent_lanes: Array = [[],[]] # lanes of each side's last troop plays, for the AI to spread its attacks
 var ai_start := 0.0
 
 func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = []) -> void:
@@ -144,6 +145,9 @@ func play(team: int, slot: int, pos: Vector2) -> bool:
 			u.spawn_delay = i*0.12
 	else: spells.append({"kind":kind,"team":team,"pos":pos,"delay":B.SPELL_DELAY})
 	memory[1-team] = {"card":kind,"lane":cell.y}
+	if card.type == "unit":
+		recent_lanes[team].append(cell.y)
+		if recent_lanes[team].size() > 3: recent_lanes[team].pop_front()
 	event("play",pos,team,{"card":kind,"slot":slot})
 	return true
 
@@ -386,7 +390,7 @@ func snapshot(team: int) -> Dictionary:
 				var cell := Vector2i(col,row)
 				var pos := L.cell_center(cell)
 				if can_play(team,slot,pos): candidates.append({"slot":slot,"kind":decks[team][slot],"pos":pos,"cell":cell})
-	return {"team":team,"ink":ink[team],"enemy_ink":ink[1-team],"difficulty":difficulty,"elapsed":elapsed,"wave_until":wave_until[team],"memory":memory[team].duplicate(),"units":units.duplicate(true),"buildings":buildings.duplicate(true),"gates":gates.duplicate(true),"candidates":candidates}
+	return {"team":team,"ink":ink[team],"enemy_ink":ink[1-team],"difficulty":difficulty,"elapsed":elapsed,"wave_until":wave_until[team],"memory":memory[team].duplicate(),"recent":recent_lanes[team].duplicate(),"units":units.duplicate(true),"buildings":buildings.duplicate(true),"gates":gates.duplicate(true),"candidates":candidates}
 
 func update_ai(dt: float) -> void:
 	if elapsed < ai_start: return
