@@ -136,6 +136,7 @@ def main():
     p.add_argument("--threshold", type=float, default=0.03, help="ignore cards within this of 50%%")
     p.add_argument("--step", type=float, default=1.0, help="cost change = gap x cost x step (damped later)")
     p.add_argument("--dry-run", action="store_true", help="measure only, never edit balance.gd")
+    p.add_argument("--adjust-last", action="store_true", help="the last round adjusts too (default: it only measures)")
     args = p.parse_args()
 
     per_round = args.total // args.rounds
@@ -148,7 +149,7 @@ def main():
         t0 = time.time()
         results = play_round(r, per_round, args.workers, args.cap, seed_base=1 + r * 1_000_000)
         analysis = analyse(results, cards)
-        last = r == args.rounds - 1
+        last = r == args.rounds - 1 and not args.adjust_last
         # Damp later rounds so costs settle instead of swinging.
         changes = {} if (args.dry_run or last) else adjust(analysis, cards, args.threshold, args.step / (1 + r))
         section = f"\n## 第 {r + 1} 輪（{time.time() - t0:.0f} 秒）\n\n" + table(analysis, cards, changes) + "\n"
