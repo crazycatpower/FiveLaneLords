@@ -12,6 +12,8 @@ const BLUE := Color("355b78")
 var model: RefCounted
 var font: Font
 var textures: Dictionary = {}
+var blue_art: Dictionary = {}
+const ROMAN := ["I","II","III","IV","V"]
 var selected := -1
 var notice := "1–4 選牌 · 點戰場放置 · 右鍵取消 · 空白鍵暫停"
 var screen := "title"
@@ -36,7 +38,7 @@ var press_pos := Vector2.ZERO
 var press_was_selected := false
 var speed := 1
 const SPEEDS := [1,2,4,8]
-const SPEED_RECTS := [Rect2(935,30,46,36),Rect2(985,30,46,36),Rect2(1035,30,46,36),Rect2(1085,30,46,36)]
+const SPEED_RECTS := [Rect2(1360,826,46,36),Rect2(1412,826,46,36),Rect2(1464,826,46,36),Rect2(1516,826,46,36)]
 
 func _ready() -> void:
 	var sf := SystemFont.new()
@@ -47,6 +49,15 @@ func _ready() -> void:
 	for kind: String in B.CARDS:
 		var file := "res://assets/manuscript-v1/"+kind+".png"
 		if ResourceLoader.exists(file): textures[kind] = load(file)
+	for pair: Array in [["gate","gate"],["inkpot","ink"],["crest","crown"]]:
+		textures[pair[0]] = load("res://assets/manuscript-v1/"+pair[1]+".png")
+	textures["lord"] = LORD_ART
+	# One shared art set (producer decision): the blue side is made by swapping red cloth to blue,
+	# not by tinting the whole picture (that turned red into purple and darkened the fields).
+	for kind: String in textures:
+		if kind != "castle_blue": blue_art[kind] = recolor_blue(textures[kind],256 if kind == "castle_red" else 180)
+	textures.castle_blue = textures.castle_red
+	blue_art.castle_blue = blue_art.castle_red
 	seed_value = int(Time.get_unix_time_from_system())
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--seed="): seed_value = int(arg.substr(7))
@@ -222,20 +233,72 @@ func _unhandled_input(event: InputEvent) -> void:
 func label_at(pos: Vector2, text: String, size: int = 20, color: Color = INK) -> void:
 	draw_string(font,pos,text,HORIZONTAL_ALIGNMENT_LEFT,-1,size,color)
 
-func panel(rect: Rect2, fill: Color = Color("e8d5ab"), border: Color = Color("9b7844")) -> void:
+func panel(rect: Rect2, fill: Color = Color("ecdcb6"), border: Color = INK) -> void:
 	var style := StyleBoxFlat.new()
 	style.bg_color = fill
-	style.border_color = border
+	style.border_color = Color(border,0.85)
 	style.set_border_width_all(2)
-	style.set_corner_radius_all(7)
+	style.set_corner_radius_all(4)
 	draw_style_box(style,rect)
+	if rect.size.x > 30 and rect.size.y > 20: draw_rect(rect.grow(-4),Color(border,0.3),false,1)
 
 func bar(rect: Rect2, value: float, maximum: float, color: Color) -> void:
-	draw_rect(rect,Color("69543c"))
+	draw_rect(rect.grow(1),Color(INK,0.8))
+	draw_rect(rect,Color("dccba3"))
 	draw_rect(Rect2(rect.position,Vector2(rect.size.x*clampf(value/maximum,0,1),rect.size.y)),color)
 
-func art(kind: String, _team: int = 0) -> Texture2D:
+# Hand-drawn ink stroke: a slightly wavering line instead of a ruler-straight one.
+func ink_line(a: Vector2, b: Vector2, seed: float, color: Color = Color(INK,0.35), width: float = 1.6) -> void:
+	var points := PackedVector2Array()
+	var normal := (b-a).orthogonal().normalized()
+	for i: int in range(33):
+		var t := i/32.0
+		points.append(a.lerp(b,t)+normal*(sin(t*17.0+seed*3.1)*1.4+sin(t*43.0+seed)*0.6))
+	draw_polyline(points,color,width,true)
+
+# Manuscript-style diagonal hatching clipped to a rectangle.
+func hatch(rect: Rect2, color: Color, step: float = 13.0) -> void:
+	var w := rect.size.x
+	var h := rect.size.y
+	var d := -h
+	while d < w:
+		var x0 := d
+		var y0 := h
+		var x1 := d+h
+		var y1 := 0.0
+		if x0 < 0:
+			y0 += x0
+			x0 = 0
+		if x1 > w:
+			y1 += x1-w
+			x1 = w
+		if x0 < x1: draw_line(rect.position+Vector2(x0,y0),rect.position+Vector2(x1,y1),color,1.2,true)
+		d += step
+
+func ink_frame(rect: Rect2) -> void:
+	draw_rect(rect,Color(INK,0.8),false,3)
+	draw_rect(rect.grow(-6),Color(INK,0.45),false,1)
+
+func art(kind: String, team: int = 0) -> Texture2D:
+	if team == 1 and blue_art.has(kind): return blue_art[kind]
 	return textures.get(kind,textures.militia)
+
+# Copy of a texture with saturated reds turned to the blue banner colour; other colours untouched.
+static func recolor_blue(source: Texture2D, max_size: int) -> Texture2D:
+	var img := source.get_image()
+	if img.is_compressed(): img.decompress()
+	img.convert(Image.FORMAT_RGBA8)
+	var scale := minf(1.0,float(max_size)/maxf(img.get_width(),img.get_height()))
+	if scale < 1.0: img.resize(maxi(1,roundi(img.get_width()*scale)),maxi(1,roundi(img.get_height()*scale)),Image.INTERPOLATE_LANCZOS)
+	for y: int in range(img.get_height()):
+		for x: int in range(img.get_width()):
+			var c := img.get_pixel(x,y)
+			if c.a < 0.05 or c.s < 0.33 or c.v < 0.18 or (c.h > 0.07 and c.h < 0.93): continue
+			c.h = 0.6
+			c.s = minf(1.0,c.s*0.95)
+			c.v = c.v*0.9
+			img.set_pixel(x,y,c)
+	return ImageTexture.create_from_image(img)
 
 func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 	var data: Dictionary = B.CARDS[kind]
@@ -270,18 +333,45 @@ func _draw() -> void:
 	else: draw_title()
 
 func draw_battle() -> void:
-	panel(L.FIELD_FRAME,Color("d8c29a"))
-	draw_texture_rect(textures.castle_red,L.CASTLE_RECTS[0],false)
-	draw_texture_rect(textures.castle_blue,L.CASTLE_RECTS[1],false)
-	for row: int in range(5):
-		for col: int in range(9):
-			var cell := Vector2i(col,row)
-			var rect := Rect2(L.GRID_ORIGIN+Vector2(cell)*L.CELL_SIZE,L.CELL_SIZE)
-			if selected >= 0 and model.can_play(0,selected,L.cell_center(cell)): draw_rect(rect,Color(0.3,0.5,0.2,0.19))
-			draw_rect(rect,Color(0.3,0.25,0.2,0.35),false)
+	var field: Rect2 = L.FIELD_FRAME
+	draw_texture_rect_region(PAPER,field,Rect2(field.position*0.6,field.size*0.6))
+	draw_rect(field,Color(0.98,0.93,0.80,0.28))
+	ink_frame(field)
+	var corner := Vector2(96,86)
+	draw_texture_rect(ART.ornament(0),Rect2(field.position+Vector2(8,8),corner),false,Color(1,1,1,0.85))
+	draw_texture_rect(ART.ornament(1),Rect2(Vector2(field.end.x-8-corner.x,field.position.y+8),corner),false,Color(1,1,1,0.85))
+	draw_texture_rect(ART.ornament(2),Rect2(Vector2(field.position.x+8,field.end.y-8-corner.y),corner),false,Color(1,1,1,0.85))
+	draw_texture_rect(ART.ornament(3),Rect2(field.end-Vector2(8,8)-corner,corner),false,Color(1,1,1,0.85))
+	draw_texture_rect(art("castle_red",0),L.CASTLE_RECTS[0],false)
+	draw_texture_rect(art("castle_blue",1),L.CASTLE_RECTS[1],false)
+	var grid := Rect2(L.GRID_ORIGIN,L.GRID_SIZE)
+	var zone := Vector2(3*L.CELL_SIZE.x,L.GRID_SIZE.y)
+	# Deploy zones are hatched in each side's ink; a breached lane's extra columns get a lighter hatch.
+	hatch(Rect2(grid.position,zone),Color(RED,0.2))
+	hatch(Rect2(grid.position+Vector2(6*L.CELL_SIZE.x,0),zone),Color(BLUE,0.2))
+	for lane: int in range(5):
+		var row_y := grid.position.y+lane*L.CELL_SIZE.y
+		if model.gates[1][lane] <= 0: hatch(Rect2(Vector2(grid.position.x+zone.x,row_y),Vector2(zone.x,L.CELL_SIZE.y)),Color(RED,0.1),18)
+		if model.gates[0][lane] <= 0: hatch(Rect2(Vector2(grid.position.x+zone.x,row_y),Vector2(zone.x,L.CELL_SIZE.y)),Color(BLUE,0.1),18)
+	if selected >= 0:
+		for row: int in range(5):
+			for col: int in range(9):
+				var cell := Vector2i(col,row)
+				if model.can_play(0,selected,L.cell_center(cell)): draw_rect(Rect2(L.GRID_ORIGIN+Vector2(cell)*L.CELL_SIZE,L.CELL_SIZE).grow(-4),Color(0.35,0.55,0.2,0.16))
+	for lane: int in range(6):
+		var y := grid.position.y+lane*L.CELL_SIZE.y
+		ink_line(Vector2(grid.position.x,y),Vector2(grid.end.x,y),lane,Color(INK,0.45 if lane == 0 or lane == 5 else 0.28))
+	for col: int in [3,6]:
+		var x := grid.position.x+col*L.CELL_SIZE.x
+		var y := grid.position.y
+		while y < grid.end.y:
+			draw_line(Vector2(x,y),Vector2(x,minf(y+9,grid.end.y)),Color(INK,0.4),1.5)
+			y += 16
+	for lane: int in range(5):
+		draw_string(font,Vector2(grid.position.x+6,grid.position.y+lane*L.CELL_SIZE.y+20),ROMAN[lane],HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color(INK,0.6))
 	for b: Dictionary in model.buildings:
-		team_shadow(b.pos+Vector2(0,30),40,RED if b.team == 0 else BLUE)
-		draw_texture_rect(art(b.kind,b.team),Rect2(b.pos-Vector2(45,39),Vector2(90,78)),false,team_tint(b.team))
+		team_shadow(b.pos+Vector2(0,30),40,Color(0.25,0.17,0.08))
+		draw_texture_rect(art(b.kind,b.team),Rect2(b.pos-Vector2(45,39),Vector2(90,78)),false)
 		bar(Rect2(b.pos-Vector2(30,43),Vector2(60,4)),b.hp,b.max_hp,RED if b.team == 0 else BLUE)
 		if b.boost_until > model.elapsed: draw_arc(b.pos,37,0,TAU,20,Color.GOLD,2)
 	layout_formations()
@@ -289,31 +379,32 @@ func draw_battle() -> void:
 	ordered.sort_custom(func(a: Dictionary,b: Dictionary) -> bool: return a.draw.y < b.draw.y)
 	for u: Dictionary in ordered: draw_unit(u)
 	for lord: Dictionary in model.lords: draw_lord(lord)
+	var pulse := 0.5+0.5*sin(model.elapsed*10.0)
 	for lane: int in range(5):
 		var y := L.cell_center(Vector2i(0,lane)).y
 		for team: int in range(2):
 			var x := L.gate_icon_x(team)
-			panel(Rect2(x-18,y-24,36,45),RED if team == 0 else BLUE)
-			label_at(Vector2(x-8,y+5),str(lane+1),20,Color("f6e5bf"))
-			bar(Rect2(x-22,y+28,44,4),model.gates[team][lane],B.GATE_HP,RED if team == 0 else BLUE)
-		if model.alarm[lane] > 0: draw_circle(Vector2(235,y-34),8,RED)
-		elif model.building_alarm[lane] > 0: draw_circle(Vector2(235,y-34),8,Color.GOLD)
+			var standing: bool = model.gates[team][lane] > 0
+			var gate_rect := Rect2(x-27,y-30,54,50)
+			if standing: draw_texture_rect(art("gate",team),gate_rect,false)
+			else:
+				draw_texture_rect(art("gate",team),gate_rect,false,Color(0.55,0.5,0.45,0.35))
+				for i: int in range(7): draw_circle(Vector2(x-18+i*6,y+16+sin(i*2.3)*3),3+(i%3),Color(0.45,0.38,0.3,0.8))
+			bar(Rect2(x-22,y+24,44,4),model.gates[team][lane],B.GATE_HP,RED if team == 0 else BLUE)
+		var gx := L.gate_icon_x(0)
+		if model.alarm[lane] > 0: draw_arc(Vector2(gx,y-4),34+4*pulse,0,TAU,28,Color(RED,0.5+0.4*pulse),3)
+		elif model.building_alarm[lane] > 0: draw_arc(Vector2(gx,y-4),34,0,TAU,28,Color(0.85,0.6,0.1,0.7),2)
 	for arrow: Dictionary in model.projectiles:
 		draw_line(arrow.pos-Vector2(12,0),arrow.pos,INK,2)
 	draw_preview()
 	draw_effects()
 	draw_hud()
 	if model.paused or model.ended:
-		panel(L.OVERLAY_RECT,Color("ead6aa"))
-		label_at(L.OVERLAY_TITLE,"戰局暫停" if not model.ended else ("紅獅勝利！我軍攻進藍旗主堡" if model.winner == 0 else "敗北：藍旗士兵攻進了我方主堡"),30)
+		panel(L.OVERLAY_RECT,Color("efe0bd"))
+		draw_string(font,L.OVERLAY_RECT.position+Vector2(0,58),"戰局暫停" if not model.ended else ("紅獅勝利！我軍攻進藍旗主堡" if model.winner == 0 else "敗北：藍旗士兵攻進了我方主堡"),HORIZONTAL_ALIGNMENT_CENTER,L.OVERLAY_RECT.size.x,30,INK)
 		for item: Array in overlay_buttons():
-			panel(item[0],Color("f2e3c0"))
+			panel(item[0],Color("f6ead0"))
 			draw_string(font,item[0].position+Vector2(0,27),item[1],HORIZONTAL_ALIGNMENT_CENTER,item[0].size.x,20,INK)
-
-# Both sides share one art set (producer decision); until recolored art exists, tint the blue side
-# and put a team-coloured shadow under every unit and building so sides read at a glance.
-func team_tint(team: int) -> Color:
-	return Color.WHITE if team == 0 else Color(0.62,0.78,1.25)
 
 func team_shadow(center: Vector2, radius: float, color: Color) -> void:
 	draw_set_transform(center,0,Vector2(1,0.32))
@@ -323,9 +414,9 @@ func team_shadow(center: Vector2, radius: float, color: Color) -> void:
 func draw_unit(u: Dictionary) -> void:
 	var pos: Vector2 = u.draw-Vector2(u.face*4,0) if fx_enabled and u.flash > 0 else u.draw # small knockback on hit
 	var bounce := sin(model.elapsed*8+u.phase)*2
-	team_shadow(pos+Vector2(0,15),22,RED if u.team == 0 else BLUE)
+	team_shadow(pos+Vector2(0,15),22,Color(0.25,0.17,0.08))
 	draw_set_transform(pos+Vector2(0,bounce),0,Vector2(u.face,1))
-	draw_texture_rect(art(u.kind,u.team),Rect2(-32,-54,64,70),false,Color(1.6,1.6,1.6) if fx_enabled and u.flash > 0 else team_tint(u.team))
+	draw_texture_rect(art(u.kind,u.team),Rect2(-32,-54,64,70),false,Color(1.6,1.6,1.6) if fx_enabled and u.flash > 0 else Color.WHITE)
 	draw_set_transform(Vector2.ZERO)
 	bar(Rect2(pos-Vector2(23,59),Vector2(46,4)),u.hp,u.max_hp,RED if u.team == 0 else BLUE)
 	var climb: float = u.get("climb",0.0)
@@ -333,7 +424,12 @@ func draw_unit(u: Dictionary) -> void:
 
 func draw_lord(lord: Dictionary) -> void:
 	if lord.hp <= 0: return
-	draw_texture_rect(LORD_ART,Rect2(lord.pos-Vector2(39,67),Vector2(78,94)),false,Color.WHITE if lord.team == 0 else Color(0.6,0.8,1))
+	team_shadow(lord.pos+Vector2(0,24),30,Color(0.25,0.17,0.08))
+	draw_arc(lord.pos+Vector2(0,24),30,0,TAU,32,Color(0.8,0.6,0.15,0.8),2) # gold ring marks the lords
+	# The art faces right; the blue lord is mirrored so both lords face the enemy.
+	draw_set_transform(lord.pos,0,Vector2(1 if lord.team == 0 else -1,1))
+	draw_texture_rect(art("lord",lord.team),Rect2(Vector2(-39,-67),Vector2(78,94)),false)
+	draw_set_transform(Vector2.ZERO)
 	bar(Rect2(lord.pos-Vector2(30,72),Vector2(60,4)),lord.hp,B.LORD_HP,RED if lord.team == 0 else BLUE)
 
 func layout_formations() -> void:
@@ -378,7 +474,7 @@ func draw_effects() -> void:
 				if progress < 0.6: draw_texture_rect(art(e.card),Rect2(source.lerp(e.pos,progress/0.6)-Vector2(25,30),Vector2(50,60)),false,Color(1,1,1,0.75))
 				else: draw_circle(e.pos,(progress-0.6)*90,Color(0.2,0.15,0.1,(1-progress)*0.3))
 			"death":
-				draw_texture_rect(art(e.card,e.team),Rect2(e.pos-Vector2(32,54),Vector2(64,70)),false,Color(team_tint(e.team),1-progress))
+				draw_texture_rect(art(e.card,e.team),Rect2(e.pos-Vector2(32,54),Vector2(64,70)),false,Color(1,1,1,1-progress))
 				for i: int in range(5): draw_circle(e.pos+Vector2(cos(i*2),sin(i*2))*progress*24,3*(1-progress),INK)
 			"burn":
 				draw_circle(e.pos,35,Color(0.15,0.07,0.02,0.35*(1-progress)))
@@ -399,11 +495,14 @@ func draw_effects() -> void:
 func draw_hud() -> void:
 	panel(L.HUD_FRAME)
 	for team: int in range(2):
-		var x := 65.0 if team == 0 else 1050.0
+		var x := 95.0 if team == 0 else 1070.0
+		draw_texture_rect(art("crest",team),Rect2(x-58,21,48,50),false)
+		draw_texture_rect(art("inkpot",team),Rect2(x+238,22,28,26),false)
 		var standing: int = model.gates[team].filter(func(hp: float) -> bool: return hp > 0).size()
 		label_at(Vector2(x,43),("紅獅" if team == 0 else "藍旗")+"  城門 %d / 5" % standing,23,RED if team == 0 else BLUE)
 		for lane: int in range(5): bar(Rect2(x+lane*70,53,62,10),model.gates[team][lane],B.GATE_HP,RED if team == 0 else BLUE)
-		label_at(Vector2(x+170,43),"墨水 %d / 50" % model.ink[team],18)
+		label_at(Vector2(x+270,43),"%d / 50" % model.ink[team],18)
+	panel(Rect2(712,24,140,58),Color("f2e3c0"))
 	var time := int(model.elapsed)
 	label_at(Vector2(725,58),"%02d:%02d" % [time/60,time%60],30,RED if model.multiplier() > 1 else INK)
 	if model.multiplier() > 1: label_at(Vector2(722,79),"墨水 ×%.1f" % model.multiplier(),14,RED)
@@ -411,7 +510,8 @@ func draw_hud() -> void:
 	label_at(L.PAUSE_RECT.position+Vector2(10,27),"Ⅱ",23)
 	panel(L.COMMAND_FRAME)
 	label_at(Vector2(50,723),notice,16)
-	label_at(Vector2(65,780),"墨水 %d / 50" % model.ink[0],29)
+	draw_texture_rect(art("inkpot",0),Rect2(56,742,46,44),false)
+	label_at(Vector2(110,780),"墨水 %d / 50" % model.ink[0],29)
 	# Smooth ink bar; the selected (or hovered) card's cost is outlined: gold = affordable, red = not yet.
 	var focus := selected if selected >= 0 else hover_slot
 	var need: float = B.CARDS[model.decks[0][focus]].cost if focus >= 0 and not spectating else 0.0
