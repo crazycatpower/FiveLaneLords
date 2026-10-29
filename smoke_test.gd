@@ -325,6 +325,7 @@ func test_lords() -> void:
 	check(m.lords[0].pos.x < L.GRID_ORIGIN.x+3*L.CELL_SIZE.x and m.lords[1].pos.x > L.GRID_ORIGIN.x+6*L.CELL_SIZE.x,"lords never leave their own territory")
 	check(m.lords[0].pos.x < L.cell_center(Vector2i(0,0)).x and m.lords[1].pos.x > L.cell_center(Vector2i(8,0)).x,"lords stay behind the back farm column")
 	check(B.LORDS.values().all(func(l: Dictionary) -> bool: return not l.has("aura") and not l.has("farm_bonus") and not l.has("regen")),"lords have no passive effects")
+	check(B.LORDS.values().all(func(l: Dictionary) -> bool: return l.hp == B.LORDS.lion.hp),"every lord has the same health")
 	m.damage(m.lords[0],9999,1,"militia")
 	tick(m,12.1)
 	check(m.lords[0].hp == B.LORDS.lion.hp,"lord revives after twelve seconds")
