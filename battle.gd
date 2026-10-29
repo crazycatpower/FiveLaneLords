@@ -6,7 +6,7 @@ const L = preload("res://layout.gd")
 var rng := RandomNumberGenerator.new()
 var ink: Array = [10.0,10.0]
 var base_clock: Array = [0.0,0.0]
-var cooldown: Array = [0.0,0.0]
+var hand_cd: Array = [[0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0]] # seconds until each hand slot may be played
 var decks: Array = []
 var units: Array[Dictionary] = []
 var buildings: Array[Dictionary] = []
@@ -51,6 +51,7 @@ func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = []) -> void:
 			var slot := rng.randi_range(0,3)
 			deck[farm] = deck[slot]
 			deck[slot] = "farm"
+		for slot: int in range(4): hand_cd[team][slot] = B.CARDS[deck[slot]].cooldown # the opening hand cools down too
 		lords.append(Lord.create(team))
 		decks.append(deck)
 		gates.append([B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP])
@@ -115,9 +116,9 @@ func play_error(team: int, slot: int, pos: Vector2) -> String:
 	if ended: return "戰局已經結束。"
 	if paused: return "暫停中。"
 	if slot < 0 or slot >= 4: return "先選一張手牌。"
-	if cooldown[team] > 0.00001: return "出牌冷卻中。"
 	var kind: String = decks[team][slot]
 	var card: Dictionary = B.CARDS[kind]
+	if hand_cd[team][slot] > 0.00001: return "%s 剛到手上，還要冷卻 %.1f 秒。" % [card.name,hand_cd[team][slot]]
 	if ink[team] < card.cost: return "墨水不足：%s 要 %d，還差 %d。" % [card.name,card.cost,ceili(card.cost-ink[team])]
 	var cell := cell_at(pos)
 	if cell.x < 0: return "要放在戰場的格子上。"
@@ -135,9 +136,11 @@ func play(team: int, slot: int, pos: Vector2) -> bool:
 	var kind: String = decks[team][slot]
 	var card: Dictionary = B.CARDS[kind]
 	ink[team] -= card.cost
-	cooldown[team] = B.PLAY_COOLDOWN
 	decks[team].remove_at(slot)
 	decks[team].append(kind)
+	# The hand shifts left; the card drawn into the last slot starts its own cooldown.
+	hand_cd[team].remove_at(slot)
+	hand_cd[team].append(B.CARDS[decks[team][3]].cooldown)
 	stats[team].plays += 1
 	stats[team].used[kind] = stats[team].used.get(kind,0)+1
 	stats[team].spent[kind] = stats[team].spent.get(kind,0.0)+card.cost
@@ -281,7 +284,7 @@ func step(dt: float) -> void:
 	last_dt = dt
 	update_ai(dt)
 	for team: int in range(2):
-		cooldown[team] = maxf(0,cooldown[team]-dt)
+		for slot: int in range(4): hand_cd[team][slot] = maxf(0,hand_cd[team][slot]-dt)
 		base_clock[team] += dt*multiplier()
 		while base_clock[team] >= B.BASE_INTERVAL-0.000001:
 			base_clock[team] -= B.BASE_INTERVAL

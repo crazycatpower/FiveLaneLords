@@ -18,7 +18,7 @@ func tick(m: RefCounted, seconds: float) -> void:
 func offer(m: RefCounted, kind: String, team: int = 0) -> void:
 	m.decks[team][0] = kind
 	m.ink[team] = 50.0
-	m.cooldown[team] = 0.0
+	m.hand_cd[team] = [0.0,0.0,0.0,0.0]
 func run() -> void:
 	test_core()
 	test_lords()
@@ -31,6 +31,8 @@ func run() -> void:
 	test_overlap()
 	test_opening_hand()
 	test_tutorial()
+	test_card_cooldowns()
+	check(finished.has("card_cd"),"card cooldown test ran to the end")
 	check(finished.has("tutorial"),"tutorial test ran to the end")
 	check(finished.has("opening"),"opening hand test ran to the end")
 	check(finished.has("overlap"),"overlap test ran to the end")
@@ -74,24 +76,27 @@ func test_core() -> void:
 	check(m.count_buildings(0) == 15,"all fifteen spaces can be farms")
 	offer(m,"militia")
 	check(m.play(0,0,L.cell_center(Vector2i(0,0))),"units share a building cell")
-	check(not m.play(0,0,L.cell_center(Vector2i(0,0))),"global 0.8 second cooldown")
+	m.decks[0][0] = "knight"
+	m.hand_cd[0][0] = 0
+	check(m.play(0,0,L.cell_center(Vector2i(0,0))),"no global cooldown between plays")
 	offer(m,"farm")
 	check(not m.play(0,0,L.cell_center(Vector2i(0,0))),"buildings cannot share cell")
 	check(not m.play(0,0,L.cell_center(Vector2i(4,0))),"building territory")
 	offer(m,"rain")
 	check(m.play(0,0,L.cell_center(Vector2i(8,0))),"spell can target enemy territory")
 	m.decks[0] = ["farm","farmer","militia","tower","rain","farmer","militia","tower"]
+	m.hand_cd[0] = [0.0,0.0,0.0,0.0] # tests swap hands directly; skip the arrival cooldown
 	m.buildings.clear()
 	offer(m,"farm")
 	m.play(0,0,L.cell_center(Vector2i(0,0)))
 	for n: int in range(3):
 		check(not "farm" in m.decks[0].slice(0,4),"played card absent before fourth subsequent play")
 		m.ink[0] = 50
-		m.cooldown[0] = 0
+		m.hand_cd[0] = [0.0,0.0,0.0,0.0]
 		m.play(0,0,L.cell_center(Vector2i(1,n)))
 	check(not "farm" in m.decks[0].slice(0,4),"still queued after three plays")
 	m.ink[0] = 50
-	m.cooldown[0] = 0
+	m.hand_cd[0] = [0.0,0.0,0.0,0.0]
 	m.play(0,0,L.cell_center(Vector2i(2,4)))
 	check("farm" in m.decks[0].slice(0,4),"returns after four subsequent plays")
 	for side: int in range(2):
@@ -250,11 +255,13 @@ func test_ai() -> void:
 	check(c.kind == "farm","AI invests in economy")
 	m.add_building(1,Vector2i(7,1),"farm")
 	m.decks[1] = ["farmer","militia","rain","tower","farm","militia","rain","tower"]
+	m.hand_cd[1] = [0.0,0.0,0.0,0.0] # tests swap hands directly; skip the arrival cooldown
 	m.ink[1] = 10
 	c = m.AI.decide(m.snapshot(1))
 	check(c.kind == "farmer" and c.cell == Vector2i(8,1),"AI farmers start behind fields")
 	m.buildings.clear()
 	m.decks[1] = ["militia","militia","militia","militia","farm","farmer","tower","rain"]
+	m.hand_cd[1] = [0.0,0.0,0.0,0.0] # tests swap hands directly; skip the arrival cooldown
 	m.ink[1] = 24
 	check(m.AI.decide(m.snapshot(1)).is_empty(),"normal AI waits for 25 ink attack threshold")
 	m.ink[1] = 25
@@ -265,6 +272,7 @@ func test_ai() -> void:
 	check(c.cell.y == 0 and c.pos.x >= L.cell_center(Vector2i(7,0)).x,"AI intercepts ahead of incoming attacker")
 	m = Battle.new(3)
 	m.decks[1] = ["farm","farmer","harvest","mill","militia","rain","tower","scarecrow"]
+	m.hand_cd[1] = [0.0,0.0,0.0,0.0] # tests swap hands directly; skip the arrival cooldown
 	m.ink[1] = 30
 	m.spawn_unit(0,1,"ram",Vector2(L.gate_stop(1),L.cell_center(Vector2i(0,1)).y))
 	c = m.AI.decide(m.snapshot(1))
@@ -339,6 +347,7 @@ func test_cards() -> void:
 	m = Battle.new(2)
 	for lane: int in range(4): m.add_building(0,Vector2i(1,lane),"farm")
 	m.decks[1] = ["fire","militia","rain","tower","farm","farmer","ox","mob"]
+	m.hand_cd[1] = [0.0,0.0,0.0,0.0] # tests swap hands directly; skip the arrival cooldown
 	m.ink[1] = 12
 	var c: Dictionary = m.AI.decide(m.snapshot(1))
 	check(c.kind == "fire" and c.cell.x == 1,"AI raids four player farms with fire")
@@ -407,6 +416,7 @@ func test_feel() -> void:
 	var m = game.model
 	m.ai_enabled = [false,false]
 	m.decks[0] = ["militia","farm","knight","rain","farmer","hunter","scarecrow","tower"]
+	m.hand_cd[0] = [0.0,0.0,0.0,0.0] # tests swap hands directly; skip the arrival cooldown
 	m.ink[0] = 50.0
 	var field := L.cell_center(Vector2i(1,2))
 	# Drag a card from the hand onto the field.
@@ -415,7 +425,7 @@ func test_feel() -> void:
 	mouse(game,field,false)
 	check(not game.dragging and game.selected == -1 and m.units.size() == 2,"dropping it on the field plays it")
 	# Click a card, then click the field.
-	m.cooldown[0] = 0
+	m.hand_cd[0] = [0.0,0.0,0.0,0.0]
 	mouse(game,game.card_rect(0).get_center(),true)
 	mouse(game,game.card_rect(0).get_center(),false)
 	check(game.selected == 0,"a click selects a card")
@@ -423,7 +433,7 @@ func test_feel() -> void:
 	mouse(game,game.card_rect(0).get_center(),false)
 	check(game.selected == -1,"clicking the selected card again puts it back")
 	# A refused placement says why and marks the spot.
-	m.cooldown[0] = 0
+	m.hand_cd[0] = [0.0,0.0,0.0,0.0]
 	var kind: String = m.decks[0][0]
 	game.selected = 0
 	var before: int = game.effects.size()
@@ -496,7 +506,7 @@ func test_tutorial() -> void:
 		var card: String = plan[i][0]
 		var slot: int = m.decks[0].find(card)
 		check(slot >= 0 and slot < 4 and m.ink[0] >= B.CARDS[card].cost,"tutorial step %d puts %s in hand with enough ink" % [i+1,card])
-		m.cooldown[0] = 0
+		m.hand_cd[0] = [0.0,0.0,0.0,0.0]
 		check(game.try_play(slot,L.cell_center(plan[i][1])),"tutorial step %d card can be played" % [i+1])
 		var frames := 0
 		while game.tutorial.stage == i and frames < 60*60:
@@ -513,3 +523,21 @@ func test_tutorial() -> void:
 	game.free()
 	DirAccess.remove_absolute("user://test-ui-deck.json")
 	finished["tutorial"] = true
+
+func test_card_cooldowns() -> void:
+	var cds: Array = B.CARDS.values().map(func(c: Dictionary) -> float: return c.cooldown)
+	check(cds.min() >= 0 and cds.max() <= 30 and cds.max() == 30,"card cooldowns run 0 to 30 seconds")
+	var m := Battle.new(4,["farm","militia","rain","tower","knight","farmer","fire","scarecrow"])
+	m.decks[0] = ["farm","militia","rain","tower","knight","farmer","fire","scarecrow"]
+	m.hand_cd[0] = [0.0,0.0,0.0,0.0] # tests swap hands directly; skip the arrival cooldown
+	m.hand_cd[0] = [B.CARDS.farm.cooldown,B.CARDS.militia.cooldown,B.CARDS.rain.cooldown,B.CARDS.tower.cooldown]
+	m.ink[0] = 50
+	check(not m.can_play(0,0,L.cell_center(Vector2i(1,1))) and "冷卻" in m.play_error(0,0,L.cell_center(Vector2i(1,1))),"a card waits for its cooldown after entering the hand")
+	tick(m,B.CARDS.farm.cooldown+0.05)
+	m.ink[0] = 50
+	check(m.play(0,0,L.cell_center(Vector2i(1,1))),"it can be played once the cooldown is over")
+	check(m.decks[0][3] == "knight" and is_equal_approx(m.hand_cd[0][3],B.CARDS.knight.cooldown),"the newly drawn card starts its own cooldown")
+	check(m.hand_cd[0][0] < B.CARDS.militia.cooldown,"cards already in hand keep counting down when the hand shifts")
+	var fresh := Battle.new(9)
+	for slot: int in range(4): check(is_equal_approx(fresh.hand_cd[0][slot],B.CARDS[fresh.decks[0][slot]].cooldown),"opening hand slot %d starts cooling" % slot)
+	finished["card_cd"] = true

@@ -114,6 +114,8 @@ func prepare_tutorial_step() -> void:
 	if index >= 4:
 		deck[index] = deck[0]
 		deck[0] = step.card
+		index = 0
+	model.hand_cd[0][index] = 0.0 # the tutorial never makes the player wait for the card it asks for
 	model.ink[0] = maxf(model.ink[0],B.CARDS[step.card].cost+2.0)
 	if step.done == "breach": model.gates[1][2] = minf(model.gates[1][2],40.0)
 	notice = tutorial.caption()
@@ -356,7 +358,7 @@ func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 	draw_texture_rect(art(kind),Rect2(rect.position+s*Vector2(0.17,0.13),s*Vector2(0.66,0.5)),false,Color(0.45,0.45,0.45) if short else Color.WHITE)
 	# Name and type sit above the frame's bottom corner flowers (they start ~83% down).
 	draw_string(font,rect.position+Vector2(0,s.y*0.74),data.name,HORIZONTAL_ALIGNMENT_CENTER,s.x,17,INK)
-	draw_string(font,rect.position+Vector2(0,s.y*0.83),data.role,HORIZONTAL_ALIGNMENT_CENTER,s.x,12,Color("7a6446"))
+	draw_string(font,rect.position+Vector2(0,s.y*0.83),"%s · 冷卻 %ds" % [data.role,int(data.cooldown)] if screen != "battle" else data.role,HORIZONTAL_ALIGNMENT_CENTER,s.x,12,Color("7a6446"))
 	# Ink cost badge, top right.
 	var badge := rect.position+Vector2(s.x-19,19)
 	draw_circle(badge,15,Color("2f3f5c"))
@@ -367,8 +369,10 @@ func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 		draw_string(font,rect.position+Vector2(7,24),str(slot+1),HORIZONTAL_ALIGNMENT_CENTER,22,14,Color("efdfb9"))
 	if short and slot >= 0:
 		draw_string(font,rect.position+Vector2(0,s.y*0.42),"差 %d" % ceili(data.cost-model.ink[0]),HORIZONTAL_ALIGNMENT_CENTER,s.x,20,Color("f3e6c4"))
-	if slot >= 0 and model.cooldown[0] > 0:
-		draw_rect(Rect2(rect.position,Vector2(rect.size.x,rect.size.y*model.cooldown[0]/B.PLAY_COOLDOWN)),Color(0.15,0.1,0.05,0.25))
+	if slot >= 0 and screen == "battle" and model.hand_cd[0][slot] > 0:
+		var left: float = model.hand_cd[0][slot]
+		draw_rect(Rect2(rect.position+Vector2(6,6),Vector2(rect.size.x-12,(rect.size.y-12)*clampf(left/maxf(0.1,data.cooldown),0,1))),Color(0.12,0.08,0.04,0.45))
+		draw_string(font,rect.position+Vector2(0,s.y*0.45),"%.0f" % ceilf(left),HORIZONTAL_ALIGNMENT_CENTER,s.x,30,Color("fff3dc"))
 
 func _draw() -> void:
 	if font == null or model == null: return
@@ -673,7 +677,7 @@ func draw_deck() -> void:
 func card_description(kind: String) -> String:
 	var card: Dictionary = B.CARDS[kind]
 	var descriptions := {"farm":"種下三秒後開始，每十秒產出兩滴墨水。","farmer":"兩名農民向前走，順路耕田 1.5 秒，那塊田十五秒內產量加倍。","mill":"同一路農田產量 ×2；同一路多座不疊加。","scarecrow":"吸引附近敵兵攻擊它，存在二十五秒。","tower":"每 0.8 秒射箭，射程 200，存在四十秒。","harvest":"範圍內農田立刻各產一滴，八秒內產量加倍。","rain":"範圍內部隊 200 傷害，建築與城門 60。","fire":"部隊 420 傷害，建築 840，城門 140。","ox":"第一下衝撞 150 並擊退，拆建築 ×1.5。","healer":"每秒治療附近友軍 15 血。","ram":"1600 血，無視部隊，每兩秒對城門或建築 160 傷害；城門破了就直接走進去。","hunter":"射程 170 的遠程手，兩名。","knight":"1000 血的重裝主坦。","mob":"五名暴民，錯開出場。","militia":"兩名民兵，便宜的擋路與循環牌。"}
-	return "%s · %d 墨水 · %s\n%s" % [card.name,card.cost,card.role,descriptions.get(kind,"")]
+	return "%s · %d 墨水 · 冷卻 %d 秒 · %s\n%s" % [card.name,card.cost,int(card.cooldown),card.role,descriptions.get(kind,"")]
 
 func show_help() -> void:
 	screen = "help"
