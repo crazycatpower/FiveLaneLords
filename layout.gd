@@ -10,7 +10,6 @@ const GRID_ROWS := 5
 const DEPLOY_COLUMNS := 3
 const GRID_SIZE := CELL_SIZE * Vector2(GRID_COLUMNS, GRID_ROWS)
 const GATE_OFFSET := 20.0
-const FORMATION_GAP := 34.0
 const LORD_START := Vector2(690, 394)
 const LORD_MIN := GRID_ORIGIN + Vector2(3, 4)
 const LORD_MAX := GRID_ORIGIN + GRID_SIZE - Vector2(3, 12)

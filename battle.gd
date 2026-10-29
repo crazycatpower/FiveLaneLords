@@ -152,7 +152,7 @@ func add_building(team: int, cell: Vector2i, kind: String) -> Dictionary:
 func spawn_unit(team: int, lane: int, kind: String, pos: Vector2) -> Dictionary:
 	next_id += 1
 	var data: Dictionary = B.CARDS[kind]
-	var u := {"id":next_id,"kind":kind,"team":team,"lane":lane,"pos":pos,"hp":data.hp,"max_hp":data.hp,"cd":0.0,"phase":rng.randf()*TAU,"face":1.0 if team == 0 else -1.0,"worked":[],"work_id":-1,"work_left":0.0,"spawn_delay":0.0,"charged":false,"buff_until":0.0,"flash":0.0,"heal_cd":0.0}
+	var u := {"id":next_id,"kind":kind,"team":team,"lane":lane,"pos":pos,"hp":data.hp,"max_hp":data.hp,"cd":0.0,"phase":rng.randf()*TAU,"face":1.0 if team == 0 else -1.0,"worked":[],"work_id":-1,"work_left":0.0,"spawn_delay":0.0,"charged":false,"buff_until":0.0,"flash":0.0,"heal_cd":0.0,"dy":rng.randf_range(-B.PLACE_JITTER,B.PLACE_JITTER)}
 	units.append(u)
 	return u
 

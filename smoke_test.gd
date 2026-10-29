@@ -28,6 +28,8 @@ func run() -> void:
 	test_decks()
 	test_screens()
 	test_feel()
+	test_overlap()
+	check(finished.has("overlap"),"overlap test ran to the end")
 	check(finished.has("feel"),"feel test ran to the end")
 	check(finished.has("screens"),"screen test ran to the end (a script error would stop it silently)")
 	await preview()
@@ -419,3 +421,14 @@ func test_feel() -> void:
 	game.free()
 	DirAccess.remove_absolute("user://test-ui-deck.json")
 	finished["feel"] = true
+
+func test_overlap() -> void:
+	var m := Battle.new(5)
+	m.lords.clear()
+	var y := L.cell_center(Vector2i(0,2)).y
+	var units: Array = []
+	for i: int in range(6): units.append(m.spawn_unit(0,2,"militia",Vector2(500,y)))
+	var offsets: Array = units.map(func(u: Dictionary) -> float: return u.dy)
+	check(offsets.all(func(d: float) -> bool: return absf(d) <= B.PLACE_JITTER) and offsets.max()-offsets.min() > 4,"placed units get a small up/down offset")
+	check(units.all(func(u: Dictionary) -> bool: return u.pos == Vector2(500,y)),"the offset never moves the unit itself")
+	finished["overlap"] = true

@@ -433,16 +433,9 @@ func draw_lord(lord: Dictionary) -> void:
 	bar(Rect2(lord.pos-Vector2(30,72),Vector2(60,4)),lord.hp,B.LORD_HP,RED if lord.team == 0 else BLUE)
 
 func layout_formations() -> void:
-	for team: int in range(2):
-		var forward := 1.0 if team == 0 else -1.0
-		for lane: int in range(5):
-			var column: Array = model.units.filter(func(u: Dictionary) -> bool: return u.team == team and u.lane == lane)
-			column.sort_custom(func(a: Dictionary,b: Dictionary) -> bool: return a.pos.x*forward > b.pos.x*forward)
-			var limit := INF
-			for u: Dictionary in column:
-				var x := minf(u.pos.x*forward,limit)
-				limit = x-L.FORMATION_GAP
-				u.draw = Vector2(x*forward,u.pos.y)
+	# Units may overlap (producer decision 2026-10-29). Each one keeps the small up/down offset it got
+	# when it was placed, so a crowd still reads as several soldiers. Drawing only; combat uses `pos`.
+	for u: Dictionary in model.units: u.draw = u.pos+Vector2(0,u.get("dy",0.0))
 
 func draw_preview() -> void:
 	if selected < 0: return

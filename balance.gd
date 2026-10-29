@@ -8,6 +8,7 @@ const FARM_DROP := 2.0
 const CULTIVATE_TIME := 1.5
 const BOOST_TIME := 15.0
 const PLAY_COOLDOWN := 0.8
+const PLACE_JITTER := 16.0 # units are drawn up to this many px above/below their lane line (looks only)
 const MELEE_RANGE := 47.0
 const GATE_HP := 400.0
 # After a gate falls, every attacker must stop at the gate and clear the rubble this long before
