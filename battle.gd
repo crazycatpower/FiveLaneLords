@@ -34,6 +34,14 @@ var memory: Array = [{},{}]
 var recent_lanes: Array = [[],[]] # lanes of each side's last troop plays, for the AI to spread its attacks
 var ai_start := 0.0
 var lord_active: Array = [true,true] # the tutorial keeps the blue lord idle
+var record_events := true # batch simulators turn this off; no game logic reads events
+# Per-step lookup lists, rebuilt after the AI plays (same order as units/buildings, so every
+# "nearest" search sees the candidates in the same order as a scan of the full list would).
+var foe_units: Array = [[],[]] # foe_units[team]: units of the other side
+var lane_foes: Array = [] # lane_foes[team][lane]: enemy units in that lane
+var lane_foe_buildings: Array = []
+var lane_foe_taunts: Array = []
+var lane_mill: Array = [] # lane_mill[team][lane]: a living mill boosts that lane's farms
 
 # Hand slots 0..3 rotate; FARM_SLOT is the permanent farmland slot (never rotates, own cooldown).
 const FARM_SLOT := 4
@@ -62,6 +70,7 @@ func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = [], lord_a: 
 		stats[team].planted = 0
 
 func event(kind: String, pos: Vector2, team: int = 0, extra: Dictionary = {}) -> void:
+	if not record_events: return
 	var e := {"kind":kind,"pos":pos,"team":team,"time":elapsed}
 	e.merge(extra)
 	events.append(e)
@@ -98,15 +107,36 @@ func gain_ink(team: int, amount: float) -> void:
 	if waste > 0: event("overflow",L.GOLD_TEXT,team)
 
 func farm_speed(b: Dictionary) -> float:
-	var speed := 2.0 if maxf(b.boost_until,b.harvest_until) > elapsed else 1.0
-	if b.team < lords.size(): speed *= lords[b.team].get("farm_bonus",1.0) # the harvest lord
 	# One mill per lane counts; a second mill in the same lane does not stack (but any lane may have one,
 	# so the card is never stuck in hand).
-	for mill: Dictionary in buildings:
-		if mill.kind == "mill" and mill.hp > 0 and mill.team == b.team and mill.cell.y == b.cell.y:
-			speed *= B.MILL_BONUS
+	var mill := false
+	for other: Dictionary in buildings:
+		if other.kind == "mill" and other.hp > 0 and other.team == b.team and other.cell.y == b.cell.y:
+			mill = true
 			break
+	return farm_speed_with(b,mill)
+
+func farm_speed_with(b: Dictionary, mill: bool) -> float:
+	var speed := 2.0 if maxf(b.boost_until,b.harvest_until) > elapsed else 1.0
+	if b.team < lords.size(): speed *= lords[b.team].get("farm_bonus",1.0) # the harvest lord
+	if mill: speed *= B.MILL_BONUS
 	return speed
+
+func build_lookups() -> void:
+	foe_units = [[],[]]
+	lane_foes = [[[],[],[],[],[]],[[],[],[],[],[]]]
+	lane_foe_buildings = [[[],[],[],[],[]],[[],[],[],[],[]]]
+	lane_foe_taunts = [[[],[],[],[],[]],[[],[],[],[],[]]]
+	lane_mill = [[false,false,false,false,false],[false,false,false,false,false]]
+	for u: Dictionary in units:
+		var against: int = 1-u.team
+		foe_units[against].append(u)
+		lane_foes[against][u.lane].append(u)
+	for b: Dictionary in buildings:
+		var against: int = 1-b.team
+		lane_foe_buildings[against][b.cell.y].append(b)
+		if b.kind == "scarecrow": lane_foe_taunts[against][b.cell.y].append(b)
+		elif b.kind == "mill" and b.hp > 0: lane_mill[b.team][b.cell.y] = true
 
 func farm_drop(b: Dictionary) -> void:
 	gain_ink(b.team,B.FARM_DROP)
@@ -120,7 +150,21 @@ func slot_cd(team: int, slot: int) -> float:
 	return farm_cd[team] if slot == FARM_SLOT else hand_cd[team][slot]
 
 func can_play(team: int, slot: int, pos: Vector2) -> bool:
-	return (slot >= 0 and slot < 4 or slot == FARM_SLOT) and play_error(team,slot,pos).is_empty()
+	# Mirrors play_error() rule for rule (a smoke test checks they agree), minus the message strings.
+	if ended or paused: return false
+	if (slot < 0 or slot >= 4) and slot != FARM_SLOT: return false
+	var kind: String = kind_at(team,slot)
+	var card: Dictionary = B.CARDS[kind]
+	if slot_cd(team,slot) > 0.00001 or ink[team] < card.cost: return false
+	var cell := cell_at(pos)
+	if cell.x < 0: return false
+	if card.type == "spell": return true
+	var col := cell.x if team == 0 else 8-cell.x
+	if col >= (6 if card.type == "unit" and gates[1-team][cell.y] <= 0 else 3): return false
+	if card.type == "building":
+		var here := building_at(cell)
+		if not here.is_empty() and (here.team != team or here.kind != kind): return false
+	return true
 
 # Why a card cannot go here ("" = it can). The player sees this text when a placement is refused.
 func play_error(team: int, slot: int, pos: Vector2) -> String:
@@ -345,6 +389,7 @@ func step(dt: float) -> void:
 	for lane: int in range(5):
 		alarm[lane] = maxf(0,alarm[lane]-dt)
 		building_alarm[lane] = maxf(0,building_alarm[lane]-dt)
+	build_lookups()
 	for b: Dictionary in buildings:
 		b.flash = maxf(0,b.flash-dt)
 		if b.hp <= 0: continue
@@ -354,13 +399,13 @@ func step(dt: float) -> void:
 			continue
 		if b.kind == "farm":
 			var active_dt: float = clampf(elapsed-b.ready_at,0,dt)
-			b.production += active_dt*farm_speed(b)*multiplier()
+			b.production += active_dt*farm_speed_with(b,lane_mill[b.team][b.cell.y])*multiplier()
 			while b.production >= B.FARM_INTERVAL-0.000001:
 				b.production -= B.FARM_INTERVAL
 				farm_drop(b)
 		elif b.kind == "tower":
 			b.cd -= dt
-			var target := nearest(b.pos,b.team,B.CARDS.tower.range,units)
+			var target := nearest(b.pos,b.team,B.CARDS.tower.range,foe_units[b.team])
 			if not target.is_empty() and b.cd <= 0:
 				shoot(b,target,B.CARDS.tower.damage)
 				b.cd = B.CARDS.tower.interval
@@ -371,14 +416,6 @@ func step(dt: float) -> void:
 	update_projectiles(dt)
 	for lord: Dictionary in lords:
 		if lord_active[lord.team]: Lord.step(self,lord,dt)
-	# Per-lane lists, built once per step (same order as units/buildings, so targeting is unchanged).
-	var lane_units: Array = [[],[],[],[],[]]
-	var lane_buildings: Array = [[],[],[],[],[]]
-	var lane_taunts: Array = [[],[],[],[],[]]
-	for other: Dictionary in units: lane_units[other.lane].append(other)
-	for b: Dictionary in buildings:
-		lane_buildings[b.cell.y].append(b)
-		if b.kind == "scarecrow": lane_taunts[b.cell.y].append(b)
 	for u: Dictionary in units:
 		u.flash = maxf(0,u.flash-dt)
 		if u.hp <= 0: continue
@@ -388,11 +425,11 @@ func step(dt: float) -> void:
 		u.cd = maxf(0,u.cd-dt)
 		var data: Dictionary = B.CARDS[u.kind]
 		heal(u,dt)
-		var target: Dictionary = {} if u.kind == "ram" else nearest(u.pos,u.team,data.range,lane_units[u.lane])
-		var building := nearest(u.pos,u.team,data.range,lane_buildings[u.lane])
+		var target: Dictionary = {} if u.kind == "ram" else nearest(u.pos,u.team,data.range,lane_foes[u.team][u.lane])
+		var building := nearest(u.pos,u.team,data.range,lane_foe_buildings[u.team][u.lane])
 		if not building.is_empty() and (target.is_empty() or u.pos.distance_to(building.pos) < u.pos.distance_to(target.pos)): target = building
 		if u.kind != "ram":
-			var taunt := nearest(u.pos,u.team,minf(data.range,B.TAUNT_RADIUS),lane_taunts[u.lane])
+			var taunt := nearest(u.pos,u.team,minf(data.range,B.TAUNT_RADIUS),lane_foe_taunts[u.team][u.lane])
 			if not taunt.is_empty(): target = taunt
 			if target.is_empty(): target = nearest(u.pos,u.team,54.0,lords)
 		if not target.is_empty():
@@ -458,7 +495,7 @@ func snapshot(team: int) -> Dictionary:
 				var cell := Vector2i(col,row)
 				var pos := L.cell_center(cell)
 				if can_play(team,slot,pos): candidates.append({"slot":slot,"kind":kind_at(team,slot),"pos":pos,"cell":cell})
-	return {"team":team,"ink":ink[team],"enemy_ink":ink[1-team],"difficulty":difficulty,"elapsed":elapsed,"wave_until":wave_until[team],"memory":memory[team].duplicate(),"recent":recent_lanes[team].duplicate(),"units":units.duplicate(true),"buildings":buildings.duplicate(true),"gates":gates.duplicate(true),"candidates":candidates}
+	return {"team":team,"ink":ink[team],"enemy_ink":ink[1-team],"difficulty":difficulty,"elapsed":elapsed,"wave_until":wave_until[team],"memory":memory[team].duplicate(),"recent":recent_lanes[team].duplicate(),"units":units,"buildings":buildings,"gates":gates,"candidates":candidates}
 
 func update_ai(dt: float) -> void:
 	if elapsed < ai_start: return

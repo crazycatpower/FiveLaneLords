@@ -43,6 +43,8 @@ func run() -> void:
 	test_repair()
 	test_start_farms()
 	check(finished.has("start_farms"),"start farm test ran to the end")
+	test_fast_rules()
+	check(finished.has("fast_rules"),"fast rule test ran to the end")
 	check(finished.has("repair"),"repair test ran to the end")
 	check(finished.has("card_cd"),"card cooldown test ran to the end")
 	check(finished.has("tutorial"),"tutorial test ran to the end")
@@ -56,6 +58,32 @@ func run() -> void:
 	check(finished.has("preview"),"preview ran to the end")
 	print("%s: %d checks, %d failures" % ["PASS" if failures == 0 else "FAIL",checks,failures])
 	quit(0 if failures == 0 else 1)
+# can_play() is a fast copy of play_error() for the AI; they must agree everywhere, and the
+# per-step lookup lists must not change any farm's speed.
+func test_fast_rules() -> void:
+	var mismatches := 0
+	var speed_mismatches := 0
+	for seed_value: int in range(1,4):
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value
+		var m := Battle.new(seed_value,DS.random_deck(rng),DS.random_deck(rng),"harvest","iron")
+		m.ai_enabled = [true,true]
+		m.add_building(0,Vector2i(2,1),"mill")
+		for sample: int in range(12):
+			for i: int in range(600): m.step(1.0/60.0)
+			m.build_lookups()
+			for b: Dictionary in m.buildings:
+				if b.kind == "farm" and b.hp > 0 and not is_equal_approx(m.farm_speed(b),m.farm_speed_with(b,m.lane_mill[b.team][b.cell.y])): speed_mismatches += 1
+			for team: int in range(2):
+				for slot: int in [-1,0,1,2,3,4,5]:
+					for row: int in range(-1,6):
+						for col: int in range(-1,10):
+							var pos := L.cell_center(Vector2i(col,row))
+							if m.can_play(team,slot,pos) != m.play_error(team,slot,pos).is_empty(): mismatches += 1
+	check(mismatches == 0,"fast can_play agrees with play_error on every slot and cell (%d mismatches)" % mismatches)
+	check(speed_mismatches == 0,"farm speed from the per-step mill lookup matches the full scan")
+	finished["fast_rules"] = true
+
 func test_core() -> void:
 	var m := bare(42)
 	check(m.ink == [10.0,10.0],"opening ink")

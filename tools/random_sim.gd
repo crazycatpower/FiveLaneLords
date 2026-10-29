@@ -26,6 +26,7 @@ func _initialize() -> void:
 		var picks: Array = [lords[rng.randi_range(0,lords.size()-1)],lords[rng.randi_range(0,lords.size()-1)]]
 		var m := Battle.new(seed_value,decks[0].duplicate(),decks[1].duplicate(),picks[0],picks[1])
 		m.difficulty = 1
+		m.record_events = false
 		m.ai_enabled = [true,true]
 		while not m.ended and m.elapsed < cap:
 			m.step(1.0/60.0)
