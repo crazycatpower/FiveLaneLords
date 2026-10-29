@@ -32,6 +32,8 @@ func run() -> void:
 	test_opening_hand()
 	test_tutorial()
 	test_card_cooldowns()
+	test_repair()
+	check(finished.has("repair"),"repair test ran to the end")
 	check(finished.has("card_cd"),"card cooldown test ran to the end")
 	check(finished.has("tutorial"),"tutorial test ran to the end")
 	check(finished.has("opening"),"opening hand test ran to the end")
@@ -80,7 +82,10 @@ func test_core() -> void:
 	m.hand_cd[0][0] = 0
 	check(m.play(0,0,L.cell_center(Vector2i(0,0))),"no global cooldown between plays")
 	offer(m,"farm")
-	check(not m.play(0,0,L.cell_center(Vector2i(0,0))),"buildings cannot share cell")
+	m.buildings[0].hp = 40
+	check(m.play(0,0,L.cell_center(Vector2i(0,0))) and m.buildings[0].hp == m.buildings[0].max_hp and m.count_buildings(0) == 15,"the same building on our own one restores it")
+	offer(m,"tower")
+	check(not m.play(0,0,L.cell_center(Vector2i(0,0))) and "同一種" in m.play_error(0,0,L.cell_center(Vector2i(0,0))),"a different building cannot cover it")
 	check(not m.play(0,0,L.cell_center(Vector2i(4,0))),"building territory")
 	offer(m,"rain")
 	check(m.play(0,0,L.cell_center(Vector2i(8,0))),"spell can target enemy territory")
@@ -550,3 +555,24 @@ func test_card_cooldowns() -> void:
 	late.step(1.0)
 	check(is_equal_approx(late.hand_cd[0][0],8.5),"and 1.5x as fast at the first ramp")
 	finished["card_cd"] = true
+
+func test_repair() -> void:
+	var m := Battle.new(6)
+	m.lords.clear()
+	var tower := m.add_building(0,Vector2i(2,1),"tower")
+	tower.hp = 100
+	m.elapsed = 30.0
+	offer(m,"tower")
+	check(m.play(0,0,tower.pos) and tower.hp == B.CARDS.tower.hp and is_equal_approx(tower.expires,30.0+B.CARDS.tower.expires),"re-placing a tower restores health and lifetime")
+	check(m.stats[0].planted == 0 and m.stats[0].repairs == 1,"a repair is not counted as a new building")
+	var enemy := m.add_building(1,Vector2i(6,1),"farm")
+	offer(m,"farm")
+	check(not m.can_play(0,0,enemy.pos),"cannot cover an enemy building")
+	m.decks[1] = ["farm","militia","rain","tower","knight","farmer","fire","scarecrow"]
+	m.hand_cd[1] = [0.0,0.0,0.0,0.0]
+	m.ink[1] = 20
+	var hurt := m.add_building(1,Vector2i(8,3),"farm")
+	hurt.hp = 40
+	var c: Dictionary = m.AI.decide(m.snapshot(1))
+	check(c.get("kind","") == "farm" and c.get("cell",Vector2i(-1,-1)) == Vector2i(8,3),"AI repairs a badly damaged farm")
+	finished["repair"] = true

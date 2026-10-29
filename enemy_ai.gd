@@ -78,6 +78,17 @@ static func decide(s: Dictionary) -> Dictionary:
 			var score := -INF
 			var lane: int = c.cell.y
 			var col: int = c.cell.x if team == 0 else 8-c.cell.x
+			if data.type == "building":
+				var here: Dictionary = own_building(s.buildings,team,c.cell)
+				if not here.is_empty():
+					# Same building on top of ours = repair. Only worth it when it is badly hurt.
+					var health: float = here.hp/here.max_hp
+					if health < 0.6:
+						score = 700.0+(1.0-health)*150.0
+						if score > best_score:
+							best_score = score
+							best = c.duplicate()
+					continue
 			if defend >= 0:
 				if lane != defend: continue
 				var fx: float = foe_x[lane]
@@ -153,3 +164,8 @@ static func spend_score(c: Dictionary, s: Dictionary, team: int, lane: int, col:
 			return 490.0+value if value > 0 else 300.0-data.cost
 	if data.type == "unit": return 480.0+(30.0 if lane == target_lane else 0.0)+col*3-data.cost*0.5
 	return -INF
+
+static func own_building(buildings: Array, team: int, cell: Vector2i) -> Dictionary:
+	for b: Dictionary in buildings:
+		if b.hp > 0 and b.team == team and b.cell == cell: return b
+	return {}

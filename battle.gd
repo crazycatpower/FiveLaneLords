@@ -127,7 +127,8 @@ func play_error(team: int, slot: int, pos: Vector2) -> String:
 	if col >= limit:
 		return "建築只能蓋在我方左側三欄。" if card.type == "building" else "部隊只能放在我方左側三欄（打破對方城門的那一路可到第六欄）。"
 	if card.type == "building":
-		if not building_at(cell).is_empty(): return "這格已經有建築了。"
+		var here := building_at(cell)
+		if not here.is_empty() and (here.team != team or here.kind != kind): return "這格已經有別的建築；只有同一種建築可以覆蓋回血。"
 	return ""
 
 func play(team: int, slot: int, pos: Vector2) -> bool:
@@ -144,7 +145,10 @@ func play(team: int, slot: int, pos: Vector2) -> bool:
 	stats[team].used[kind] = stats[team].used.get(kind,0)+1
 	stats[team].spent[kind] = stats[team].spent.get(kind,0.0)+card.cost
 	var cell := cell_at(pos)
-	if card.type == "building": add_building(team,cell,kind)
+	if card.type == "building":
+		var here := building_at(cell)
+		if here.is_empty(): add_building(team,cell,kind)
+		else: refresh_building(here)
 	elif card.type == "unit":
 		for i: int in range(card.count):
 			var u := spawn_unit(team,cell.y,kind,L.cell_center(cell))
@@ -164,6 +168,15 @@ func add_building(team: int, cell: Vector2i, kind: String) -> Dictionary:
 	buildings.append(b)
 	if kind == "farm": stats[team].planted += 1
 	return b
+
+# Placing the same building on our own one restores it: full health and a fresh lifetime.
+# A farm keeps its production timer and any cultivation boost.
+func refresh_building(b: Dictionary) -> void:
+	var data: Dictionary = B.CARDS[b.kind]
+	b.hp = b.max_hp
+	if data.expires > 0: b.expires = elapsed+data.expires
+	stats[b.team].repairs = stats[b.team].get("repairs",0)+1
+	event("heal",b.pos,b.team)
 
 func spawn_unit(team: int, lane: int, kind: String, pos: Vector2) -> Dictionary:
 	next_id += 1
