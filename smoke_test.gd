@@ -236,7 +236,7 @@ func test_lords() -> void:
 	lord.hp = 200
 	lord.last_hit = m.elapsed
 	tick(m,0.6)
-	check(lord.retreating and lord.target == L.spawn_position(0,2),"low health retreats")
+	check(lord.retreating and is_equal_approx(lord.target.y,L.spawn_position(0,2).y) and lord.target.x <= m.Lord.zone(0).y,"low health retreats to the middle of the back strip")
 	lord.hp = B.LORDS.lion.hp*0.35
 	tick(m,0.6)
 	check(lord.retreating,"retreat persists until the lord is back above the return threshold")
@@ -274,6 +274,7 @@ func test_lords() -> void:
 	m.lords[1].pos.x = 0
 	tick(m,0.1)
 	check(m.lords[0].pos.x < L.GRID_ORIGIN.x+3*L.CELL_SIZE.x and m.lords[1].pos.x > L.GRID_ORIGIN.x+6*L.CELL_SIZE.x,"lords never leave their own territory")
+	check(m.lords[0].pos.x < L.cell_center(Vector2i(0,0)).x and m.lords[1].pos.x > L.cell_center(Vector2i(8,0)).x,"lords stay behind the back farm column")
 	check(not m.lords[0].has("spin") and not m.lords[0].has("command"),"lords have no active skills")
 	m.damage(m.lords[0],9999,1,"militia")
 	tick(m,12.1)

@@ -23,6 +23,9 @@ const RAMP_2 := 300.0 # ink x2 from 5:00
 const ARROW_TIME := 0.35
 const SPELL_DELAY := 0.4
 const LORD_RANGE := 88.0
+# Lords stay behind the farms (producer 2026-10-29): they only move within this many px of the
+# grid's back edge (the back farm column is centred 59 px in), so raids on farms are not free to stop.
+const LORD_ZONE_DEPTH := 40.0
 const LORD_INTERVAL := 0.65
 const LORD_REGEN_DELAY := 6.0
 const LORD_REGEN := 3.0 # producer: regeneration cut hard (was 25/s after 3 s)
@@ -71,9 +74,9 @@ const PRESETS := [
 const PRESET_LORDS := ["harvest","iron","lion"]
 # Lords are chosen on the deck screen and never enter the hand.
 const LORDS := {
-	"lion":{"name":"紅獅領主","role":"攻擊型","desc":"光環讓附近部隊攻擊 +40%；普攻 60。","hp":1000.0,"damage":60.0,"aura":1.4,"speed":160.0,"regen":1.0,"farm_bonus":1.0},
-	"harvest":{"name":"豐收領主","role":"經濟型","desc":"我方全部農田產量 +25%；普攻 45，光環 +20%。","hp":1000.0,"damage":45.0,"aura":1.2,"speed":160.0,"regen":1.0,"farm_bonus":1.25},
-	"iron":{"name":"鐵壁領主","role":"防守型","desc":"1500 血、回血 ×2；普攻 60、光環 +20%。","hp":1500.0,"damage":60.0,"aura":1.2,"speed":160.0,"regen":2.0,"farm_bonus":1.0}
+	"lion":{"name":"紅獅領主","role":"攻擊型","desc":"光環讓附近部隊攻擊 +40%；普攻 60。","hp":1000.0,"damage":60.0,"aura":1.4,"speed":90.0,"regen":1.0,"farm_bonus":1.0},
+	"harvest":{"name":"豐收領主","role":"經濟型","desc":"我方全部農田產量 +25%；普攻 45，光環 +20%。","hp":1000.0,"damage":45.0,"aura":1.2,"speed":90.0,"regen":1.0,"farm_bonus":1.25},
+	"iron":{"name":"鐵壁領主","role":"防守型","desc":"1500 血、回血 ×2；普攻 60、光環 +20%。","hp":1500.0,"damage":60.0,"aura":1.2,"speed":90.0,"regen":2.0,"farm_bonus":1.0}
 }
 
 # Stat tiers S..E (producer 2026-10-29): every troop, tower and lord stat uses exactly one of these

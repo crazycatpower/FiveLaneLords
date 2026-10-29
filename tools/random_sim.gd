@@ -31,7 +31,7 @@ func _initialize() -> void:
 		while not m.ended and m.elapsed < cap:
 			m.step(1.0/60.0)
 			m.events.clear()
-		file.store_line(JSON.stringify({"seed":seed_value,"decks":decks,"lords":picks,"winner":m.winner if m.ended else -1,"t":snappedf(m.elapsed,0.1),"used":[m.stats[0].used,m.stats[1].used]}))
+		file.store_line(JSON.stringify({"seed":seed_value,"decks":decks,"lords":picks,"winner":m.winner if m.ended else -1,"t":snappedf(m.elapsed,0.1),"breach":snappedf(m.first_breach,0.1),"farms_lost_early":[m.stats[0].farms_lost_early,m.stats[1].farms_lost_early],"used":[m.stats[0].used,m.stats[1].used]}))
 		file.flush()
 	file.close()
 	quit()

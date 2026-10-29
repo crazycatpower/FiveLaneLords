@@ -34,6 +34,7 @@ var memory: Array = [{},{}]
 var recent_lanes: Array = [[],[]] # lanes of each side's last troop plays, for the AI to spread its attacks
 var ai_start := 0.0
 var lord_active: Array = [true,true] # the tutorial keeps the blue lord idle
+var first_breach := -1.0 # seconds into the match when the first gate fell (-1 = never)
 var record_events := true # batch simulators turn this off; no game logic reads events
 # Per-step lookup lists, rebuilt after the AI plays (same order as units/buildings, so every
 # "nearest" search sees the candidates in the same order as a scan of the full list would).
@@ -62,7 +63,7 @@ func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = [], lord_a: 
 		lords.append(Lord.create(team,lord_kind))
 		decks.append(deck)
 		gates.append([B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP])
-		stats.append({"produced":0.0,"wasted":0.0,"planted":0,"burned":0,"plays":0,"used":{},"damage":{},"spent":{},"cultivated":0,"drops":0})
+		stats.append({"produced":0.0,"wasted":0.0,"planted":0,"burned":0,"plays":0,"used":{},"damage":{},"spent":{},"cultivated":0,"drops":0,"farms_lost_early":0})
 	# Both sides start with two farms; they are not counted as planted.
 	for team: int in range(2):
 		for cell: Vector2i in B.START_FARMS:
@@ -279,6 +280,7 @@ func damage(target: Dictionary, amount: float, team: int, kind: String) -> void:
 	event("hit",target.pos,target.team)
 	if target.has("cell") and target.team == 0: building_alarm[target.cell.y] = 1.5
 	if target.hp <= 0:
+		if target.kind == "farm" and elapsed < 180.0: stats[target.team].farms_lost_early += 1
 		event("death",target.pos,target.team,{"card":target.kind})
 		if target.kind == "farm" and kind == "fire":
 			stats[target.team].burned += 1
@@ -288,6 +290,7 @@ func hit_gate(side: int, lane: int, amount: float, kind: String = "militia") -> 
 	if gates[side][lane] <= 0: return # already open; the attackers just walk in
 	var dealt: float = minf(gates[side][lane],amount)
 	gates[side][lane] = maxf(0,gates[side][lane]-amount)
+	if gates[side][lane] == 0 and first_breach < 0: first_breach = elapsed
 	if gates[side][lane] == 0: event("breach",Vector2(L.gate_icon_x(side),L.cell_center(Vector2i(0,lane)).y),1-side,{"lane":lane})
 	stats[1-side].damage[kind] = stats[1-side].damage.get(kind,0.0)+dealt
 	if side == 0: alarm[lane] = 1.5

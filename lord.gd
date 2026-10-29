@@ -4,7 +4,13 @@ const L = preload("res://layout.gd")
 const AI = preload("res://lord_ai.gd")
 static func create(team: int, lord_kind: String = "lion") -> Dictionary:
 	var data: Dictionary = B.LORDS.get(lord_kind,B.LORDS.lion)
-	return {"kind":"lord","lord":lord_kind,"team":team,"max_hp":data.hp,"damage":data.damage,"aura":data.aura,"speed":data.speed,"regen":data.regen,"farm_bonus":data.farm_bonus,"pos":L.cell_center(Vector2i(2 if team == 0 else 6,2)),"hp":data.hp,"respawn":0.0,"cd":0.0,"last_hit":-10.0,"think":0.0,"target":L.spawn_position(team,2),"changed":-10.0,"retreating":false,"flash":0.0}
+	return {"kind":"lord","lord":lord_kind,"team":team,"max_hp":data.hp,"damage":data.damage,"aura":data.aura,"speed":data.speed,"regen":data.regen,"farm_bonus":data.farm_bonus,"pos":Vector2(zone(team).y if team == 0 else zone(team).x,L.cell_center(Vector2i(0,2)).y),"hp":data.hp,"respawn":0.0,"cd":0.0,"last_hit":-10.0,"think":0.0,"target":L.spawn_position(team,2),"changed":-10.0,"retreating":false,"flash":0.0}
+# x range (min, max) a lord may stand in: a strip between the gate and the back farm column.
+static func zone(team: int) -> Vector2:
+	if team == 0: return Vector2(L.GRID_ORIGIN.x+10,L.GRID_ORIGIN.x+B.LORD_ZONE_DEPTH)
+	var right: float = L.GRID_ORIGIN.x+L.GRID_SIZE.x
+	return Vector2(right-B.LORD_ZONE_DEPTH,right-10)
+
 static func step(m: RefCounted, lord: Dictionary, dt: float) -> void:
 	if lord.hp <= 0:
 		lord.respawn -= dt
@@ -23,9 +29,9 @@ static func step(m: RefCounted, lord: Dictionary, dt: float) -> void:
 		if plan.urgent or lord.retreating or m.elapsed-lord.changed >= B.LORD_HYSTERESIS:
 			if target != lord.target: lord.changed = m.elapsed
 			lord.target = target
-	# Lords never leave their own territory: the three home deploy columns (producer decision 2026-10-29).
-	var min_x: float = L.GRID_ORIGIN.x+10 if lord.team == 0 else L.GRID_ORIGIN.x+6*L.CELL_SIZE.x+1
-	var max_x: float = L.GRID_ORIGIN.x+3*L.CELL_SIZE.x-1 if lord.team == 0 else L.GRID_ORIGIN.x+L.GRID_SIZE.x-10
+	# Lords stay behind their farms, next to the gate (producer decision 2026-10-29).
+	var min_x: float = zone(lord.team).x
+	var max_x: float = zone(lord.team).y
 	lord.target.x = clampf(lord.target.x,min_x,max_x)
 	lord.pos = lord.pos.move_toward(lord.target,lord.speed*dt)
 	lord.pos.x = clampf(lord.pos.x,min_x,max_x)
