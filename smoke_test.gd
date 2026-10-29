@@ -45,6 +45,8 @@ func run() -> void:
 	check(finished.has("start_farms"),"start farm test ran to the end")
 	test_fast_rules()
 	check(finished.has("fast_rules"),"fast rule test ran to the end")
+	test_ai_cards()
+	check(finished.has("ai_cards"),"AI card-use test ran to the end")
 	check(finished.has("repair"),"repair test ran to the end")
 	check(finished.has("card_cd"),"card cooldown test ran to the end")
 	check(finished.has("tutorial"),"tutorial test ran to the end")
@@ -83,6 +85,41 @@ func test_fast_rules() -> void:
 	check(mismatches == 0,"fast can_play agrees with play_error on every slot and cell (%d mismatches)" % mismatches)
 	check(speed_mismatches == 0,"farm speed from the per-step mill lookup matches the full scan")
 	finished["fast_rules"] = true
+
+# Blue AI with one card that matters in hand; the rest score nothing at low gold.
+func ai_hand(kind: String, gold: float) -> Battle:
+	var m := bare(5)
+	m.decks[1] = [kind,"harvest","harvest","harvest","harvest","harvest","harvest","harvest"]
+	m.hand_cd[1] = [0.0,0.0,0.0,0.0]
+	m.farm_cd[1] = 999.0
+	m.ink[1] = gold
+	m.elapsed = 25.0
+	return m
+
+func test_ai_cards() -> void:
+	var m := ai_hand("tower",20)
+	check(m.AI.decide(m.snapshot(1)).is_empty(),"no farms to guard: the AI keeps its tower")
+	m.add_building(1,Vector2i(8,1),"farm")
+	var c: Dictionary = m.AI.decide(m.snapshot(1))
+	check(c.get("kind","") == "tower" and c.cell.y == 1,"the AI guards a farm lane with a tower before raiders come")
+	m.add_building(1,c.cell,"tower")
+	check(m.AI.decide(m.snapshot(1)).is_empty(),"one guard per farm lane is enough")
+	m = ai_hand("ram",B.CARDS.ram.cost+5)
+	for lane: int in range(5):
+		for i: int in range(3): m.spawn_unit(1,lane,"militia",L.cell_center(Vector2i(5,lane)))
+	check(m.AI.decide(m.snapshot(1)).get("kind","") != "ram","the AI keeps 10 gold back instead of sending the ram")
+	m.ink[1] = B.CARDS.ram.cost+10
+	check(m.AI.decide(m.snapshot(1)).get("kind","") == "ram","with gold to spare and troops ahead, the ram goes")
+	m = ai_hand("ram",B.CARDS.ram.cost+10)
+	check(m.AI.decide(m.snapshot(1)).get("kind","") != "ram","no troops in the lane: the ram waits")
+	m = ai_hand("healer",20)
+	check(m.AI.decide(m.snapshot(1)).is_empty(),"the AI does not send a herbalist out alone")
+	for i: int in range(3): m.spawn_unit(1,2,"militia",L.cell_center(Vector2i(6,2)))
+	c = m.AI.decide(m.snapshot(1))
+	check(c.get("kind","") == "healer" and c.cell.y == 2 and (c.pos.x-L.cell_center(Vector2i(6,2)).x) <= B.HEAL_RADIUS,"the herbalist goes right behind our troops")
+	m = ai_hand("healer",46)
+	check(m.AI.decide(m.snapshot(1)).get("kind","") == "healer","near the gold cap a stuck herbalist is spent anyway")
+	finished["ai_cards"] = true
 
 func test_core() -> void:
 	var m := bare(42)

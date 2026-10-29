@@ -25,10 +25,15 @@ static func decide(s: Dictionary) -> Dictionary:
 	var their_guard := [0.0,0.0,0.0,0.0,0.0]
 	var farm_total := 0
 	var own_buildings := 0
+	var my_troops := [0.0,0.0,0.0,0.0,0.0] # hp of our troops per lane (buildings excluded)
+	var my_guard := [0,0,0,0,0] # our towers and scarecrows per lane
+	var my_troop_x: Array = [[],[],[],[],[]] # x of our troops per lane, for the healer
 	for u: Dictionary in s.units:
 		if u.hp <= 0: continue
 		if u.team == team:
 			ours[u.lane] += u.hp
+			my_troops[u.lane] += u.hp
+			my_troop_x[u.lane].append(u.pos.x)
 			continue
 		foes[u.lane] += u.hp
 		var distance := absf(u.pos.x-home_x)
@@ -44,7 +49,9 @@ static func decide(s: Dictionary) -> Dictionary:
 			if b.kind == "farm":
 				my_farms[b.cell.y] += 1
 				farm_total += 1
-			if b.kind in ["tower","scarecrow"]: ours[b.cell.y] += b.hp
+			if b.kind in ["tower","scarecrow"]:
+				ours[b.cell.y] += b.hp
+				my_guard[b.cell.y] += 1
 		elif b.kind == "farm": their_farms[b.cell.y] += 1
 		elif b.kind in ["tower","scarecrow","mill"]: their_guard[b.cell.y] += b.hp
 	# Defence: the lane whose approaching enemies most outweigh what we have there.
@@ -93,7 +100,7 @@ static func decide(s: Dictionary) -> Dictionary:
 				if lane != defend: continue
 				var fx: float = foe_x[lane]
 				if data.type == "spell" and c.kind in ["rain","fire"]: score = 1000-c.pos.distance_to(Vector2(fx,c.pos.y))
-				elif data.type == "unit" and c.kind != "farmer":
+				elif data.type == "unit" and not c.kind in ["farmer","healer"]:
 					# Troops never turn round, so spawn between the attacker and our gate.
 					if (fx-c.pos.x)*forward >= 0: score = 900-absf(fx-c.pos.x)*0.5-data.cost*3
 				elif c.kind in ["tower","scarecrow"]: score = 950-absf(fx-c.pos.x)
@@ -114,8 +121,18 @@ static func decide(s: Dictionary) -> Dictionary:
 				elif s.difficulty == 2 and s.enemy_ink >= 35 and c.kind in ["tower","scarecrow"]:
 					var expected := int(s.memory.get("lane",target_lane))
 					if lane == expected and ours[lane] < 400: score = 780
-				elif c.kind == "ram" and lane == target_lane and (s.ink >= 40 or s.gates[1-team][lane] <= B.GATE_HP*0.6):
-					score = 720 # the 30-ink finisher: send it once there is a gate worth breaking
+				elif c.kind in ["tower","scarecrow"] and my_farms[lane] > 0 and my_guard[lane] == 0 and s.elapsed >= 20.0:
+					# Guard farm lanes before raiders arrive: one tower or scarecrow just in front of the farms.
+					score = (690.0 if c.kind == "tower" else 680.0)+my_farms[lane]*10-absf(col-2)*8
+				elif c.kind == "ram":
+					# The finisher marches at 22: send it behind troops already in the lane, and keep
+					# 10 gold back so the next attack on us can still be answered.
+					if lane == target_lane and s.ink >= data.cost+10 and (my_troops[lane] >= 250 or s.gates[1-team][lane] <= B.GATE_HP*0.6): score = 720
+				elif c.kind == "healer":
+					# A lone herbalist just dies: place her behind our own troops, within healing reach.
+					for x: float in my_troop_x[lane]:
+						var ahead: float = (x-c.pos.x)*forward
+						if ahead >= 0 and ahead <= B.HEAL_RADIUS and my_troops[lane] >= 200: score = maxf(score,690.0-ahead*0.5)
 				elif wave and data.type == "unit" and c.kind != "farmer":
 					# Front-most legal cell of the chosen lane; other lanes only as a weaker fallback.
 					score = 600+col*4-data.cost-(0 if lane == target_lane else 60+(attack[target_lane]-attack[lane])*0.05)
@@ -162,6 +179,9 @@ static func spend_score(c: Dictionary, s: Dictionary, team: int, lane: int, col:
 				if c.kind == "harvest" and b.team == team and b.kind == "farm": value += 40.0
 				if c.kind == "fire" and b.team != team: value += 80.0
 			return 490.0+value if value > 0 else 300.0-data.cost
+	# Ram and healer have their own rules above; near the gold cap they may still go, or they would
+	# sit in hand forever and stop the deck rotating.
+	if c.kind in ["ram","healer"] and s.ink < 45.0: return -INF
 	if data.type == "unit": return 480.0+(30.0 if lane == target_lane else 0.0)+col*3-data.cost*0.5
 	return -INF
 
