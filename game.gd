@@ -43,7 +43,12 @@ const SPEED_RECTS := [Rect2(1360,826,46,36),Rect2(1412,826,46,36),Rect2(1464,826
 func _ready() -> void:
 	var sf := SystemFont.new()
 	sf.font_names = PackedStringArray(["Noto Serif TC","PMingLiU","Microsoft JhengHei"])
-	font = sf
+	# Bundled Noto Serif TC subset (tools/build_font.py); the system font only covers glyphs it lacks.
+	var bundled: FontFile = load("res://assets/fonts/ManuscriptSerif-subset.ttf")
+	if bundled != null:
+		bundled.fallbacks = [sf]
+		font = bundled
+	else: font = sf
 	for pair: Array in [["militia","manuscript-v1/militia-red.png"],["farmer","farmer.png"],["farm","farmland.png"],["castle_red","manuscript-v1/castle-red.png"],["castle_blue","manuscript-v1/castle-red.png"]]:
 		textures[pair[0]] = load("res://assets/"+pair[1])
 	for kind: String in B.CARDS:
