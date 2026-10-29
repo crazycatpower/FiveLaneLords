@@ -97,6 +97,8 @@ static func decide(s: Dictionary) -> Dictionary:
 				elif s.difficulty == 2 and s.enemy_ink >= 35 and c.kind in ["tower","scarecrow"]:
 					var expected := int(s.memory.get("lane",target_lane))
 					if lane == expected and ours[lane] < 400: score = 780
+				elif c.kind == "ram" and lane == target_lane and (s.ink >= 40 or s.gates[1-team][lane] <= B.GATE_HP*0.6):
+					score = 720 # the 30-ink finisher: send it once there is a gate worth breaking
 				elif wave and data.type == "unit" and c.kind != "farmer":
 					# Front-most legal cell of the chosen lane; other lanes only as a weaker fallback.
 					score = 600+col*4-data.cost-(0 if lane == target_lane else 60+(attack[target_lane]-attack[lane])*0.05)

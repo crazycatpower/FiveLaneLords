@@ -308,7 +308,7 @@ func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 	draw_texture_rect(art(kind),Rect2(rect.position+s*Vector2(0.17,0.13),s*Vector2(0.66,0.5)),false,Color(0.45,0.45,0.45) if short else Color.WHITE)
 	# Name and type sit above the frame's bottom corner flowers (they start ~83% down).
 	draw_string(font,rect.position+Vector2(0,s.y*0.74),data.name,HORIZONTAL_ALIGNMENT_CENTER,s.x,17,INK)
-	draw_string(font,rect.position+Vector2(0,s.y*0.83),{"unit":"部隊","building":"建築","spell":"法術"}[data.type],HORIZONTAL_ALIGNMENT_CENTER,s.x,12,Color("7a6446"))
+	draw_string(font,rect.position+Vector2(0,s.y*0.83),data.role,HORIZONTAL_ALIGNMENT_CENTER,s.x,12,Color("7a6446"))
 	# Ink cost badge, top right.
 	var badge := rect.position+Vector2(s.x-19,19)
 	draw_circle(badge,15,Color("2f3f5c"))
@@ -598,8 +598,8 @@ func draw_deck() -> void:
 
 func card_description(kind: String) -> String:
 	var card: Dictionary = B.CARDS[kind]
-	var descriptions := {"farm":"種下三秒後開始，每十秒產出兩滴墨水。","farmer":"兩名農民向前行軍，順路耕田 1.5 秒，農田加速十五秒。","mill":"同一路農田產量速度 +50%，每方一座。","scarecrow":"吸引附近敵兵攻擊，存在二十五秒。","tower":"每 0.8 秒射箭，射程 200，存在四十秒。","harvest":"範圍內農田立即各產兩墨水，八秒加速。","rain":"範圍部隊傷害 200，建築與城門 60。","fire":"部隊傷害 320，建築 640，城門 100。","ox":"首擊 120 並擊退，建築傷害 ×1.5。","healer":"每秒治療附近友軍 12 血。","ram":"穿過部隊，只攻擊建築與城門。","hunter":"射程 170，箭矢飛行 0.35 秒。","knight":"600 生命的重裝主力。","mob":"五名暴民，錯開出場。","militia":"兩名民兵，基本近戰主力。"}
-	return "%s · %d 墨水\n%s" % [card.name,card.cost,descriptions.get(kind,"")]
+	var descriptions := {"farm":"種下三秒後開始，每十秒產出兩滴墨水。","farmer":"兩名農民向前走，順路耕田 1.5 秒，那塊田十五秒內產量加倍。","mill":"同一路農田產量 ×2，每方一座。","scarecrow":"吸引附近敵兵攻擊它，存在二十五秒。","tower":"每 0.8 秒射箭，射程 200，存在四十秒。","harvest":"範圍內農田立刻各產一滴，八秒內產量加倍。","rain":"範圍內部隊 200 傷害，建築與城門 60。","fire":"部隊 420 傷害，建築 840，城門 140。","ox":"第一下衝撞 150 並擊退，拆建築 ×1.5。","healer":"每秒治療附近友軍 15 血。","ram":"1600 血，無視部隊，每兩秒對城門或建築 160 傷害；城門破了就直接走進去。","hunter":"射程 170 的遠程手，兩名。","knight":"1000 血的重裝主坦。","mob":"五名暴民，錯開出場。","militia":"兩名民兵，便宜的擋路與循環牌。"}
+	return "%s · %d 墨水 · %s\n%s" % [card.name,card.cost,card.role,descriptions.get(kind,"")]
 
 func show_help() -> void:
 	screen = "help"

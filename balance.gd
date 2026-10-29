@@ -33,35 +33,37 @@ const AURA_RANGE := 145.0
 const AURA_BONUS := 1.35
 const AI_TICK := 0.5
 const LORD_HYSTERESIS := 1.5
+# Costs run 1..30 (producer decision 2026-10-29). "role" is the card's job, shown on the card face.
 const CARDS := {
-	"mob":{"name":"乾草叉暴民","type":"unit","cost":5,"count":5,"hp":45.0,"damage":9.0,"interval":0.9,"range":47.0,"speed":48.0},
-	"hunter":{"name":"獵戶","type":"unit","cost":5,"count":2,"hp":55.0,"damage":10.0,"interval":1.2,"range":170.0,"speed":34.0},
-	"healer":{"name":"草藥婆","type":"unit","cost":7,"count":1,"hp":140.0,"damage":6.0,"interval":1.0,"range":120.0,"speed":32.0},
-	"ox":{"name":"耕牛","type":"unit","cost":7,"count":1,"hp":420.0,"damage":20.0,"interval":1.2,"range":47.0,"speed":70.0},
-	"knight":{"name":"騎士","type":"unit","cost":10,"count":1,"hp":600.0,"damage":40.0,"interval":1.2,"range":47.0,"speed":32.0},
-	"ram":{"name":"攻城槌","type":"unit","cost":9,"count":1,"hp":420.0,"damage":60.0,"interval":2.0,"range":47.0,"speed":20.0},
-	"mill":{"name":"磨坊","type":"building","cost":10,"hp":700.0,"expires":-1.0},
-	"scarecrow":{"name":"稻草人","type":"building","cost":4,"hp":400.0,"expires":25.0},
-	"harvest":{"name":"豐收","type":"spell","cost":3,"radius":120.0},
-	"fire":{"name":"火罐","type":"spell","cost":8,"radius":90.0,"damage":320.0,"building_damage":640.0,"gate_damage":100.0},
-	"farm":{"name":"農田","type":"building","cost":6,"hp":250.0,"expires":-1.0},
-	"farmer":{"name":"農民","type":"unit","cost":2,"count":2,"hp":60.0,"damage":6.0,"interval":1.0,"range":47.0,"speed":42.0},
-	"militia":{"name":"民兵隊","type":"unit","cost":3,"count":2,"hp":85.0,"damage":13.0,"interval":0.95,"range":47.0,"speed":39.0},
-	"tower":{"name":"箭樓","type":"building","cost":7,"hp":500.0,"expires":40.0,"range":200.0,"damage":18.0,"interval":0.8},
-	"rain":{"name":"箭雨","type":"spell","cost":6,"radius":110.0,"damage":200.0,"building_damage":60.0,"gate_damage":60.0}
+	"farmer":{"name":"農民","role":"經濟·耕田","type":"unit","cost":1,"count":2,"hp":50.0,"damage":6.0,"interval":1.0,"range":47.0,"speed":42.0},
+	"militia":{"name":"民兵隊","role":"循環·擋路","type":"unit","cost":3,"count":2,"hp":85.0,"damage":13.0,"interval":0.95,"range":47.0,"speed":39.0},
+	"harvest":{"name":"豐收","role":"經濟·爆發","type":"spell","cost":3,"radius":120.0},
+	"scarecrow":{"name":"稻草人","role":"誘敵·護田","type":"building","cost":4,"hp":400.0,"expires":25.0},
+	"mob":{"name":"乾草叉暴民","role":"群攻","type":"unit","cost":5,"count":5,"hp":45.0,"damage":9.0,"interval":0.9,"range":47.0,"speed":48.0},
+	"hunter":{"name":"獵戶","role":"遠程輸出","type":"unit","cost":5,"count":2,"hp":55.0,"damage":10.0,"interval":1.2,"range":170.0,"speed":34.0},
+	"farm":{"name":"農田","role":"經濟·基礎","type":"building","cost":6,"hp":250.0,"expires":-1.0},
+	"rain":{"name":"箭雨","role":"清群法術","type":"spell","cost":6,"radius":110.0,"damage":200.0,"building_damage":60.0,"gate_damage":60.0},
+	"tower":{"name":"箭樓","role":"防守","type":"building","cost":7,"hp":500.0,"expires":40.0,"range":200.0,"damage":18.0,"interval":0.8},
+	"healer":{"name":"草藥婆","role":"支援·治療","type":"unit","cost":8,"count":1,"hp":160.0,"damage":6.0,"interval":1.0,"range":120.0,"speed":32.0},
+	"ox":{"name":"耕牛","role":"衝鋒·拆建","type":"unit","cost":9,"count":1,"hp":520.0,"damage":22.0,"interval":1.2,"range":47.0,"speed":70.0},
+	"fire":{"name":"火罐","role":"燒田法術","type":"spell","cost":11,"radius":95.0,"damage":420.0,"building_damage":840.0,"gate_damage":140.0},
+	"knight":{"name":"騎士","role":"主坦","type":"unit","cost":15,"count":1,"hp":1000.0,"damage":55.0,"interval":1.2,"range":47.0,"speed":32.0},
+	"mill":{"name":"磨坊","role":"大型經濟","type":"building","cost":18,"hp":900.0,"expires":-1.0},
+	"ram":{"name":"攻城槌","role":"終結·破門","type":"unit","cost":30,"count":1,"hp":1600.0,"damage":160.0,"interval":2.0,"range":47.0,"speed":22.0}
 }
+
 const PRESET_NAMES := ["向日葵流","穩健農莊","劫掠隊"]
 const PRESETS := [
 	["farm","farmer","harvest","mill","scarecrow","tower","militia","rain"],
 	["farm","farmer","militia","hunter","knight","scarecrow","tower","rain"],
 	["farm","farmer","mob","ox","ram","hunter","fire","scarecrow"]
 ]
-const MILL_BONUS := 1.5
+const MILL_BONUS := 2.0
 const HARVEST_TIME := 8.0
 const HEAL_RADIUS := 120.0
-const HEAL_AMOUNT := 12.0
+const HEAL_AMOUNT := 15.0
 const HEAL_INTERVAL := 1.0
-const OX_CHARGE := 120.0
+const OX_CHARGE := 150.0
 const OX_KNOCKBACK := 30.0
 const OX_BUILDING_BONUS := 1.5
 const OX_SLOW_SPEED := 30.0
