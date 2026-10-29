@@ -163,7 +163,8 @@ func test_lords() -> void:
 	m.lords[0].pos.x = 2000
 	m.lords[1].pos.x = 0
 	tick(m,0.1)
-	check(m.lords[0].pos.x < L.GRID_ORIGIN.x+6*L.CELL_SIZE.x and m.lords[1].pos.x > L.GRID_ORIGIN.x+3*L.CELL_SIZE.x,"lords never enter opposing original territory")
+	check(m.lords[0].pos.x < L.GRID_ORIGIN.x+3*L.CELL_SIZE.x and m.lords[1].pos.x > L.GRID_ORIGIN.x+6*L.CELL_SIZE.x,"lords never leave their own territory")
+	check(not m.lords[0].has("spin") and not m.lords[0].has("command"),"lords have no active skills")
 	m.damage(m.lords[0],9999,1,"militia")
 	tick(m,12.1)
 	check(m.lords[0].hp == B.LORD_HP,"lord revives after twelve seconds")

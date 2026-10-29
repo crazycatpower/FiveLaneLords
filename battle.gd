@@ -158,7 +158,7 @@ func add_building(team: int, cell: Vector2i, kind: String) -> Dictionary:
 func spawn_unit(team: int, lane: int, kind: String, pos: Vector2) -> Dictionary:
 	next_id += 1
 	var data: Dictionary = B.CARDS[kind]
-	var u := {"id":next_id,"kind":kind,"team":team,"lane":lane,"pos":pos,"hp":data.hp,"max_hp":data.hp,"cd":0.0,"phase":rng.randf()*TAU,"face":1.0 if team == 0 else -1.0,"worked":[],"work_id":-1,"work_left":0.0,"spawn_delay":0.0,"charged":false,"buff_until":0.0,"flash":0.0,"heal_cd":0.0,"dy":rng.randf_range(-B.PLACE_JITTER,B.PLACE_JITTER)}
+	var u := {"id":next_id,"kind":kind,"team":team,"lane":lane,"pos":pos,"hp":data.hp,"max_hp":data.hp,"cd":0.0,"phase":rng.randf()*TAU,"face":1.0 if team == 0 else -1.0,"worked":[],"work_id":-1,"work_left":0.0,"spawn_delay":0.0,"charged":false,"flash":0.0,"heal_cd":0.0,"dy":rng.randf_range(-B.PLACE_JITTER,B.PLACE_JITTER)}
 	units.append(u)
 	return u
 
@@ -239,7 +239,7 @@ func heal(u: Dictionary, dt: float) -> void:
 			event("heal",ally.pos,u.team)
 
 func attack_bonus(u: Dictionary) -> float:
-	var factor := B.COMMAND_BONUS if u.buff_until > elapsed else 1.0
+	var factor := 1.0
 	for lord: Dictionary in lords:
 		if lord.team == u.team and lord.hp > 0 and lord.pos.distance_to(u.pos) <= B.AURA_RANGE: factor *= B.AURA_BONUS
 	return factor
@@ -349,7 +349,7 @@ func step(dt: float) -> void:
 					hit_gate(1-u.team,u.lane,amount*attack_bonus(u),u.kind)
 					u.cd = data.interval
 			else:
-				u.pos.x = move_toward(u.pos.x,stop,(B.OX_SLOW_SPEED if u.kind == "ox" and u.charged else data.speed)*dt*(B.COMMAND_BONUS if u.buff_until > elapsed else 1.0))
+				u.pos.x = move_toward(u.pos.x,stop,(B.OX_SLOW_SPEED if u.kind == "ox" and u.charged else data.speed)*dt)
 	units = units.filter(func(u: Dictionary) -> bool: return u.hp > 0)
 	buildings = buildings.filter(func(b: Dictionary) -> bool: return b.hp > 0)
 	update_clock()

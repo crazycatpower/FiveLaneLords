@@ -475,7 +475,6 @@ func draw_effects() -> void:
 					for i: int in range(5): draw_circle(e.pos+Vector2((i-2)*10,-15-10*sin(e.life*12+i)),8,Color(0.9,0.4,0.05,0.6))
 			"breach":
 				for i: int in range(8): draw_line(e.pos+Vector2(cos(i),sin(i))*progress*55,e.pos+Vector2(cos(i),sin(i))*progress*65,Color("6e4825"),3)
-			"spin", "command": draw_arc(e.pos,(B.SPIN_RANGE if e.kind == "spin" else B.COMMAND_RANGE)*progress,0,TAU,32,Color(0.8,0.6,0.2,1-progress),3)
 			"heal": label_at(e.pos+Vector2(-10,-30-progress*20),"+",20,Color(0.2,0.5,0.25,1-progress))
 			"fail":
 				var c := Color(0.75,0.12,0.1,1-progress)
