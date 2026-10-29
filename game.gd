@@ -58,7 +58,7 @@ func _ready() -> void:
 	for kind: String in B.CARDS:
 		var file := "res://assets/manuscript-v1/"+kind+".png"
 		if ResourceLoader.exists(file): textures[kind] = load(file)
-	for pair: Array in [["gate","gate"],["inkpot","ink"],["crest","crown"]]:
+	for pair: Array in [["gate","gate"],["crest","crown"]]:
 		textures[pair[0]] = load("res://assets/manuscript-v1/"+pair[1]+".png")
 	for lord_kind: String in B.LORDS:
 		textures["lord_"+lord_kind] = load("res://assets/manuscript-v1/lord-"+lord_kind+".png")
