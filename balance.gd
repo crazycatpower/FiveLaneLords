@@ -32,8 +32,6 @@ const LORD_REGEN := 3.0 # producer: regeneration cut hard (was 25/s after 3 s)
 const LORD_RETREAT_BELOW := 0.25 # retreat to the castle under this share of HP...
 const LORD_RETURN_ABOVE := 0.45 # ...and come back above this one (unless a gate is being stormed)
 const LORD_RESPAWN := 12.0
-const AURA_RANGE := 145.0
-const AURA_BONUS := 1.35
 const AI_TICK := 0.5
 const LORD_HYSTERESIS := 1.5
 # Costs run 1..30 (producer decision 2026-10-29). "role" is the card's job, shown on the card face.
@@ -74,10 +72,21 @@ const PRESETS := [
 const PRESET_LORDS := ["harvest","iron","lion"]
 # Lords are chosen on the deck screen and never enter the hand.
 const LORDS := {
-	"lion":{"name":"紅獅領主","role":"攻擊型","desc":"光環讓附近部隊攻擊 +40%；普攻 60。","hp":1000.0,"damage":60.0,"aura":1.4,"speed":90.0,"regen":1.0,"farm_bonus":1.0},
-	"harvest":{"name":"豐收領主","role":"經濟型","desc":"我方全部農田產量 +25%；普攻 45，光環 +20%。","hp":1000.0,"damage":45.0,"aura":1.2,"speed":90.0,"regen":1.0,"farm_bonus":1.25},
-	"iron":{"name":"鐵壁領主","role":"防守型","desc":"1500 血、回血 ×2；普攻 60、光環 +20%。","hp":1500.0,"damage":60.0,"aura":1.2,"speed":90.0,"regen":2.0,"farm_bonus":1.0}
+	"lion":{"name":"紅獅領主","role":"進攻型","hp":1000.0,"damage":60.0,"speed":90.0,"skill":"獅王號令","skill_desc":"五路各召喚一名騎士，從前線進攻。"},
+	"harvest":{"name":"豐收領主","role":"經濟型","hp":1000.0,"damage":45.0,"speed":90.0,"skill":"豐年祭","skill_desc":"每一路各種下一塊農田（有空格時），全部農田回滿血並產量加倍 %s 秒。"},
+	"iron":{"name":"鐵壁領主","role":"防守型","hp":1500.0,"damage":60.0,"speed":90.0,"skill":"重築城牆","skill_desc":"五座城門回滿血，已破的城門重建，城門前拆殘垣的敵兵要重新開始。"}
 }
+# Lord skills (producer 2026-10-29): lords have no passive effects; each has one strong skill the
+# player casts with Q (the AI casts its own). It costs a full purse and has a long cooldown.
+const SKILL_COST := 50.0
+const SKILL_COOLDOWN := 60.0
+const FEAST_BOOST := 30.0 # 豐年祭: seconds of doubled farm output
+
+# One-line skill text for the deck screen, battle panel and help.
+static func skill_text(kind: String) -> String:
+	var info: Dictionary = LORDS[kind]
+	var desc: String = info.skill_desc % number(FEAST_BOOST) if kind == "harvest" else info.skill_desc
+	return "%s（%d 金幣，冷卻 %d 秒）：%s" % [info.skill,int(SKILL_COST),int(SKILL_COOLDOWN),desc]
 
 # Stat tiers S..E (producer 2026-10-29): every troop, tower and lord stat uses exactly one of these
 # values, so the same tier always means the same number. Interval is seconds per hit (lower = faster).

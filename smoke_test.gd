@@ -46,6 +46,8 @@ func run() -> void:
 	test_fast_rules()
 	check(finished.has("fast_rules"),"fast rule test ran to the end")
 	test_ai_cards()
+	test_lord_skills()
+	check(finished.has("lord_skills"),"lord skill test ran to the end")
 	check(finished.has("ai_cards"),"AI card-use test ran to the end")
 	check(finished.has("repair"),"repair test ran to the end")
 	check(finished.has("card_cd"),"card cooldown test ran to the end")
@@ -120,6 +122,53 @@ func test_ai_cards() -> void:
 	m = ai_hand("healer",46)
 	check(m.AI.decide(m.snapshot(1)).get("kind","") == "healer","near the gold cap a stuck herbalist is spent anyway")
 	finished["ai_cards"] = true
+
+func test_lord_skills() -> void:
+	var m := bare(4,[],[],"lion","iron")
+	m.ink[0] = B.SKILL_COST-1
+	check(not m.skill_error(0).is_empty() and not m.cast_skill(0),"a skill needs the full price")
+	m.ink[0] = B.SKILL_COST
+	check(m.cast_skill(0) and m.ink[0] == 0 and is_equal_approx(m.skill_cd[0],B.SKILL_COOLDOWN),"casting spends the gold and starts the cooldown")
+	var knights: Array = m.units.filter(func(u: Dictionary) -> bool: return u.kind == "knight" and u.team == 0)
+	var lanes: Array = knights.map(func(u: Dictionary) -> int: return u.lane)
+	lanes.sort()
+	check(knights.size() == 5 and lanes == [0,1,2,3,4],"獅王號令 sends one knight down every lane")
+	m.ink[0] = B.SKILL_COST
+	check(not m.cast_skill(0) and "冷卻" in m.skill_error(0),"the skill cannot be cast again during its cooldown")
+	tick(m,B.SKILL_COOLDOWN+0.1)
+	m.ink[0] = B.SKILL_COST
+	m.lords[0].hp = 0
+	check(not m.cast_skill(0),"a fallen lord cannot cast")
+	# 鐵壁: every gate back, rubble progress lost.
+	m = bare(4,[],[],"lion","iron")
+	m.gates[1] = [0.0,100.0,B.GATE_HP,0.0,50.0]
+	var raider := m.spawn_unit(0,0,"militia",Vector2(L.gate_stop(1),L.cell_center(Vector2i(0,0)).y))
+	raider.climb = 2.0
+	m.ink[1] = B.SKILL_COST
+	check(m.cast_skill(1) and m.gates[1].all(func(g: float) -> bool: return g == B.GATE_HP) and raider.climb == 0.0,"重築城牆 restores every gate and resets the rubble")
+	# 豐收: a farm in every lane with room, every farm healed and doubled.
+	m = bare(4,[],[],"harvest","iron")
+	var old := m.add_building(0,Vector2i(0,2),"farm")
+	old.hp = 10
+	m.ink[0] = B.SKILL_COST
+	m.cast_skill(0)
+	var farms: Array = m.buildings.filter(func(b: Dictionary) -> bool: return b.team == 0 and b.kind == "farm")
+	var farm_lanes := {}
+	for b: Dictionary in farms: farm_lanes[b.cell.y] = true
+	check(farm_lanes.size() == 5 and farms.size() == 6,"豐年祭 plants one new farm in every lane that has room")
+	check(old.hp == old.max_hp and farms.all(func(b: Dictionary) -> bool: return is_equal_approx(m.farm_speed(b),2.0)),"豐年祭 heals every farm and doubles its output")
+	# The AI saves up, then casts.
+	m = bare(4,[],[],"lion","lion")
+	m.ai_enabled = [false,true]
+	m.elapsed = 60.0
+	m.ink[1] = B.SKILL_COST
+	tick(m,1.0)
+	check(m.stats[1].get("skills",0) == 1,"the AI casts its lord's skill when it can")
+	m = bare(4,[],[],"lion","iron")
+	check(not m.AI.skill_plan(m.skill_state(1)).save,"鐵壁 AI does not hoard gold while its gates are fine")
+	m.gates[1][2] = 0.0
+	check(m.AI.skill_plan(m.skill_state(1)).save,"鐵壁 AI saves for the wall once a gate falls")
+	finished["lord_skills"] = true
 
 func test_core() -> void:
 	var m := bare(42)
@@ -275,7 +324,7 @@ func test_lords() -> void:
 	tick(m,0.1)
 	check(m.lords[0].pos.x < L.GRID_ORIGIN.x+3*L.CELL_SIZE.x and m.lords[1].pos.x > L.GRID_ORIGIN.x+6*L.CELL_SIZE.x,"lords never leave their own territory")
 	check(m.lords[0].pos.x < L.cell_center(Vector2i(0,0)).x and m.lords[1].pos.x > L.cell_center(Vector2i(8,0)).x,"lords stay behind the back farm column")
-	check(not m.lords[0].has("spin") and not m.lords[0].has("command"),"lords have no active skills")
+	check(B.LORDS.values().all(func(l: Dictionary) -> bool: return not l.has("aura") and not l.has("farm_bonus") and not l.has("regen")),"lords have no passive effects")
 	m.damage(m.lords[0],9999,1,"militia")
 	tick(m,12.1)
 	check(m.lords[0].hp == B.LORDS.lion.hp,"lord revives after twelve seconds")
@@ -644,7 +693,7 @@ func test_opening_hand() -> void:
 	check(m.decks[0].size() == 8 and not "farm" in m.decks[0],"the rotating deck holds the eight chosen cards")
 	check(m.lords[0].lord == "harvest" and m.lords[1].max_hp == B.LORDS.iron.hp,"each side fields its chosen lord")
 	var farm: Dictionary = m.buildings[0]
-	check(is_equal_approx(m.farm_speed(farm),B.LORDS.harvest.farm_bonus),"the harvest lord speeds up our farms")
+	check(is_equal_approx(m.farm_speed(farm),1.0),"no lord changes farm output by itself")
 	tick(m,1.0)
 	check(m.farm_cd[0] < B.CARDS.farm.cooldown,"farm slot cooldown counts down")
 	var a := bare(31,B.PRESETS[1].duplicate())

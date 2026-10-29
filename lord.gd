@@ -4,7 +4,7 @@ const L = preload("res://layout.gd")
 const AI = preload("res://lord_ai.gd")
 static func create(team: int, lord_kind: String = "lion") -> Dictionary:
 	var data: Dictionary = B.LORDS.get(lord_kind,B.LORDS.lion)
-	return {"kind":"lord","lord":lord_kind,"team":team,"max_hp":data.hp,"damage":data.damage,"aura":data.aura,"speed":data.speed,"regen":data.regen,"farm_bonus":data.farm_bonus,"pos":Vector2(zone(team).y if team == 0 else zone(team).x,L.cell_center(Vector2i(0,2)).y),"hp":data.hp,"respawn":0.0,"cd":0.0,"last_hit":-10.0,"think":0.0,"target":L.spawn_position(team,2),"changed":-10.0,"retreating":false,"flash":0.0}
+	return {"kind":"lord","lord":lord_kind,"team":team,"max_hp":data.hp,"damage":data.damage,"speed":data.speed,"pos":Vector2(zone(team).y if team == 0 else zone(team).x,L.cell_center(Vector2i(0,2)).y),"hp":data.hp,"respawn":0.0,"cd":0.0,"last_hit":-10.0,"think":0.0,"target":L.spawn_position(team,2),"changed":-10.0,"retreating":false,"flash":0.0}
 # x range (min, max) a lord may stand in: a strip between the gate and the back farm column.
 static func zone(team: int) -> Vector2:
 	if team == 0: return Vector2(L.GRID_ORIGIN.x+10,L.GRID_ORIGIN.x+B.LORD_ZONE_DEPTH)
@@ -20,7 +20,7 @@ static func step(m: RefCounted, lord: Dictionary, dt: float) -> void:
 			lord.retreating = false
 		return
 	lord.flash = maxf(0,lord.flash-dt)
-	if m.elapsed-lord.last_hit >= B.LORD_REGEN_DELAY: lord.hp = minf(lord.max_hp,lord.hp+B.LORD_REGEN*lord.regen*dt)
+	if m.elapsed-lord.last_hit >= B.LORD_REGEN_DELAY: lord.hp = minf(lord.max_hp,lord.hp+B.LORD_REGEN*dt)
 	lord.think -= dt
 	if lord.think <= 0:
 		lord.think = B.AI_TICK

@@ -47,6 +47,8 @@ var lane_mill: Array = [] # lane_mill[team][lane]: a living mill boosts that lan
 # Hand slots 0..3 rotate; FARM_SLOT is the permanent farmland slot (never rotates, own cooldown).
 const FARM_SLOT := 4
 var farm_cd: Array = [0.0,0.0]
+var skill_cd: Array = [0.0,0.0] # lord skill cooldown per side
+var ai_save: Array = [false,false] # the AI is holding gold for its lord's skill
 
 func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = [], lord_a: String = "", lord_b: String = "") -> void:
 	rng.seed = seed_value
@@ -119,7 +121,6 @@ func farm_speed(b: Dictionary) -> float:
 
 func farm_speed_with(b: Dictionary, mill: bool) -> float:
 	var speed := 2.0 if maxf(b.boost_until,b.harvest_until) > elapsed else 1.0
-	if b.team < lords.size(): speed *= lords[b.team].get("farm_bonus",1.0) # the harvest lord
 	if mill: speed *= B.MILL_BONUS
 	return speed
 
@@ -295,6 +296,50 @@ func hit_gate(side: int, lane: int, amount: float, kind: String = "militia") -> 
 	stats[1-side].damage[kind] = stats[1-side].damage.get(kind,0.0)+dealt
 	if side == 0: alarm[lane] = 1.5
 
+# Why the lord's skill cannot be cast now ("" = it can).
+func skill_error(team: int) -> String:
+	if ended: return "戰局已經結束。"
+	if paused: return "暫停中。"
+	var info: Dictionary = B.LORDS[lords[team].lord]
+	if lords[team].hp <= 0: return "領主倒下了，復活後才能發動%s。" % info.skill
+	if skill_cd[team] > 0.00001: return "%s還要冷卻 %d 秒。" % [info.skill,ceili(skill_cd[team])]
+	if ink[team] < B.SKILL_COST: return "金幣不足：%s要 %d，還差 %d。" % [info.skill,int(B.SKILL_COST),ceili(B.SKILL_COST-ink[team])]
+	return ""
+
+func cast_skill(team: int) -> bool:
+	if not skill_error(team).is_empty(): return false
+	ink[team] -= B.SKILL_COST
+	skill_cd[team] = B.SKILL_COOLDOWN
+	var kind: String = lords[team].lord
+	stats[team].skills = stats[team].get("skills",0)+1
+	match kind:
+		"lion":
+			# One knight per lane at the front-most deploy column of that lane.
+			for lane: int in range(5):
+				var col := (6 if gates[1-team][lane] <= 0 else 3)-1
+				var u := spawn_unit(team,lane,"knight",L.cell_center(Vector2i(col if team == 0 else 8-col,lane)))
+				u.card = "skill"
+				u.spawn_delay = lane*0.1
+		"harvest":
+			# A farm in each lane (front-most free home cell), then every farm healed and doubled.
+			for lane: int in range(5):
+				for col: int in range(3):
+					var cell := Vector2i(col if team == 0 else 8-col,lane)
+					if building_at(cell).is_empty():
+						add_building(team,cell,"farm")
+						break
+			for b: Dictionary in buildings:
+				if b.team == team and b.kind == "farm" and b.hp > 0:
+					b.hp = b.max_hp
+					b.boost_until = maxf(b.boost_until,elapsed+B.FEAST_BOOST)
+		"iron":
+			# Every gate back to full; attackers already clearing rubble must start over.
+			for lane: int in range(5): gates[team][lane] = B.GATE_HP
+			for u: Dictionary in units:
+				if u.team != team: u.climb = 0.0
+	event("skill",lords[team].pos,team,{"lord":kind})
+	return true
+
 func finish(side: int) -> void:
 	ended = true
 	winner = side
@@ -320,7 +365,6 @@ func attack(u: Dictionary, target: Dictionary) -> void:
 			u.charged = true
 			if not target.has("cell"): target.pos.x += u.face*B.OX_KNOCKBACK
 		if target.has("cell"): amount *= B.OX_BUILDING_BONUS
-	amount *= attack_bonus(u)
 	if u.kind == "hunter": shoot(u,target,amount)
 	else: damage(target,amount,u.team,u.get("card",u.kind))
 	u.cd = data.interval
@@ -345,12 +389,6 @@ func heal(u: Dictionary, dt: float) -> void:
 		if ally.team == u.team and ally.hp > 0 and u.pos.distance_to(ally.pos) <= B.HEAL_RADIUS:
 			ally.hp = minf(ally.max_hp,ally.hp+B.HEAL_AMOUNT)
 			event("heal",ally.pos,u.team)
-
-func attack_bonus(u: Dictionary) -> float:
-	var factor := 1.0
-	for lord: Dictionary in lords:
-		if lord.team == u.team and lord.hp > 0 and lord.pos.distance_to(u.pos) <= B.AURA_RANGE: factor *= lord.aura
-	return factor
 
 func cultivate(u: Dictionary, dt: float) -> bool:
 	if u.kind != "farmer": return false
@@ -385,6 +423,7 @@ func step(dt: float) -> void:
 		# Card cooldowns speed up together with ink (x1.5 after 3:00, x2 after 5:00).
 		for slot: int in range(4): hand_cd[team][slot] = maxf(0,hand_cd[team][slot]-dt*multiplier())
 		farm_cd[team] = maxf(0,farm_cd[team]-dt*multiplier())
+		skill_cd[team] = maxf(0,skill_cd[team]-dt)
 		base_clock[team] += dt*multiplier()
 		while base_clock[team] >= B.BASE_INTERVAL-0.000001:
 			base_clock[team] -= B.BASE_INTERVAL
@@ -458,7 +497,7 @@ func step(dt: float) -> void:
 					if u.kind == "ox":
 						amount = (B.OX_CHARGE if not u.charged else data.damage)*B.OX_BUILDING_BONUS
 						u.charged = true
-					hit_gate(1-u.team,u.lane,amount*attack_bonus(u),u.get("card",u.kind))
+					hit_gate(1-u.team,u.lane,amount,u.get("card",u.kind))
 					u.cd = data.interval
 			else:
 				u.pos.x = move_toward(u.pos.x,stop,(B.OX_SLOW_SPEED if u.kind == "ox" and u.charged else u.get("march",data.speed))*dt)
@@ -490,6 +529,18 @@ func update_clock() -> void:
 	for ramp: float in [B.RAMP_1,B.RAMP_2]:
 		if elapsed >= ramp and elapsed-last_dt < ramp: event("ramp",Vector2(800,50),0,{"multiplier":multiplier()})
 
+# What the AI needs to decide on its lord's skill.
+func skill_state(team: int) -> Dictionary:
+	var farms := 0
+	for b: Dictionary in buildings:
+		if b.team == team and b.kind == "farm" and b.hp > 0: farms += 1
+	var gate_total := 0.0
+	var broken := 0
+	for hp: float in gates[team]:
+		gate_total += hp
+		if hp <= 0: broken += 1
+	return {"lord":lords[team].lord,"ready":lords[team].hp > 0 and skill_cd[team] <= 0,"ink":ink[team],"elapsed":elapsed,"farms":farms,"gate_share":gate_total/(5*B.GATE_HP),"broken":broken}
+
 func snapshot(team: int) -> Dictionary:
 	var candidates: Array = []
 	for slot: int in [0,1,2,3,FARM_SLOT]:
@@ -498,7 +549,7 @@ func snapshot(team: int) -> Dictionary:
 				var cell := Vector2i(col,row)
 				var pos := L.cell_center(cell)
 				if can_play(team,slot,pos): candidates.append({"slot":slot,"kind":kind_at(team,slot),"pos":pos,"cell":cell})
-	return {"team":team,"ink":ink[team],"enemy_ink":ink[1-team],"difficulty":difficulty,"elapsed":elapsed,"wave_until":wave_until[team],"memory":memory[team].duplicate(),"recent":recent_lanes[team].duplicate(),"units":units,"buildings":buildings,"gates":gates,"candidates":candidates}
+	return {"team":team,"ink":ink[team],"enemy_ink":ink[1-team],"difficulty":difficulty,"elapsed":elapsed,"wave_until":wave_until[team],"memory":memory[team].duplicate(),"recent":recent_lanes[team].duplicate(),"saving":ai_save[team],"units":units,"buildings":buildings,"gates":gates,"candidates":candidates}
 
 func update_ai(dt: float) -> void:
 	if elapsed < ai_start: return
@@ -515,5 +566,8 @@ func update_ai(dt: float) -> void:
 		ai_clock[team] -= dt
 		if ai_clock[team] <= 0:
 			ai_clock[team] = B.AI_TICK
+			var plan: Dictionary = AI.skill_plan(skill_state(team))
+			ai_save[team] = plan.save
+			if plan.cast and cast_skill(team): continue
 			ai_pending[team] = AI.decide(snapshot(team))
 			ai_delay[team] = [1.2,0.6,0.2][difficulty]

@@ -11,6 +11,17 @@ const DEFEND_REACH := 4.5
 # at the 50-ink cap (about 35% of all ink was wasted in tools/sim.gd).
 const SPEND_AT := 35.0 # columns from our gate at which an approaching enemy counts as a threat
 
+# Lord skill: {"cast": bool, "save": bool}. While saving, the AI only defends and repairs, so its
+# purse can reach the full SKILL_COST.
+static func skill_plan(k: Dictionary) -> Dictionary:
+	if not k.ready: return {"cast":false,"save":false}
+	var wanted := false
+	match k.lord:
+		"lion": wanted = k.elapsed >= 45.0
+		"harvest": wanted = k.elapsed >= 45.0 and k.farms <= 7
+		"iron": wanted = k.broken > 0 or k.gate_share < 0.6
+	return {"cast":wanted and k.ink >= B.SKILL_COST,"save":wanted}
+
 static func decide(s: Dictionary) -> Dictionary:
 	var team: int = s.team
 	var forward := 1.0 if team == 0 else -1.0
@@ -96,6 +107,7 @@ static func decide(s: Dictionary) -> Dictionary:
 							best_score = score
 							best = c.duplicate()
 					continue
+			if s.get("saving",false) and defend < 0: continue # holding gold for the lord's skill
 			if defend >= 0:
 				if lane != defend: continue
 				var fx: float = foe_x[lane]

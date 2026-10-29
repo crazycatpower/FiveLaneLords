@@ -48,6 +48,7 @@ const RESULT_RECT := Rect2(380,170,840,380)
 const SPEEDS := [1,2,4,8]
 const SPEED_RECTS := [Rect2(1360,736,46,32),Rect2(1412,736,46,32),Rect2(1464,736,46,32),Rect2(1516,736,46,32)]
 const NEXT_RECT := Rect2(1102,748,96,128)
+const SKILL_RECT := Rect2(1212,734,356,54)
 
 func _ready() -> void:
 	var sf := SystemFont.new()
@@ -189,6 +190,7 @@ func _physics_process(dt: float) -> void:
 func consume_events() -> void:
 	for e: Dictionary in model.events:
 		if e.kind == "breach": notice = ("我方第 %d 路城門被攻破！敵兵走進來就輸了。" if e.team == 1 else "攻破藍旗第 %d 路城門！派兵走進去就贏。") % (e.lane+1)
+		if e.kind == "skill": notice = "%s%s發動「%s」！" % ["紅方" if e.team == 0 else "藍方",B.LORDS[e.lord].name,B.LORDS[e.lord].skill]
 		if e.kind == "ramp": notice = "金幣產出與卡牌冷卻加快 ×%.1f" % e.multiplier
 		if e.kind == "overflow" and e.team == 0 and not spectating: notice = "金幣已滿 50，繼續產出的金幣會浪費。"
 		if sound != null: sound.cue(e.kind)
@@ -251,6 +253,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			var index: int = event.keycode-KEY_1
 			if spectating: set_speed(SPEEDS[index])
 			else: selected = -1 if selected == index else index
+		if event.keycode == KEY_Q and not spectating: try_skill()
 		if event.keycode == KEY_F and not spectating: selected = -1 if selected == Battle.FARM_SLOT else Battle.FARM_SLOT
 		if spectating and event.keycode in [KEY_EQUAL,KEY_KP_ADD,KEY_PLUS]: set_speed(SPEEDS[mini(SPEEDS.find(speed)+1,SPEEDS.size()-1)])
 		if spectating and event.keycode in [KEY_MINUS,KEY_KP_SUBTRACT]: set_speed(SPEEDS[maxi(SPEEDS.find(speed)-1,0)])
@@ -283,6 +286,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			if spectating:
 				for i: int in range(SPEEDS.size()):
 					if SPEED_RECTS[i].has_point(pos): set_speed(SPEEDS[i])
+				return
+			if SKILL_RECT.has_point(pos):
+				try_skill()
 				return
 			var slot := card_at(pos)
 			if slot >= 0:
@@ -663,13 +669,37 @@ func draw_hud() -> void:
 	var mouse := get_global_mouse_position()
 	if dragging and selected >= 0 and card_at(mouse) < 0 and model.cell_at(mouse).x < 0:
 		draw_texture_rect(art(model.kind_at(0,selected)),Rect2(mouse-Vector2(30,36),Vector2(60,72)),false,Color(1,1,1,0.7))
-	label_at(Vector2(1220,766),"雙方領主",20)
+	if spectating: label_at(Vector2(1220,766),"雙方領主",20)
+	else: draw_skill_button()
 	for lord: Dictionary in model.lords:
-		var y: float = 800+lord.team*44
+		var y: float = 814+lord.team*42
 		var info: Dictionary = B.LORDS[lord.lord]
-		label_at(Vector2(1220,y),"%s · %s" % ["紅" if lord.team == 0 else "藍",info.name],16,RED if lord.team == 0 else BLUE)
-		bar(Rect2(1220,y+8,170,6),lord.hp,lord.max_hp,RED if lord.team == 0 else BLUE)
+		var color: Color = RED if lord.team == 0 else BLUE
+		label_at(Vector2(1220,y),"%s · %s" % ["紅" if lord.team == 0 else "藍",info.name],16,color)
+		bar(Rect2(1220,y+8,170,6),lord.hp,lord.max_hp,color)
 		label_at(Vector2(1400,y+14),"%d / %d" % [maxi(0,int(lord.hp)),int(lord.max_hp)],14)
+		var cd: float = model.skill_cd[lord.team]
+		label_at(Vector2(1490,y+14),"技能 %ds" % ceili(cd) if cd > 0 else "技能就緒",13,Color("6f5a3e") if cd > 0 else color)
+
+# Our lord's skill: Q or click. Lit when it can be cast; shows the cooldown otherwise.
+func draw_skill_button() -> void:
+	var info: Dictionary = B.LORDS[model.lords[0].lord]
+	var ready: bool = model.skill_error(0).is_empty()
+	panel(SKILL_RECT,Color("f2e3c0") if ready else Color("e3d2aa"),RED if ready else INK)
+	if ready: draw_rect(SKILL_RECT.grow(2),RED,false,3)
+	draw_rect(Rect2(SKILL_RECT.position+Vector2(8,10),Vector2(24,24)),Color("725138"))
+	draw_string(font,SKILL_RECT.position+Vector2(8,28),"Q",HORIZONTAL_ALIGNMENT_CENTER,24,15,Color("efdfb9"))
+	label_at(SKILL_RECT.position+Vector2(42,24),"領主技能：%s" % info.skill,17,RED if ready else INK)
+	var cd: float = model.skill_cd[0]
+	var state: String = "冷卻 %d 秒" % ceili(cd) if cd > 0 else ("可發動" if ready else "還差 %d 金幣" % ceili(B.SKILL_COST-model.ink[0]) if model.ink[0] < B.SKILL_COST else "領主倒下中")
+	label_at(SKILL_RECT.position+Vector2(42,44),"%d 金幣 · %s" % [int(B.SKILL_COST),state],13,Color("6f5a3e"))
+
+func try_skill() -> bool:
+	var reason: String = model.skill_error(0)
+	if reason.is_empty() and model.cast_skill(0): return true
+	notice = reason
+	if sound != null: sound.cue("fail")
+	return false
 
 
 func show_title() -> void:
@@ -705,7 +735,7 @@ func show_deck() -> void:
 	for lord_kind: String in B.LORDS:
 		var choice := lord_kind
 		var b := button(lord_rect(lord_index),"",func(): player_lord = choice; save_choice(); show_deck())
-		b.tooltip_text = "%s（%s）\n%s" % [B.LORDS[lord_kind].name,B.LORDS[lord_kind].role,B.LORDS[lord_kind].desc]
+		b.tooltip_text = lord_tooltip(lord_kind)
 		b.modulate = Color(1,1,1,0.01)
 		lord_index += 1
 	var index := 0
@@ -727,6 +757,10 @@ func tab_size() -> int:
 	for kind: String in B.CARDS:
 		if B.CARDS[kind].type == deck_tab and kind != "farm": n += 1
 	return n
+
+func lord_tooltip(kind: String) -> String:
+	var info: Dictionary = B.LORDS[kind]
+	return "%s（%s）\n%d 血 · 普攻 %d\n%s" % [info.name,info.role,int(info.hp),int(info.damage),B.skill_text(kind)]
 
 func lord_rect(index: int) -> Rect2:
 	return Rect2(1010+index*190,150,180,90)
@@ -759,8 +793,8 @@ func draw_deck() -> void:
 		if lord_kind == player_lord: draw_rect(r.grow(2),RED,false,3)
 		draw_texture_rect(lord_art(lord_kind),Rect2(r.position+Vector2(6,6),Vector2(64,78)),false)
 		label_at(r.position+Vector2(76,32),info.name,18)
-		label_at(r.position+Vector2(76,56),info.role,14,Color("6f5a3e"))
-		label_at(r.position+Vector2(76,78),"%d 血 · 普攻 %d" % [int(info.hp),int(info.damage)],12,Color("6f5a3e"))
+		label_at(r.position+Vector2(76,56),"%s · %d 血" % [info.role,int(info.hp)],12,Color("6f5a3e"))
+		label_at(r.position+Vector2(76,78),"技能：%s" % info.skill,12,RED)
 		lord_index += 1
 	var index := 0
 	for kind: String in B.CARDS:
@@ -826,8 +860,7 @@ func show_watch() -> void:
 		for lord_kind: String in B.LORDS:
 			var choice := lord_kind
 			var b := button(watch_lord_rect(team,index),"",func(): watch_lords[side] = choice; show_watch())
-			b.tooltip_text = "%s（%s）
-%s" % [B.LORDS[lord_kind].name,B.LORDS[lord_kind].role,B.LORDS[lord_kind].desc]
+			b.tooltip_text = lord_tooltip(lord_kind)
 			b.modulate = Color(1,1,1,0.01)
 			index += 1
 		for i: int in range(8):
@@ -871,7 +904,7 @@ func card_description(kind: String) -> String:
 
 func help_columns() -> Array[String]:
 	return [
-		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐農田；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 有選牌時取消，沒選牌時切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩，戰鬥中按 R 不重開。\n\n[b]牌組與領主[/b]\n農田固定＋領主三選一＋自選 8 張輪轉牌。農田不輪轉、不佔 8 張名額。領主由 AI 操作，只在農田後方、城門前防守。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2，等待時間會縮短。" % [B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
+		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐農田；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 有選牌時取消，沒選牌時切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩，戰鬥中按 R 不重開。\n\n[b]牌組與領主[/b]\n農田固定＋領主三選一＋自選 8 張輪轉牌。農田不輪轉、不佔 8 張名額。領主由 AI 移動，只在農田後方防守；按 Q 花 %s 金幣發動領主技能，冷卻 %s 秒。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2，等待時間會縮短。" % [B.number(B.SKILL_COST),B.number(B.SKILL_COOLDOWN),B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
 		"[b]種田與防守[/b]\n農田自己產金幣；農民從田後方出發，順路耕田加速並回血。相同建築覆蓋自己的舊建築可補滿生命。\n部隊只往前走，不追身後範圍外的敵人；城門不反擊，靠領主、部隊與建築防守。\n\n[b]破門與勝負[/b]\n破門後該路部隊可部署到第六欄，建築仍限原始三欄。敵兵破門後需停下拆殘垣 %s 秒，再向家門前進。\n任何敵兵走進家門就輸，沒有時間限制。\n\n[b]觀戰模式[/b]\n開戰前調整雙方牌組與領主（預設隨機），AI 出牌；1–4 切換 ×1／×2／×4／×8，＋／－ 逐級調速。空白鍵暫停。" % B.number(B.RUBBLE_TIME)
 	]
 
