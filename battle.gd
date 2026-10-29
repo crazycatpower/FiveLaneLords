@@ -154,10 +154,7 @@ func play(team: int, slot: int, pos: Vector2) -> bool:
 		var here := building_at(cell)
 		if here.is_empty(): add_building(team,cell,kind)
 		else: refresh_building(here)
-	elif card.type == "unit":
-		for i: int in range(card.count):
-			var u := spawn_unit(team,cell.y,kind,L.cell_center(cell))
-			u.spawn_delay = i*0.12
+	elif card.type == "unit": deploy(team,kind,cell)
 	else: spells.append({"kind":kind,"team":team,"pos":pos,"delay":B.SPELL_DELAY})
 	memory[1-team] = {"card":kind,"lane":cell.y}
 	if card.type == "unit":
@@ -182,6 +179,28 @@ func refresh_building(b: Dictionary) -> void:
 	if data.expires > 0: b.expires = elapsed+data.expires
 	stats[b.team].repairs = stats[b.team].get("repairs",0)+1
 	event("heal",b.pos,b.team)
+
+# Fields a unit card: one troop type, a mixed legion ("members"), or the same squad in three
+# adjacent lanes ("spread"; shifted inward at the edge lanes). Troops behind the front stand back.
+func deploy(team: int, kind: String, cell: Vector2i) -> void:
+	var card: Dictionary = B.CARDS[kind]
+	var groups: Array = card.get("members",[[kind,card.get("count",1),0.0]])
+	var lanes: Array = [cell.y]
+	if card.get("spread",false):
+		var middle := clampi(cell.y,1,3)
+		lanes = [middle-1,middle,middle+1]
+	var forward := 1.0 if team == 0 else -1.0
+	var n := 0
+	for lane: int in lanes:
+		var col := cell.x if team == 0 else 8-cell.x
+		col = mini(col,(6 if gates[1-team][lane] <= 0 else 3)-1) # side lanes may not be breached
+		var spot := L.cell_center(Vector2i(col if team == 0 else 8-col,lane))
+		for group: Array in groups:
+			for i: int in range(group[1]):
+				var u := spawn_unit(team,lane,group[0],spot-Vector2(forward*group[2],0))
+				u.spawn_delay = n*0.12
+				u.card = kind
+				n += 1
 
 func spawn_unit(team: int, lane: int, kind: String, pos: Vector2) -> Dictionary:
 	next_id += 1
@@ -242,11 +261,11 @@ func attack(u: Dictionary, target: Dictionary) -> void:
 		if target.has("cell"): amount *= B.OX_BUILDING_BONUS
 	amount *= attack_bonus(u)
 	if u.kind == "hunter": shoot(u,target,amount)
-	else: damage(target,amount,u.team,u.kind)
+	else: damage(target,amount,u.team,u.get("card",u.kind))
 	u.cd = data.interval
 
 func shoot(source: Dictionary, target: Dictionary, amount: float) -> void:
-	projectiles.append({"pos":source.pos,"start":source.pos,"target":target,"remaining":B.ARROW_TIME,"amount":amount,"team":source.team,"kind":source.kind})
+	projectiles.append({"pos":source.pos,"start":source.pos,"target":target,"remaining":B.ARROW_TIME,"amount":amount,"team":source.team,"kind":source.get("card",source.kind)})
 	event("arrow",source.pos,source.team)
 
 func update_projectiles(dt: float) -> void:
@@ -377,7 +396,7 @@ func step(dt: float) -> void:
 					if u.kind == "ox":
 						amount = (B.OX_CHARGE if not u.charged else data.damage)*B.OX_BUILDING_BONUS
 						u.charged = true
-					hit_gate(1-u.team,u.lane,amount*attack_bonus(u),u.kind)
+					hit_gate(1-u.team,u.lane,amount*attack_bonus(u),u.get("card",u.kind))
 					u.cd = data.interval
 			else:
 				u.pos.x = move_toward(u.pos.x,stop,(B.OX_SLOW_SPEED if u.kind == "ox" and u.charged else data.speed)*dt)

@@ -296,7 +296,7 @@ func test_ai() -> void:
 
 
 func test_cards() -> void:
-	check(B.CARDS.size() == 15,"fifteen card pool")
+	check(B.CARDS.size() == 17,"seventeen card pool")
 	var costs: Array = B.CARDS.values().map(func(c: Dictionary) -> int: return c.cost)
 	check(costs.min() == 1 and costs.max() == 30,"card costs span 1 to 30")
 	check(B.CARDS.values().all(func(c: Dictionary) -> bool: return c.has("role") and not c.role.is_empty()),"every card has a role")
@@ -355,7 +355,29 @@ func test_cards() -> void:
 	m = bare(2)
 	offer(m,"mob")
 	m.play(0,0,L.cell_center(Vector2i(1,1)))
-	check(m.units.size() == 5 and m.units.back().spawn_delay > 0,"mob deploys five staggered troops")
+	var lanes: Array = m.units.map(func(u: Dictionary) -> int: return u.lane)
+	lanes.sort()
+	check(m.units.size() == 6 and lanes == [0,0,1,1,2,2] and m.units.back().spawn_delay > 0,"mob deploys two troops in each of three adjacent lanes")
+	m = bare(2)
+	offer(m,"mob")
+	m.play(0,0,L.cell_center(Vector2i(1,4)))
+	lanes = m.units.map(func(u: Dictionary) -> int: return u.lane)
+	lanes.sort()
+	check(lanes == [2,2,3,3,4,4],"at an edge lane the mob shifts inward")
+	m = bare(2)
+	offer(m,"spearbow")
+	m.play(0,0,L.cell_center(Vector2i(2,2)))
+	var kinds: Array = m.units.map(func(u: Dictionary) -> String: return u.kind)
+	var spear_x: float = m.units.filter(func(u: Dictionary) -> bool: return u.kind == "militia")[0].pos.x
+	var bow_x: float = m.units.filter(func(u: Dictionary) -> bool: return u.kind == "hunter")[0].pos.x
+	check(kinds.count("militia") == 2 and kinds.count("hunter") == 2 and bow_x < spear_x,"spear-and-bow legion: militia in front, hunters behind")
+	check(m.units.all(func(u: Dictionary) -> bool: return u.card == "spearbow"),"legion troops credit their damage to the legion card")
+	m = bare(2)
+	offer(m,"guard")
+	m.play(0,0,L.cell_center(Vector2i(2,3)))
+	kinds = m.units.map(func(u: Dictionary) -> String: return u.kind)
+	kinds.sort()
+	check(kinds == ["healer","knight"],"cathedral guard fields a knight and a herbalist")
 	m = bare(2)
 	for lane: int in range(4): m.add_building(0,Vector2i(1,lane),"farm")
 	m.decks[1] = ["fire","militia","rain","tower","farm","farmer","ox","mob"]

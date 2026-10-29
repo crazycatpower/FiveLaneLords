@@ -355,10 +355,20 @@ func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 	var s := rect.size
 	var short: bool = screen == "battle" and model.ink[0] < data.cost
 	draw_texture_rect(ART.card(selected == slot and slot >= 0),rect,false)
-	draw_texture_rect(art(kind),Rect2(rect.position+s*Vector2(0.17,0.13),s*Vector2(0.66,0.5)),false,Color(0.45,0.45,0.45) if short else Color.WHITE)
+	var arts: Array = data.get("art",[kind])
+	var shade := Color(0.45,0.45,0.45) if short else Color.WHITE
+	if arts.size() == 1: draw_texture_rect(art(kind),Rect2(rect.position+s*Vector2(0.17,0.13),s*Vector2(0.66,0.5)),false,shade)
+	else:
+		# Legion cards show their troops side by side.
+		draw_texture_rect(art(arts[0]),Rect2(rect.position+s*Vector2(0.08,0.14),s*Vector2(0.5,0.48)),false,shade)
+		draw_texture_rect(art(arts[1]),Rect2(rect.position+s*Vector2(0.42,0.14),s*Vector2(0.5,0.48)),false,shade)
 	# Name and type sit above the frame's bottom corner flowers (they start ~83% down).
 	draw_string(font,rect.position+Vector2(0,s.y*0.74),data.name,HORIZONTAL_ALIGNMENT_CENTER,s.x,17,INK)
-	draw_string(font,rect.position+Vector2(0,s.y*0.83),"%s · 冷卻 %ds" % [data.role,int(data.cooldown)] if screen != "battle" else data.role,HORIZONTAL_ALIGNMENT_CENTER,s.x,12,Color("7a6446"))
+	draw_string(font,rect.position+Vector2(0,s.y*0.83),data.role,HORIZONTAL_ALIGNMENT_CENTER,s.x,12,Color("7a6446"))
+	if screen != "battle":
+		# Outside battle the top-left corner shows the card's cooldown (in battle it shows the hand slot).
+		draw_rect(Rect2(rect.position+Vector2(7,7),Vector2(34,20)),Color("725138"))
+		draw_string(font,rect.position+Vector2(7,22),"%ds" % int(data.cooldown),HORIZONTAL_ALIGNMENT_CENTER,34,13,Color("efdfb9"))
 	# Ink cost badge, top right.
 	var badge := rect.position+Vector2(s.x-19,19)
 	draw_circle(badge,15,Color("2f3f5c"))
@@ -532,7 +542,11 @@ func draw_preview() -> void:
 	else:
 		draw_texture_rect(art(kind),Rect2(L.cell_center(cell)-Vector2(35,40),Vector2(70,80)),false,Color(1,1,1,0.5))
 		if data.type == "unit":
-			draw_line(L.cell_center(cell),Vector2(L.gate_stop(1),L.cell_center(cell).y),color,3)
+			var lanes: Array = [cell.y]
+			if data.get("spread",false):
+				var middle := clampi(cell.y,1,3)
+				lanes = [middle-1,middle,middle+1]
+			for lane: int in lanes: draw_line(Vector2(L.cell_center(cell).x,L.cell_center(Vector2i(0,lane)).y),Vector2(L.gate_stop(1),L.cell_center(Vector2i(0,lane)).y),color,3)
 			if kind == "farmer":
 				for b: Dictionary in model.buildings:
 					if b.kind == "farm" and b.team == 0 and b.cell.y == cell.y and b.cell.x >= cell.x: draw_circle(b.pos,40,color,false,3)
@@ -643,7 +657,7 @@ func show_deck() -> void:
 	for kind: String in B.CARDS:
 		if B.CARDS[kind].type != deck_tab: continue
 		var card_kind := kind
-		var rect := Rect2(120+index%8*170,310,150,190)
+		var rect := pool_rect(index,tab_size())
 		var b := button(rect,"",func(): toggle_deck_card(card_kind))
 		b.tooltip_text = card_description(kind)
 		b.modulate = Color(1,1,1,0.01)
@@ -652,6 +666,15 @@ func show_deck() -> void:
 	start_button = button(Rect2(1220,805,240,50),"儲存並開戰",func(): spectating = false; start_battle())
 	start_button.disabled = not DeckStore.valid(player_deck)
 	queue_redraw()
+
+func tab_size() -> int:
+	return B.CARDS.values().filter(func(c: Dictionary) -> bool: return c.type == deck_tab).size()
+
+# Card pool layout: up to eight full-size cards in a row, narrower when a tab holds more.
+func pool_rect(index: int, count: int) -> Rect2:
+	var step := minf(170.0,1380.0/maxi(1,count))
+	var width := minf(150.0,step-12)
+	return Rect2(120+index*step,310,width,width*190.0/150.0)
 
 func toggle_deck_card(kind: String) -> void:
 	if kind in player_deck: player_deck.erase(kind)
@@ -666,7 +689,7 @@ func draw_deck() -> void:
 	var index := 0
 	for kind: String in B.CARDS:
 		if B.CARDS[kind].type != deck_tab: continue
-		var rect := Rect2(120+index%8*170,310,150,190)
+		var rect := pool_rect(index,tab_size())
 		draw_card(kind,rect)
 		if kind in player_deck: draw_rect(rect,Color("9b3d2c"),false,4)
 		index += 1
@@ -676,7 +699,7 @@ func draw_deck() -> void:
 
 func card_description(kind: String) -> String:
 	var card: Dictionary = B.CARDS[kind]
-	var descriptions := {"farm":"種下三秒後開始，每二十秒產出四墨水。","farmer":"兩名農民向前走，順路耕田 1.5 秒：那塊田回 100 血，十五秒內產量加倍。","mill":"同一路農田產量 ×2；同一路多座不疊加。","scarecrow":"吸引附近敵兵攻擊它，直到被打倒。","tower":"每 0.8 秒射箭，射程 200，直到被打倒。","harvest":"範圍內農田立刻各產一滴，八秒內產量加倍。","rain":"範圍內部隊 200 傷害，建築與城門 60。","fire":"部隊 420 傷害，建築 840，城門 140。","ox":"第一下衝撞 150 並擊退，拆建築 ×1.5。","healer":"每秒治療附近友軍 15 血。","ram":"1600 血，無視部隊，每兩秒對城門或建築 160 傷害；城門破了就直接走進去。","hunter":"射程 170 的遠程手，兩名。","knight":"1000 血的重裝主坦。","mob":"五名暴民，錯開出場。","militia":"兩名民兵，便宜的擋路與循環牌。"}
+	var descriptions := {"farm":"種下三秒後開始，每二十秒產出四墨水。","farmer":"兩名農民向前走，順路耕田 1.5 秒：那塊田回 100 血，十五秒內產量加倍。","mill":"同一路農田產量 ×2；同一路多座不疊加。","scarecrow":"吸引附近敵兵攻擊它，直到被打倒。","tower":"每 0.8 秒射箭，射程 200，直到被打倒。","harvest":"範圍內農田立刻各產一滴，八秒內產量加倍。","rain":"範圍內部隊 200 傷害，建築與城門 60。","fire":"部隊 420 傷害，建築 840，城門 140。","ox":"第一下衝撞 150 並擊退，拆建築 ×1.5。","healer":"每秒治療附近友軍 15 血。","ram":"1600 血，無視部隊，每兩秒對城門或建築 160 傷害；城門破了就直接走進去。","hunter":"射程 170 的遠程手，兩名。","knight":"1000 血的重裝主坦。","mob":"選中的那一路和左右相鄰兩路，各出兩名暴民（共六名）。","spearbow":"兩名民兵在前、兩名獵戶在後，同一路一起出發。","guard":"騎士在前開路，草藥婆跟在後面為他療傷。","militia":"兩名民兵，便宜的擋路與循環牌。"}
 	return "%s · %d 墨水 · 冷卻 %d 秒 · %s\n%s" % [card.name,card.cost,int(card.cooldown),card.role,descriptions.get(kind,"")]
 
 func show_help() -> void:
