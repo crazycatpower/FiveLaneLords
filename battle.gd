@@ -191,6 +191,10 @@ func deploy(team: int, kind: String, cell: Vector2i) -> void:
 		lanes = [middle-1,middle,middle+1]
 	var forward := 1.0 if team == 0 else -1.0
 	var n := 0
+	# A mixed legion keeps formation: everyone marches at the slowest member's pace.
+	var march := INF
+	if groups.size() > 1:
+		for group: Array in groups: march = minf(march,B.CARDS[group[0]].speed)
 	for lane: int in lanes:
 		var col := cell.x if team == 0 else 8-cell.x
 		col = mini(col,(6 if gates[1-team][lane] <= 0 else 3)-1) # side lanes may not be breached
@@ -200,6 +204,7 @@ func deploy(team: int, kind: String, cell: Vector2i) -> void:
 				var u := spawn_unit(team,lane,group[0],spot-Vector2(forward*group[2],0))
 				u.spawn_delay = n*0.12
 				u.card = kind
+				if march < INF: u.march = march
 				n += 1
 
 func spawn_unit(team: int, lane: int, kind: String, pos: Vector2) -> Dictionary:
@@ -399,7 +404,7 @@ func step(dt: float) -> void:
 					hit_gate(1-u.team,u.lane,amount*attack_bonus(u),u.get("card",u.kind))
 					u.cd = data.interval
 			else:
-				u.pos.x = move_toward(u.pos.x,stop,(B.OX_SLOW_SPEED if u.kind == "ox" and u.charged else data.speed)*dt)
+				u.pos.x = move_toward(u.pos.x,stop,(B.OX_SLOW_SPEED if u.kind == "ox" and u.charged else u.get("march",data.speed))*dt)
 	units = units.filter(func(u: Dictionary) -> bool: return u.hp > 0)
 	buildings = buildings.filter(func(b: Dictionary) -> bool: return b.hp > 0)
 	update_clock()

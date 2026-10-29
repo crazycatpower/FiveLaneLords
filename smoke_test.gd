@@ -379,6 +379,12 @@ func test_cards() -> void:
 	kinds = m.units.map(func(u: Dictionary) -> String: return u.kind)
 	kinds.sort()
 	check(kinds.count("knight") == B.CARDS.guard.members[0][1] and kinds.count("healer") == B.CARDS.guard.members[1][1],"cathedral guard fields knights and a herbalist")
+	check(m.units.all(func(u: Dictionary) -> bool: return u.get("march",0.0) == minf(B.CARDS.knight.speed,B.CARDS.healer.speed)),"a legion marches at its slowest member's pace")
+	var speeds: Array = ["mob","farmer","militia","hunter","healer","knight","ram"].map(func(k: String) -> float: return B.CARDS[k].speed)
+	var sorted_speeds := speeds.duplicate()
+	sorted_speeds.sort()
+	sorted_speeds.reverse()
+	check(speeds == sorted_speeds and speeds[0]-speeds[-1] >= 40,"troop speeds are clearly different (mob fastest, ram slowest)")
 	m = bare(2)
 	for lane: int in range(4): m.add_building(0,Vector2i(1,lane),"farm")
 	m.decks[1] = ["fire","militia","rain","tower","farm","farmer","ox","mob"]
