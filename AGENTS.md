@@ -1,13 +1,11 @@
 # AGENTS.md — 羊皮紙戰記（five-lane-lords）
 
-- 企劃與任務清單：`docs/企劃書.md`（v4.1：墨水上限 50＋8 張牌組輪轉；卡牌分部隊／建築／法術；農田像向日葵自己產墨水、沒有上限；農民是部隊，經過農田時停下耕地加速；部隊只往前走不回頭；雙方領主完全由 AI 接管；16:9）。照「第三部：實作任務」的順序做，一次一個任務。
-- 進度（2026-10-29）：企劃書 T0–T10 全部完成（Claude 接手 T6 之後的部分）。規則已改到企劃書 v4.8（進家就輸、城門不反擊、殘垣 3 秒、單位可重疊、領主只守自家領地且無技能、卡牌 1–30 費）。下一步是用 `godot_console --headless --path . -s tools/sim.gd` 的報告調平衡；新增文字後要重跑 `python tools/build_font.py`。
-- Git 已初始化，v1 基線 commit：ff32c1c。每個任務完成後各自提交。
-- Godot 4.7.1；測試：`godot_console --headless --path . -s smoke_test.gd`（回傳 0 才算完成）。新規則要在 smoke_test.gd 用 `check()` 加檢查。
-- 有畫面改動時，不加 `--headless` 跑一次會重拍 `preview.png`，看過再交。
-- 不要改回去的設計：領主由 `game.gd` 統一繪製、單位畫面上下錯開（`dy`）只影響畫面、單位可以重疊、城門停點不變量（企劃書第 7 節）、戰鬥中按 R 不重開、農田不設數量上限。
-- 新美術素材的 prompt 要存進 `assets/manuscript-v1/` 的 json/txt。
-- 遇到企劃書「待製作人決定的事」先問，不要自己決定。
-
-- 2026-10-29 起「墨水」改名「金幣」（程式內部變數仍叫 ink）。牌組＝農田（常駐格 Battle.FARM_SLOT）＋領主（B.LORDS 三選一）＋自選 8 張。
-- 製作人最新指示（2026-10-29）：所有陣營共用單一套美術素材，不再生成或引用紅藍兩套。藍方由 `game.gd` 的 `recolor_blue()` 在載入時把紅色換成藍色，不要整張染色。
+- **先讀 `docs/交接給Codex.md`**（現況、程式地圖、工作流程、陷阱、待辦），再讀 `docs/企劃書.md`（v6.2；最上方的版本紀錄是製作人一路下的決定）。
+- 企劃書第三部 T0–T10 已全部完成。接下來照交接文件第 7 節的待辦做，一次一項；標「問」的先問製作人，不要自己決定。
+- Godot 4.7.1。測試：`godot_console --headless --path . -s smoke_test.gd`（回傳 0 才算完成）；新規則用 `check()` 加測試，數值從 `balance.gd` 讀。
+- 有畫面改動：不加 `--headless` 跑一次測試重拍 preview 圖，看過再交。新增中文字：`python tools/build_font.py` 後重新 import。
+- 動到平衡：`tools/sim.gd` 只跑一次並回報，不要反覆長批次自己調數字。
+- Git 基線（v1）：ff32c1c；每個改動一個 commit。
+- 名詞：「墨水」已改名「金幣」（程式內部變數仍叫 ink）。牌組＝常駐農田（`Battle.FARM_SLOT`）＋領主（`B.LORDS` 三選一）＋自選 8 張。
+- 美術：雙方共用一套圖，藍方由 `game.gd` 的 `recolor_blue()` 把紅色換成藍色，不要整張染色；新素材 prompt 存進 `assets/manuscript-v1/`。
+- 不要改回去的設計見交接文件第 5 節。
