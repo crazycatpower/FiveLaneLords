@@ -9,6 +9,13 @@ const PAPER = preload("res://assets/parchment-background.png")
 const INK := Color("463529")
 const RED := Color("9c3d30")
 const BLUE := Color("355b78")
+# Battlefield palette (art-direction sheet): our meadow, the sandy no-man's land, the enemy's frost.
+const MEADOW := Color("7d9c54")
+const SAND := Color("b08b52")
+const FROST := Color("5a8fd0")
+const PAPER_TINT := Color(0.94,0.90,0.83) # the whole page a little darker: less glare
+const FIELD_TINT := Color(0.88,0.82,0.70)
+var vignette: GradientTexture2D
 var model: RefCounted
 var font: Font
 var textures: Dictionary = {}
@@ -73,6 +80,18 @@ func _ready() -> void:
 	for kind: String in textures:
 		if kind != "castle_blue": blue_art[kind] = recolor_blue(textures[kind],256 if kind == "castle_red" else 180)
 	textures.castle_blue = textures.castle_red
+	# Darkened field edges pull the eye to the middle of the battle.
+	var shade := Gradient.new()
+	shade.set_color(0,Color(0.2,0.12,0.04,0.0))
+	shade.set_color(1,Color(0.2,0.12,0.04,0.34))
+	shade.add_point(0.62,Color(0.2,0.12,0.04,0.0))
+	vignette = GradientTexture2D.new()
+	vignette.gradient = shade
+	vignette.fill = GradientTexture2D.FILL_RADIAL
+	vignette.fill_from = Vector2(0.5,0.5)
+	vignette.fill_to = Vector2(1.0,1.0)
+	vignette.width = 256
+	vignette.height = 256
 	blue_art.castle_blue = blue_art.castle_red
 	seed_value = int(Time.get_unix_time_from_system())
 	for arg: String in OS.get_cmdline_user_args():
@@ -415,7 +434,7 @@ func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 
 func _draw() -> void:
 	if font == null or model == null: return
-	draw_texture_rect(PAPER,Rect2(Vector2.ZERO,L.VIEWPORT_SIZE),false)
+	draw_texture_rect(PAPER,Rect2(Vector2.ZERO,L.VIEWPORT_SIZE),false,PAPER_TINT)
 	panel(L.PAGE_FRAME,Color(0.85,0.74,0.53,0.15))
 	if screen == "battle": draw_battle()
 	elif screen == "deck": draw_deck()
@@ -426,8 +445,7 @@ func _draw() -> void:
 
 func draw_battle() -> void:
 	var field: Rect2 = L.FIELD_FRAME
-	draw_texture_rect_region(PAPER,field,Rect2(field.position*0.6,field.size*0.6))
-	draw_rect(field,Color(0.98,0.93,0.80,0.28))
+	draw_texture_rect_region(PAPER,field,Rect2(field.position*0.6,field.size*0.6),FIELD_TINT)
 	ink_frame(field)
 	var corner := Vector2(96,86)
 	draw_texture_rect(ART.ornament(0),Rect2(field.position+Vector2(8,8),corner),false,Color(1,1,1,0.85))
@@ -437,22 +455,18 @@ func draw_battle() -> void:
 	draw_texture_rect(art("castle_red",0),L.CASTLE_RECTS[0],false)
 	draw_mirrored(art("castle_blue",1),L.CASTLE_RECTS[1])
 	var grid := Rect2(L.GRID_ORIGIN,L.GRID_SIZE)
-	var zone := Vector2(3*L.CELL_SIZE.x,L.GRID_SIZE.y)
-	# Deploy zones are hatched in each side's ink; a breached lane's extra columns get a lighter hatch.
-	hatch(Rect2(grid.position,zone),Color(RED,0.2))
-	hatch(Rect2(grid.position+Vector2(6*L.CELL_SIZE.x,0),zone),Color(BLUE,0.2))
-	for lane: int in range(5):
-		var row_y := grid.position.y+lane*L.CELL_SIZE.y
-		if model.gates[1][lane] <= 0: hatch(Rect2(Vector2(grid.position.x+zone.x,row_y),Vector2(zone.x,L.CELL_SIZE.y)),Color(RED,0.1),18)
-		if model.gates[0][lane] <= 0: hatch(Rect2(Vector2(grid.position.x+zone.x,row_y),Vector2(zone.x,L.CELL_SIZE.y)),Color(BLUE,0.1),18)
+	draw_ground(grid)
 	if selected >= 0:
 		for row: int in range(5):
 			for col: int in range(9):
 				var cell := Vector2i(col,row)
-				if model.can_play(0,selected,L.cell_center(cell)): draw_rect(Rect2(L.GRID_ORIGIN+Vector2(cell)*L.CELL_SIZE,L.CELL_SIZE).grow(-4),Color(0.35,0.55,0.2,0.16))
+				if model.can_play(0,selected,L.cell_center(cell)):
+					var r := Rect2(L.GRID_ORIGIN+Vector2(cell)*L.CELL_SIZE,L.CELL_SIZE).grow(-5)
+					draw_rect(r,Color(1.0,0.93,0.55,0.22))
+					draw_rect(r,Color(0.85,0.65,0.15,0.7),false,2)
 	for lane: int in range(6):
 		var y := grid.position.y+lane*L.CELL_SIZE.y
-		ink_line(Vector2(grid.position.x,y),Vector2(grid.end.x,y),lane,Color(INK,0.45 if lane == 0 or lane == 5 else 0.28))
+		ink_line(Vector2(grid.position.x,y),Vector2(grid.end.x,y),lane,Color(INK,0.55 if lane == 0 or lane == 5 else 0.38),2.0)
 	for col: int in [3,6]:
 		var x := grid.position.x+col*L.CELL_SIZE.x
 		var y := grid.position.y
@@ -464,7 +478,7 @@ func draw_battle() -> void:
 	for b: Dictionary in model.buildings:
 		team_shadow(b.pos+Vector2(0,30),40,Color(0.25,0.17,0.08))
 		draw_texture_rect(art(b.kind,b.team),Rect2(b.pos-Vector2(45,39),Vector2(90,78)),false)
-		bar(Rect2(b.pos-Vector2(30,43),Vector2(60,4)),b.hp,b.max_hp,RED if b.team == 0 else BLUE)
+		if b.hp < b.max_hp: bar(Rect2(b.pos-Vector2(30,43),Vector2(60,5)),b.hp,b.max_hp,RED if b.team == 0 else BLUE)
 		if b.boost_until > model.elapsed: draw_arc(b.pos,37,0,TAU,20,Color.GOLD,2)
 	layout_formations()
 	var ordered: Array = model.units.duplicate()
@@ -529,6 +543,47 @@ func result_value(team: int, key: String) -> float:
 	if key == "breaches": return model.gates[1-team].filter(func(hp: float) -> bool: return hp <= 0).size()
 	return float(model.stats[team].get(key,0))
 
+# Ground under a soldier: a dark shadow with a ring in the team's colour, so sides read at a glance.
+func team_base(center: Vector2, radius: float, color: Color) -> void:
+	draw_set_transform(center,0,Vector2(1,0.34))
+	draw_circle(Vector2.ZERO,radius,Color(0.18,0.12,0.06,0.42))
+	draw_circle(Vector2.ZERO,radius,Color(color,0.55),false,4.0)
+	draw_set_transform(Vector2.ZERO)
+
+# The battlefield floor: tinted zones, alternating lane shade, grass and pebbles, darker edges.
+func draw_ground(grid: Rect2) -> void:
+	var cw: float = L.CELL_SIZE.x
+	var ch: float = L.CELL_SIZE.y
+	draw_rect(Rect2(grid.position,Vector2(3*cw,grid.size.y)),Color(MEADOW,0.30))
+	draw_rect(Rect2(grid.position+Vector2(3*cw,0),Vector2(3*cw,grid.size.y)),Color(SAND,0.14))
+	draw_rect(Rect2(grid.position+Vector2(6*cw,0),Vector2(3*cw,grid.size.y)),Color(FROST,0.27))
+	for lane: int in range(5):
+		var row := Rect2(grid.position+Vector2(0,lane*ch),Vector2(grid.size.x,ch))
+		if lane % 2 == 1: draw_rect(row,Color(0.25,0.16,0.06,0.06))
+		# A broken gate lets the attacker deploy three columns deeper in that lane.
+		if model.gates[1][lane] <= 0: draw_rect(Rect2(row.position+Vector2(3*cw,0),Vector2(3*cw,ch)),Color(MEADOW,0.2))
+		if model.gates[0][lane] <= 0: draw_rect(Rect2(row.position+Vector2(3*cw,0),Vector2(3*cw,ch)),Color(FROST,0.2))
+	# Faint cell lines inside both deploy zones, where cards can be placed.
+	for col: int in [1,2,7,8]:
+		var x: float = grid.position.x+col*cw
+		draw_line(Vector2(x,grid.position.y),Vector2(x,grid.end.y),Color(INK,0.12),1.0)
+	for row: int in range(5):
+		for col: int in range(9):
+			var origin: Vector2 = grid.position+Vector2(col*cw,row*ch)
+			var middle: bool = col >= 3 and col <= 5
+			for i: int in range(2 if middle else 3):
+				var h: float = fposmod(sin(row*12.9898+col*78.233+i*37.719)*43758.5453,1.0)
+				var k: float = fposmod(sin(row*39.346+col*11.135+i*93.989)*24634.6345,1.0)
+				var p: Vector2 = origin+Vector2(10+h*(cw-20),10+k*(ch-20))
+				if middle and i == 1: draw_circle(p,1.6+h*1.4,Color(0.35,0.25,0.15,0.28)) # pebble
+				else: tuft(p,Color(0.27,0.33,0.12,0.42) if col < 3 or col > 5 else Color(0.40,0.32,0.15,0.30),6.0+h*4.0)
+	draw_texture_rect(vignette,L.FIELD_FRAME.grow(-4),false)
+
+# Three ink strokes fanning up from one point: a grass tuft.
+func tuft(base: Vector2, color: Color, height: float) -> void:
+	for a: float in [-0.5,0.0,0.45]:
+		draw_line(base,base+Vector2(sin(a)*height*0.8,-cos(a)*height),color,1.3,true)
+
 func team_shadow(center: Vector2, radius: float, color: Color) -> void:
 	draw_set_transform(center,0,Vector2(1,0.32))
 	draw_circle(Vector2.ZERO,radius,Color(color,0.45))
@@ -537,13 +592,13 @@ func team_shadow(center: Vector2, radius: float, color: Color) -> void:
 func draw_unit(u: Dictionary) -> void:
 	var pos: Vector2 = u.draw-Vector2(u.face*4,0) if fx_enabled and u.flash > 0 else u.draw # small knockback on hit
 	var bounce := sin(model.elapsed*8+u.phase)*2
-	team_shadow(pos+Vector2(0,15),22,Color(0.25,0.17,0.08))
+	team_base(pos+Vector2(0,16),24,RED if u.team == 0 else BLUE)
 	draw_set_transform(pos+Vector2(0,bounce),0,Vector2(u.face,1))
-	draw_texture_rect(art(u.kind,u.team),Rect2(-32,-54,64,70),false,Color(1.6,1.6,1.6) if fx_enabled and u.flash > 0 else Color.WHITE)
+	draw_texture_rect(art(u.kind,u.team),Rect2(-37,-63,74,80),false,Color(1.6,1.6,1.6) if fx_enabled and u.flash > 0 else Color.WHITE)
 	draw_set_transform(Vector2.ZERO)
-	bar(Rect2(pos-Vector2(23,59),Vector2(46,4)),u.hp,u.max_hp,RED if u.team == 0 else BLUE)
+	if u.hp < u.max_hp: bar(Rect2(pos-Vector2(24,68),Vector2(48,5)),u.hp,u.max_hp,RED if u.team == 0 else BLUE)
 	var climb: float = u.get("climb",0.0)
-	if climb > 0 and climb < B.RUBBLE_TIME: bar(Rect2(pos-Vector2(23,66),Vector2(46,4)),climb,B.RUBBLE_TIME,Color.GOLD) # clearing the rubble
+	if climb > 0 and climb < B.RUBBLE_TIME: bar(Rect2(pos-Vector2(24,75),Vector2(48,4)),climb,B.RUBBLE_TIME,Color.GOLD) # clearing the rubble
 
 func draw_lord(lord: Dictionary) -> void:
 	if lord.hp <= 0: return

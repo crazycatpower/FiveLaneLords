@@ -24,6 +24,8 @@
 | `sound_bank.gd` | 音效對照（Kenney CC0） |
 | `tools/sim.gd` | 平衡模擬器（AI 對 AI） |
 | `tools/build_font.py` | 從思源宋體切字型子集 |
+| `tools/capture_battle.gd` | 拍一張真實 AI 對戰中途的截圖（`-- --seed=3 --time=90 --out=路徑`，要有視窗） |
+| `tools/autobalance.py` / `tools/random_sim.gd` | 隨機牌組大量對戰、依勝率自動調費用（`--dry-run` 只量測） |
 | `smoke_test.gd` | 自動測試（目前 361 項） |
 
 ## 3. 工作流程（每次改動都要做）
