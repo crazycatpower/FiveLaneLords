@@ -67,8 +67,8 @@ const CARDS := {
 # Deck = farmland (always, own hand slot) + a chosen lord + 8 rotating cards (producer 2026-10-29).
 const PRESET_NAMES := ["向日葵流","穩健農莊","劫掠隊"]
 const PRESETS := [
-	["farmer","harvest","mill","spearbow","tower","militia","rain","scarecrow"],
-	["farmer","militia","hunter","knight","scarecrow","tower","rain","healer"],
+	["farmer","hunter","mill","spearbow","tower","militia","rain","ox"],
+	["farmer","militia","hunter","knight","spearbow","tower","rain","healer"],
 	["farmer","mob","ox","ram","hunter","fire","scarecrow","militia"]
 ]
 const PRESET_LORDS := ["harvest","iron","lion"]
