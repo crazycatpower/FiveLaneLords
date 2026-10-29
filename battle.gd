@@ -49,6 +49,7 @@ const FARM_SLOT := 4
 var farm_cd: Array = [0.0,0.0]
 var skill_cd: Array = [0.0,0.0] # lord skill cooldown per side
 var ai_save: Array = [false,false] # the AI is holding gold for its lord's skill
+var ai_params: Array = [{},{}] # per-side AI strategy weights (enemy_ai.gd; {} = the hand-written defaults)
 
 func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = [], lord_a: String = "", lord_b: String = "") -> void:
 	rng.seed = seed_value
@@ -543,7 +544,7 @@ func skill_state(team: int) -> Dictionary:
 	for hp: float in gates[team]:
 		gate_total += hp
 		if hp <= 0: broken += 1
-	return {"lord":lords[team].lord,"ready":lords[team].hp > 0 and skill_cd[team] <= 0,"ink":ink[team],"elapsed":elapsed,"farms":farms,"gate_share":gate_total/(5*B.GATE_HP),"broken":broken}
+	return {"lord":lords[team].lord,"ready":lords[team].hp > 0 and skill_cd[team] <= 0,"ink":ink[team],"elapsed":elapsed,"farms":farms,"gate_share":gate_total/(5*B.GATE_HP),"broken":broken,"params":ai_params[team]}
 
 func snapshot(team: int) -> Dictionary:
 	var candidates: Array = []
@@ -553,7 +554,7 @@ func snapshot(team: int) -> Dictionary:
 				var cell := Vector2i(col,row)
 				var pos := L.cell_center(cell)
 				if can_play(team,slot,pos): candidates.append({"slot":slot,"kind":kind_at(team,slot),"pos":pos,"cell":cell})
-	return {"team":team,"ink":ink[team],"enemy_ink":ink[1-team],"difficulty":difficulty,"elapsed":elapsed,"wave_until":wave_until[team],"memory":memory[team].duplicate(),"recent":recent_lanes[team].duplicate(),"saving":ai_save[team],"units":units,"buildings":buildings,"gates":gates,"candidates":candidates}
+	return {"team":team,"ink":ink[team],"enemy_ink":ink[1-team],"difficulty":difficulty,"elapsed":elapsed,"wave_until":wave_until[team],"memory":memory[team].duplicate(),"recent":recent_lanes[team].duplicate(),"saving":ai_save[team],"params":ai_params[team],"units":units,"buildings":buildings,"gates":gates,"candidates":candidates}
 
 func update_ai(dt: float) -> void:
 	if elapsed < ai_start: return
@@ -564,7 +565,7 @@ func update_ai(dt: float) -> void:
 			if ai_delay[team] <= 0:
 				var c: Dictionary = ai_pending[team]
 				if c.kind == kind_at(team,c.slot) and play(team,c.slot,c.pos):
-					if c.get("wave",false) and elapsed >= wave_until[team]: wave_until[team] = elapsed+6.0
+					if c.get("wave",false) and elapsed >= wave_until[team]: wave_until[team] = elapsed+ai_params[team].get("wave_time",6.0)
 				ai_pending[team] = {}
 			continue
 		ai_clock[team] -= dt

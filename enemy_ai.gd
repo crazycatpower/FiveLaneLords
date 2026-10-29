@@ -13,16 +13,24 @@ const SPEND_AT := 35.0 # columns from our gate at which an approaching enemy cou
 
 # Lord skill: {"cast": bool, "save": bool}. While saving, the AI only defends and repairs, so its
 # purse can reach the full SKILL_COST.
+#
+# Every tunable weight is read as pr.get(name, default); an empty params dictionary (the normal
+# game) gives exactly the hand-written AI. tools/evolve_ai.py searches these weights.
 static func skill_plan(k: Dictionary) -> Dictionary:
 	if not k.ready: return {"cast":false,"save":false}
+	var pr: Dictionary = k.get("params",{})
 	var wanted := false
+	var hoard: bool = pr.get("hoard",1.0) >= 0.5
 	match k.lord:
-		"lion": wanted = k.elapsed >= 45.0
-		"harvest": wanted = k.elapsed >= 45.0 and k.farms <= 7
-		"iron": wanted = k.broken > 0 or k.gate_share < 0.6
-	return {"cast":wanted and k.ink >= B.SKILL_COST,"save":wanted}
+		"lion": wanted = k.elapsed >= pr.get("skill_after",45.0)
+		"harvest": wanted = k.elapsed >= pr.get("skill_after",45.0) and k.farms <= pr.get("harvest_max_farms",7.0)
+		"iron":
+			wanted = k.broken > 0 or k.gate_share < pr.get("iron_gate_share",0.6)
+			hoard = pr.get("iron_hoard",1.0) >= 0.5
+	return {"cast":wanted and k.ink >= B.SKILL_COST,"save":wanted and hoard}
 
 static func decide(s: Dictionary) -> Dictionary:
+	var pr: Dictionary = s.get("params",{})
 	var team: int = s.team
 	var forward := 1.0 if team == 0 else -1.0
 	var home_x := L.gate_stop(team)
@@ -69,7 +77,7 @@ static func decide(s: Dictionary) -> Dictionary:
 	var danger := -1
 	var largest := 0.0
 	for lane: int in range(5):
-		if foe_reach[lane] > DEFEND_REACH*L.CELL_SIZE.x: continue
+		if foe_reach[lane] > pr.get("defend_reach",DEFEND_REACH)*L.CELL_SIZE.x: continue
 		var need: float = urgency[lane]*(3.0 if s.gates[team][lane] <= 0 else 1.0)-ours[lane]
 		if need > largest:
 			largest = need
@@ -79,11 +87,11 @@ static func decide(s: Dictionary) -> Dictionary:
 	var recent: Array = s.get("recent",[])
 	for lane: int in range(5):
 		var gate: float = s.gates[1-team][lane]
-		attack[lane] = (B.GATE_HP-gate)*0.4+ours[lane]*0.3-foes[lane]*0.8-their_guard[lane]*0.5-recent.count(lane)*140.0+jitter(lane,s.elapsed)
+		attack[lane] = (B.GATE_HP-gate)*pr.get("atk_gate",0.4)+ours[lane]*0.3-foes[lane]*pr.get("atk_foes",0.8)-their_guard[lane]*0.5-recent.count(lane)*pr.get("atk_recent",140.0)+jitter(lane,s.elapsed)
 		if gate <= 0 and foes[lane] < 150: attack[lane] += 600 # an open gate with nobody guarding it: walk in
 	var target_lane: int = attack.find(attack.max())
-	var farm_goal: int = [3,6,99][s.difficulty]
-	var threshold: float = [15.0,25.0,35.0][s.difficulty]
+	var farm_goal: int = int(pr.get("farm_goal",[3,6,99][s.difficulty]))
+	var threshold: float = float(pr.get("wave_at",[15.0,25.0,35.0][s.difficulty]))
 	var wave: bool = s.elapsed < s.wave_until or s.ink >= threshold
 	var enemy_farm_total: int = their_farms.reduce(func(a: int,b: int) -> int: return a+b,0)
 	var best: Dictionary = {}
@@ -101,7 +109,7 @@ static func decide(s: Dictionary) -> Dictionary:
 				if not here.is_empty():
 					# Same building on top of ours = repair. Only worth it when it is badly hurt.
 					var health: float = here.hp/here.max_hp
-					if health < 0.6:
+					if health < pr.get("repair_below",0.6):
 						score = 700.0+(1.0-health)*150.0
 						if score > best_score:
 							best_score = score
@@ -119,45 +127,45 @@ static func decide(s: Dictionary) -> Dictionary:
 			else:
 				if c.kind == "farm" and farm_total < farm_goal:
 					# Spread farms over the lanes, back row first, away from lanes under pressure.
-					score = 800-my_farms[lane]*45-col*15-urgency[lane]*0.05+jitter(lane,s.elapsed)*0.2
+					score = pr.get("farm_score",800.0)-my_farms[lane]*45-col*15-urgency[lane]*0.05+jitter(lane,s.elapsed)*0.2
 				elif c.kind == "farmer":
 					var ahead := 0
 					for b: Dictionary in s.buildings:
 						if b.team == team and b.kind == "farm" and b.hp > 0 and b.cell.y == lane and (b.pos.x-c.pos.x)*forward > 0 and b.boost_until <= s.elapsed: ahead += 1
-					if ahead > 0: score = 740+ahead*12-col*6
-				elif enemy_farm_total >= 4 and c.kind in ["fire","ox","mob"] and their_farms[lane] == their_farms.max():
-					score = 700
+					if ahead > 0: score = pr.get("farmer_score",740.0)+ahead*12-col*6
+				elif enemy_farm_total >= pr.get("raid_min_farms",4.0) and c.kind in ["fire","ox","mob"] and their_farms[lane] == their_farms.max():
+					score = pr.get("raid_score",700.0)
 					if c.kind == "fire":
 						for b: Dictionary in s.buildings:
 							if b.team != team and b.kind == "farm" and b.pos.distance_to(c.pos) <= data.radius: score += 100
 				elif s.difficulty == 2 and s.enemy_ink >= 35 and c.kind in ["tower","scarecrow"]:
 					var expected := int(s.memory.get("lane",target_lane))
 					if lane == expected and ours[lane] < 400: score = 780
-				elif c.kind in ["tower","scarecrow"] and my_farms[lane] > 0 and my_guard[lane] == 0 and s.elapsed >= 20.0:
+				elif c.kind in ["tower","scarecrow"] and my_farms[lane] > 0 and my_guard[lane] == 0 and s.elapsed >= pr.get("guard_after",20.0):
 					# Guard farm lanes before raiders arrive: one tower or scarecrow just in front of the farms.
-					score = (690.0 if c.kind == "tower" else 680.0)+my_farms[lane]*10-absf(col-2)*8
+					score = pr.get("guard_score",690.0)-(0.0 if c.kind == "tower" else 10.0)+my_farms[lane]*10-absf(col-2)*8
 				elif c.kind == "ram":
 					# The finisher marches at 22: send it behind troops already in the lane, and keep
 					# 10 gold back so the next attack on us can still be answered.
-					if lane == target_lane and s.ink >= data.cost+10 and (my_troops[lane] >= 250 or s.gates[1-team][lane] <= B.GATE_HP*0.6): score = 720
+					if lane == target_lane and s.ink >= data.cost+pr.get("ram_reserve",10.0) and (my_troops[lane] >= pr.get("ram_escort",250.0) or s.gates[1-team][lane] <= B.GATE_HP*0.6): score = pr.get("ram_score",720.0)
 				elif c.kind == "healer":
 					# A lone herbalist just dies: place her behind our own troops, within healing reach.
 					for x: float in my_troop_x[lane]:
 						var ahead: float = (x-c.pos.x)*forward
-						if ahead >= 0 and ahead <= B.HEAL_RADIUS and my_troops[lane] >= 200: score = maxf(score,690.0-ahead*0.5)
+						if ahead >= 0 and ahead <= B.HEAL_RADIUS and my_troops[lane] >= 200: score = maxf(score,pr.get("healer_score",690.0)-ahead*0.5)
 				elif wave and data.type == "unit" and c.kind != "farmer":
 					# Front-most legal cell of the chosen lane; other lanes only as a weaker fallback.
-					score = 600+col*4-data.cost-(0 if lane == target_lane else 60+(attack[target_lane]-attack[lane])*0.05)
+					score = pr.get("wave_score",600.0)+col*4-data.cost-(0 if lane == target_lane else 60+(attack[target_lane]-attack[lane])*0.05)
 				elif wave and c.kind in ["rain","fire"]:
 					for u: Dictionary in s.units:
 						if u.team != team and u.hp > 0 and u.pos.distance_to(c.pos) < data.radius: score = maxf(0,score)+80
-				elif c.kind == "mill" and farm_total >= 3: score = 650+my_farms[lane]*10
+				elif c.kind == "mill" and farm_total >= pr.get("mill_min_farms",3.0): score = pr.get("mill_score",650.0)+my_farms[lane]*10
 				elif c.kind == "harvest":
 					var count := 0
 					for b: Dictionary in s.buildings:
 						if b.team == team and b.kind == "farm" and b.pos.distance_to(c.pos) <= data.radius: count += 1
-					if count >= 2: score = 670+count
-			if defend < 0 and score == -INF and s.ink >= SPEND_AT:
+					if count >= pr.get("harvest_min",2.0): score = pr.get("harvest_score",670.0)+count
+			if defend < 0 and score == -INF and s.ink >= pr.get("spend_at",SPEND_AT):
 				score = spend_score(c,s,team,lane,col,target_lane,foes,urgency,my_farms,15-own_buildings)
 			if score > best_score:
 				best_score = score
