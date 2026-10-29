@@ -94,9 +94,11 @@ def analyse(results, cards):
     lengths.sort()
     breaches = sorted(r["breach"] for r in results if r.get("breach", -1) >= 0)
     lost = [n for r in results for n in r.get("farms_lost_early", [])]
+    skills = [n for r in results for n in r.get("skills", [])]
     return {
         "breach": breaches[len(breaches) // 2] if breaches else -1,
         "farms_lost": sum(lost) / len(lost) if lost else 0,
+        "skills": sum(skills) / len(skills) if skills else 0,
         "cards": {k: (v[0] / v[1] if v[1] else 0.5, v[1]) for k, v in stat.items()},
         "lords": {k: (v[0] / v[1] if v[1] else 0.5, v[1]) for k, v in lords.items()},
         "red_rate": red[0] / red[1] if red[1] else 0.5,
@@ -128,7 +130,7 @@ def table(analysis, cards, changes):
     lords = ", ".join(f"{k} {v[0]:.1%}（{v[1]}）" for k, v in sorted(analysis["lords"].items(), key=lambda kv: -kv[1][0]))
     head = (f"{analysis['matches']} 場；平手 {analysis['draws']}；決勝局中位數 {analysis['median']:.0f} 秒；"
             f"紅方勝率 {analysis['red_rate']:.1%}\n\n"
-            f"前 3 分鐘每方平均被拆農田 {analysis['farms_lost']:.2f} 塊；第一次破門中位數 {analysis['breach']:.0f} 秒\n\n領主勝率（雙方領主不同時）：{lords}\n")
+            f"前 3 分鐘每方平均被拆農田 {analysis['farms_lost']:.2f} 塊；第一次破門中位數 {analysis['breach']:.0f} 秒；每方平均發動領主技能 {analysis['skills']:.2f} 次\n\n領主勝率（雙方領主不同時）：{lords}\n")
     return head + "\n" + "\n".join(rows)
 
 
