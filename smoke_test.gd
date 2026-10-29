@@ -539,7 +539,7 @@ func test_card_cooldowns() -> void:
 	check(m.decks[0][3] == "knight" and is_equal_approx(m.hand_cd[0][3],B.CARDS.knight.cooldown),"the newly drawn card starts its own cooldown")
 	check(m.hand_cd[0][0] < B.CARDS.militia.cooldown,"cards already in hand keep counting down when the hand shifts")
 	var fresh := Battle.new(9)
-	for slot: int in range(4): check(is_equal_approx(fresh.hand_cd[0][slot],B.CARDS[fresh.decks[0][slot]].cooldown),"opening hand slot %d starts cooling" % slot)
+	check(fresh.hand_cd == [[0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0]],"the opening hand has no cooldown")
 	var late := Battle.new(4)
 	late.elapsed = B.RAMP_2
 	late.hand_cd[0] = [10.0,10.0,10.0,10.0]
