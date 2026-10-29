@@ -776,19 +776,9 @@ func draw_deck() -> void:
 	for i: int in range(player_deck.size()): draw_card(player_deck[i],Rect2(268+i*146,585,128,162))
 	label_at(Vector2(400,790),"需選滿 8 張不同卡牌（農田不用選）。" if not DeckStore.valid(player_deck) else menu_notice,20,RED)
 
-# Random spectate deck: eight different cards, at least three of them troops so the match can end.
+# Random spectate deck (rules live in DeckStore so the balance tools share them).
 static func random_deck(rng: RandomNumberGenerator) -> Array:
-	var units: Array = []
-	var others: Array = []
-	for kind: String in B.CARDS:
-		if kind == "farm": continue
-		if B.CARDS[kind].type == "unit": units.append(kind)
-		else: others.append(kind)
-	var deck: Array = []
-	for i: int in range(3): deck.append(units.pop_at(rng.randi_range(0,units.size()-1)))
-	var rest: Array = units+others
-	while deck.size() < 8: deck.append(rest.pop_at(rng.randi_range(0,rest.size()-1)))
-	return deck
+	return DeckStore.random_deck(rng)
 
 func set_watch_source(team: int, source: int) -> void:
 	watch_source[team] = source

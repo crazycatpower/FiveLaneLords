@@ -26,3 +26,17 @@ static func average(deck: Array) -> float:
 	var total := 0.0
 	for kind: String in deck: total += B.CARDS[kind].cost
 	return total/maxi(1,deck.size())
+
+# Random deck: eight different cards, at least three of them troops so the match can end.
+static func random_deck(rng: RandomNumberGenerator) -> Array:
+	var units: Array = []
+	var others: Array = []
+	for kind: String in B.CARDS:
+		if kind == "farm": continue
+		if B.CARDS[kind].type == "unit": units.append(kind)
+		else: others.append(kind)
+	var deck: Array = []
+	for i: int in range(3): deck.append(units.pop_at(rng.randi_range(0,units.size()-1)))
+	var rest: Array = units+others
+	while deck.size() < 8: deck.append(rest.pop_at(rng.randi_range(0,rest.size()-1)))
+	return deck

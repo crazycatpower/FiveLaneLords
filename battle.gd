@@ -371,6 +371,14 @@ func step(dt: float) -> void:
 	update_projectiles(dt)
 	for lord: Dictionary in lords:
 		if lord_active[lord.team]: Lord.step(self,lord,dt)
+	# Per-lane lists, built once per step (same order as units/buildings, so targeting is unchanged).
+	var lane_units: Array = [[],[],[],[],[]]
+	var lane_buildings: Array = [[],[],[],[],[]]
+	var lane_taunts: Array = [[],[],[],[],[]]
+	for other: Dictionary in units: lane_units[other.lane].append(other)
+	for b: Dictionary in buildings:
+		lane_buildings[b.cell.y].append(b)
+		if b.kind == "scarecrow": lane_taunts[b.cell.y].append(b)
 	for u: Dictionary in units:
 		u.flash = maxf(0,u.flash-dt)
 		if u.hp <= 0: continue
@@ -380,12 +388,11 @@ func step(dt: float) -> void:
 		u.cd = maxf(0,u.cd-dt)
 		var data: Dictionary = B.CARDS[u.kind]
 		heal(u,dt)
-		var target: Dictionary = {} if u.kind == "ram" else nearest(u.pos,u.team,data.range,units,u.lane)
-		var building := nearest(u.pos,u.team,data.range,buildings,u.lane)
+		var target: Dictionary = {} if u.kind == "ram" else nearest(u.pos,u.team,data.range,lane_units[u.lane])
+		var building := nearest(u.pos,u.team,data.range,lane_buildings[u.lane])
 		if not building.is_empty() and (target.is_empty() or u.pos.distance_to(building.pos) < u.pos.distance_to(target.pos)): target = building
 		if u.kind != "ram":
-			var taunts: Array = buildings.filter(func(b: Dictionary) -> bool: return b.kind == "scarecrow")
-			var taunt := nearest(u.pos,u.team,minf(data.range,B.TAUNT_RADIUS),taunts,u.lane)
+			var taunt := nearest(u.pos,u.team,minf(data.range,B.TAUNT_RADIUS),lane_taunts[u.lane])
 			if not taunt.is_empty(): target = taunt
 			if target.is_empty(): target = nearest(u.pos,u.team,54.0,lords)
 		if not target.is_empty():
