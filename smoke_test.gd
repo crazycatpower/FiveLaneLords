@@ -172,10 +172,10 @@ func test_lords() -> void:
 	lord.last_hit = m.elapsed
 	tick(m,0.6)
 	check(lord.retreating and lord.target == L.spawn_position(0,2),"low health retreats")
-	lord.hp = B.LORD_HP*0.35
+	lord.hp = B.LORDS.lion.hp*0.35
 	tick(m,0.6)
 	check(lord.retreating,"retreat persists until the lord is back above the return threshold")
-	lord.hp = B.LORD_HP*0.5
+	lord.hp = B.LORDS.lion.hp*0.5
 	tick(m,0.6)
 	check(not lord.retreating,"recovered lord resumes")
 	lord.hp = 100
@@ -198,7 +198,7 @@ func test_lords() -> void:
 	# A raider clearing rubble is urgent: the lord switches lanes at once, even when hurt.
 	d = bare(8)
 	d.lords[1].pos = Vector2(5000,0)
-	d.lords[0].hp = B.LORD_HP*0.2
+	d.lords[0].hp = B.LORDS.lion.hp*0.2
 	d.lords[0].last_hit = d.elapsed
 	d.gates[0][4] = 0
 	var climber := d.spawn_unit(1,4,"militia",Vector2(L.gate_stop(0),L.cell_center(Vector2i(0,4)).y))
@@ -212,7 +212,7 @@ func test_lords() -> void:
 	check(not m.lords[0].has("spin") and not m.lords[0].has("command"),"lords have no active skills")
 	m.damage(m.lords[0],9999,1,"militia")
 	tick(m,12.1)
-	check(m.lords[0].hp == B.LORD_HP,"lord revives after twelve seconds")
+	check(m.lords[0].hp == B.LORDS.lion.hp,"lord revives after twelve seconds")
 
 func test_match() -> void:
 	var m := bare(1)
@@ -305,6 +305,17 @@ func test_ai() -> void:
 
 func test_cards() -> void:
 	check(B.CARDS.size() == 17,"seventeen card pool")
+	var off_tier: Array = []
+	for kind: String in B.CARDS:
+		var c: Dictionary = B.CARDS[kind]
+		for stat: String in B.TIERS:
+			if c.has(stat) and (c.type == "unit" or kind == "tower") and B.tier(stat,c[stat]).is_empty(): off_tier.append(kind+"."+stat)
+	for kind: String in B.LORDS:
+		for stat: String in ["damage","hp","speed"]:
+			if B.tier(stat,B.LORDS[kind][stat]).is_empty(): off_tier.append(kind+"."+stat)
+	for pair: Array in [["range",B.LORD_RANGE],["interval",B.LORD_INTERVAL],["speed",B.OX_SLOW_SPEED]]:
+		if B.tier(pair[0],pair[1]).is_empty(): off_tier.append(str(pair))
+	check(off_tier.is_empty(),"every troop, tower and lord stat sits exactly on an S-E tier value: %s" % str(off_tier))
 	var costs: Array = B.CARDS.values().map(func(c: Dictionary) -> int: return c.cost)
 	check(costs.min() >= 1 and costs.max() == 30,"card costs stay within 1 to 30")
 	check(B.CARDS.values().all(func(c: Dictionary) -> bool: return c.has("role") and not c.role.is_empty()),"every card has a role")
@@ -392,7 +403,7 @@ func test_cards() -> void:
 	var sorted_speeds := speeds.duplicate()
 	sorted_speeds.sort()
 	sorted_speeds.reverse()
-	check(speeds == sorted_speeds and speeds[0]-speeds[-1] >= 40,"troop speeds are clearly different (mob fastest, ram slowest)")
+	check(speeds == sorted_speeds and speeds[0] == B.TIERS.speed[2] and speeds[-1] == B.TIERS.speed[5],"troop speeds are clearly different (mob tier B fastest, ram tier E slowest)")
 	m = bare(2)
 	for lane: int in range(4): m.add_building(0,Vector2i(1,lane),"farm")
 	m.decks[1] = ["fire","militia","rain","tower","farm","farmer","ox","mob"]
