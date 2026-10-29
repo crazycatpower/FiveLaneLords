@@ -90,3 +90,42 @@ const OX_BUILDING_BONUS := 1.5
 const OX_SLOW_SPEED := 30.0
 const FIRE_KNOCKBACK := 20.0
 const TAUNT_RADIUS := 150.0
+
+# Text shares the data used by combat; optional tables let tests exercise future balance edits.
+static func number(value: float) -> String:
+	return String.num(value,2)
+
+static func troop_description(kind: String, count: int, cards: Dictionary) -> String:
+	var d: Dictionary = cards[kind]
+	return "%s ×%d：每名生命 %s、傷害 %s／%s 秒、射程 %s、移速 %s。" % [d.name,count,number(d.hp),number(d.damage),number(d.interval),number(d.range),number(d.speed)]
+
+static func card_description(kind: String, cards: Dictionary = CARDS) -> String:
+	var d: Dictionary = cards[kind]
+	var lines: Array[String] = ["%s · %s 金幣 · 冷卻 %s 秒 · %s" % [d.name,number(d.cost),number(d.cooldown),d.role]]
+	if d.type == "unit":
+		if d.has("members"):
+			var march := INF
+			for group: Array in d.members:
+				lines.append(troop_description(group[0],group[1],cards))
+				march = minf(march,cards[group[0]].speed)
+			lines.append("軍團以最慢成員速度 %s 一起前進。" % number(march))
+		else: lines.append(troop_description(kind,d.count,cards))
+		if d.get("spread",false): lines.append("三路各 %d 名，共 %d 名；邊路施放時向內移一條路。" % [d.count,d.count*3])
+	elif d.type == "building":
+		lines.append("生命 %s；永久存在，同種建築覆蓋可補滿生命。" % number(d.hp))
+		if d.has("damage"): lines.append("傷害 %s／%s 秒、射程 %s。" % [number(d.damage),number(d.interval),number(d.range)])
+	else:
+		lines.append("範圍半徑 %s；落下時間 %s 秒。" % [number(d.radius),number(SPELL_DELAY)])
+		if d.has("damage"): lines.append("部隊傷害 %s、建築傷害 %s、城門傷害 %s。" % [number(d.damage),number(d.building_damage),number(d.gate_damage)])
+	match kind:
+		"farm": lines.append("常駐卡，不輪轉。種下 %s 秒後啟動，每 %s 秒產出 %s 金幣（未加成）。" % [number(FARM_START),number(FARM_INTERVAL),number(FARM_DROP)])
+		"farmer": lines.append("順路耕田 %s 秒，農田回復 %s 生命，%s 秒內產出加倍。" % [number(CULTIVATE_TIME),number(FARMER_HEAL),number(BOOST_TIME)])
+		"mill": lines.append("同一路農田產出 ×%s；多座磨坊不疊加。" % number(MILL_BONUS))
+		"scarecrow": lines.append("嘲諷半徑 %s；攻擊範圍內的敵兵優先攻擊它。" % number(TAUNT_RADIUS))
+		"harvest": lines.append("範圍內農田各立刻產出一次，持續 %s 秒產出加倍；不與耕田加倍疊乘。" % number(HARVEST_TIME))
+		"fire": lines.append("敵方部隊擊退 %s。" % number(FIRE_KNOCKBACK))
+		"ox": lines.append("首擊傷害 %s，擊退 %s；建築與城門傷害 ×%s，衝鋒後移速 %s。" % [number(OX_CHARGE),number(OX_KNOCKBACK),number(OX_BUILDING_BONUS),number(OX_SLOW_SPEED)])
+		"healer", "guard": lines.append("草藥婆每 %s 秒為半徑 %s 內友軍部隊回復 %s 生命。" % [number(HEAL_INTERVAL),number(HEAL_RADIUS),number(HEAL_AMOUNT)])
+		"ram": lines.append("攻城槌只打建築與城門，民兵在前護送；破門後直接前進。")
+		"hunter", "spearbow": lines.append("獵戶箭矢飛行 %s 秒，命中才扣血。" % number(ARROW_TIME))
+	return "\n".join(lines)

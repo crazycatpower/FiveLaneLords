@@ -25,6 +25,8 @@ func offer(m: RefCounted, kind: String, team: int = 0) -> void:
 	m.ink[team] = 50.0
 	m.hand_cd[team] = [0.0,0.0,0.0,0.0]
 func run() -> void:
+	test_descriptions()
+	check(finished.has("descriptions"),"description test completed")
 	test_core()
 	test_lords()
 	test_match()
@@ -646,3 +648,44 @@ func test_start_farms() -> void:
 		if hoer.work_left <= 0 and farm.boost_until > 0: break
 	check(farm.boost_until > 0 and farm.hp == 50+B.FARMER_HEAL,"a farmer cultivating a farm also repairs it")
 	finished["start_farms"] = true
+
+func test_descriptions() -> void:
+	for kind: String in B.CARDS:
+		var d: Dictionary = B.CARDS[kind]
+		var text := B.card_description(kind)
+		check(text.contains("%s 金幣" % B.number(d.cost)) and text.contains("冷卻 %s 秒" % B.number(d.cooldown)),"description cost and cooldown: "+kind)
+		var changed: Dictionary = B.CARDS.duplicate(true)
+		changed[kind].cost = 37.25
+		changed[kind].cooldown = 12.75
+		var updated := B.card_description(kind,changed)
+		check(updated.contains("37.25 金幣") and updated.contains("冷卻 12.75 秒"),"description follows changed balance values: "+kind)
+		if d.has("members"):
+			for group: Array in d.members:
+				check(text.contains("%s ×%d" % [B.CARDS[group[0]].name,group[1]]),"legion member count: "+kind)
+		elif d.type == "unit":
+			check(text.contains("×%d" % d.count) and text.contains("生命 %s" % B.number(d.hp)),"troop stats: "+kind)
+		if d.type == "spell" and d.has("damage"):
+			var labels := {"damage":"部隊傷害","building_damage":"建築傷害","gate_damage":"城門傷害"}
+			for field: String in labels:
+				var spell_changed: Dictionary = B.CARDS.duplicate(true)
+				spell_changed[kind][field] = 321.75
+				check(B.card_description(kind,spell_changed).contains(labels[field]+" 321.75"),"spell balance field is live: "+field)
+		if d.type == "unit" and not d.has("members"):
+			var labels := {"hp":"生命","damage":"傷害","range":"射程","speed":"移速"}
+			for field: String in labels:
+				var unit_changed: Dictionary = B.CARDS.duplicate(true)
+				unit_changed[kind][field] = 654.25
+				check(B.card_description(kind,unit_changed).contains(labels[field]+" 654.25"),"unit balance field is live: "+kind+" "+field)
+	check(B.card_description("farm").contains("每 %s 秒產出 %s 金幣" % [B.number(B.FARM_INTERVAL),B.number(B.FARM_DROP)]),"farm interval and output share combat constants")
+	check(B.card_description("farmer").contains("回復 %s 生命" % B.number(B.FARMER_HEAL)),"farmer healing from balance")
+	check(B.card_description("healer").contains("回復 %s 生命" % B.number(B.HEAL_AMOUNT)),"healing from balance")
+	check(B.card_description("ox").contains("首擊傷害 %s" % B.number(B.OX_CHARGE)),"charge from balance")
+	check(B.card_description("harvest").contains("持續 %s 秒" % B.number(B.HARVEST_TIME)),"harvest from balance")
+	check(B.card_description("mill").contains("×%s" % B.number(B.MILL_BONUS)),"mill from balance")
+	var changed: Dictionary = B.CARDS.duplicate(true)
+	changed.militia.hp = 777.25
+	changed.militia.damage = 88.75
+	changed.spearbow.members[0][1] = 9
+	var legion := B.card_description("spearbow",changed)
+	check(legion.contains("民兵隊 ×9") and legion.contains("生命 777.25") and legion.contains("傷害 88.75"),"mixed cards track member counts and member stat changes")
+	finished["descriptions"] = true

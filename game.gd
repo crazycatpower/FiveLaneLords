@@ -760,9 +760,7 @@ func draw_deck() -> void:
 	label_at(Vector2(400,790),"需選滿 8 張不同卡牌（農田不用選）。" if not DeckStore.valid(player_deck) else menu_notice,20,RED)
 
 func card_description(kind: String) -> String:
-	var card: Dictionary = B.CARDS[kind]
-	var descriptions := {"farm":"常駐卡，不會輪轉。種下三秒後開始，每二十秒產出四金幣。","farmer":"三名農民向前走，順路耕田 1.5 秒：那塊田回 100 血，十五秒內產量加倍。","mill":"同一路農田產量 ×2；同一路多座不疊加。","scarecrow":"吸引附近敵兵攻擊它，直到被打倒。","tower":"每 0.8 秒射箭，射程 200，直到被打倒。","harvest":"範圍內農田立刻各產出一次，八秒內產量加倍。","rain":"範圍內部隊 200 傷害，建築與城門 60。","fire":"部隊 420 傷害，建築 840，城門 140。","ox":"兩頭耕牛：第一下衝撞 150 並擊退，拆建築 ×1.5。","healer":"一名草藥婆，每秒治療附近友軍 15 血。","ram":"一輛攻城槌由四名民兵護送（民兵走在前面）。槌 1600 血，無視部隊，每兩秒對城門或建築 160 傷害；城門破了就直接走進去。","hunter":"射程 170 的遠程手，三名。","knight":"兩名 1000 血的重裝騎士。","mob":"選中的那一路和左右相鄰兩路，各出四名暴民（共十二名）。","spearbow":"四名民兵在前、兩名獵戶在後，同一路一起出發。","guard":"兩名騎士在前開路，兩名草藥婆跟在後面為他們療傷。","militia":"五名民兵，擋路與循環主力。"}
-	return "%s · %d 金幣 · 冷卻 %d 秒 · %s\n%s" % [card.name,card.cost,int(card.cooldown),card.role,descriptions.get(kind,"")]
+	return B.card_description(kind)
 
 func show_help() -> void:
 	screen = "help"
