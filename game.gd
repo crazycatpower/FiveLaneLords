@@ -24,6 +24,11 @@ var deck_tab := "unit"
 var difficulty := 1
 var spectating := false
 var menu_notice := ""
+# Spectate setup: each side's deck, lord and where the deck came from (WATCH_SOURCES index, -1 = edited by hand).
+var watch_decks: Array = [[],[]]
+var watch_lords: Array = ["lion","lion"]
+var watch_source: Array = [0,0]
+const WATCH_SOURCES := ["隨機","向日葵流","穩健農莊","劫掠隊","我的牌組"]
 var start_button: Button
 var effects: Array[Dictionary] = []
 var seed_value := 1
@@ -82,11 +87,16 @@ func _ready() -> void:
 	show_title()
 
 func start_battle() -> void:
-	if not DeckStore.valid(player_deck):
-		show_deck()
-		return
-	DeckStore.save_deck(player_deck,deck_path,player_lord)
-	model = Battle.new(seed_value,player_deck,B.PRESETS[difficulty],player_lord,B.PRESET_LORDS[difficulty])
+	if spectating:
+		for team: int in range(2):
+			if not DeckStore.valid(watch_decks[team]): set_watch_source(team,0)
+		model = Battle.new(seed_value,watch_decks[0].duplicate(),watch_decks[1].duplicate(),watch_lords[0],watch_lords[1])
+	else:
+		if not DeckStore.valid(player_deck):
+			show_deck()
+			return
+		DeckStore.save_deck(player_deck,deck_path,player_lord)
+		model = Battle.new(seed_value,player_deck,B.PRESETS[difficulty],player_lord,B.PRESET_LORDS[difficulty])
 	model.difficulty = difficulty
 	model.ai_enabled = [spectating,true]
 	tutorial = null
@@ -403,6 +413,7 @@ func _draw() -> void:
 	panel(L.PAGE_FRAME,Color(0.85,0.74,0.53,0.15))
 	if screen == "battle": draw_battle()
 	elif screen == "deck": draw_deck()
+	elif screen == "watch": draw_watch()
 	elif screen == "help": draw_help()
 	elif screen == "settings": draw_string(font,Vector2(0,220),"畫面與音效設定",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,40,INK)
 	else: draw_title()
@@ -664,7 +675,7 @@ func draw_hud() -> void:
 func show_title() -> void:
 	screen = "title"
 	clear_ui()
-	var items: Array = [["開始對戰",func(): spectating = false; start_battle()],["新手教學",start_tutorial],["觀戰模式",func(): spectating = true; start_battle()],["牌組編成",show_deck],["操作說明",show_help],["難度："+["簡單","普通","困難"][difficulty],func(): difficulty = (difficulty+1)%3; show_title()],["設定",show_settings],["離開",func(): get_tree().quit()]]
+	var items: Array = [["開始對戰",func(): spectating = false; start_battle()],["新手教學",start_tutorial],["觀戰模式",show_watch],["牌組編成",show_deck],["操作說明",show_help],["難度："+["簡單","普通","困難"][difficulty],func(): difficulty = (difficulty+1)%3; show_title()],["設定",show_settings],["離開",func(): get_tree().quit()]]
 	for i: int in range(items.size()): button(Rect2(650,292+i*56,300,48),items[i][0],items[i][1])
 	queue_redraw()
 
@@ -765,13 +776,113 @@ func draw_deck() -> void:
 	for i: int in range(player_deck.size()): draw_card(player_deck[i],Rect2(268+i*146,585,128,162))
 	label_at(Vector2(400,790),"需選滿 8 張不同卡牌（農田不用選）。" if not DeckStore.valid(player_deck) else menu_notice,20,RED)
 
+# Random spectate deck: eight different cards, at least three of them troops so the match can end.
+static func random_deck(rng: RandomNumberGenerator) -> Array:
+	var units: Array = []
+	var others: Array = []
+	for kind: String in B.CARDS:
+		if kind == "farm": continue
+		if B.CARDS[kind].type == "unit": units.append(kind)
+		else: others.append(kind)
+	var deck: Array = []
+	for i: int in range(3): deck.append(units.pop_at(rng.randi_range(0,units.size()-1)))
+	var rest: Array = units+others
+	while deck.size() < 8: deck.append(rest.pop_at(rng.randi_range(0,rest.size()-1)))
+	return deck
+
+func set_watch_source(team: int, source: int) -> void:
+	watch_source[team] = source
+	if source == 0:
+		var rng := RandomNumberGenerator.new()
+		rng.randomize()
+		watch_decks[team] = random_deck(rng)
+		watch_lords[team] = B.LORDS.keys()[rng.randi_range(0,B.LORDS.size()-1)]
+	elif source <= B.PRESETS.size():
+		watch_decks[team] = B.PRESETS[source-1].duplicate()
+		watch_lords[team] = B.PRESET_LORDS[source-1]
+	else:
+		watch_decks[team] = player_deck.duplicate() if DeckStore.valid(player_deck) else B.PRESETS[0].duplicate()
+		watch_lords[team] = player_lord
+
+# Clicking a card swaps it for the next card (in pool order) that this side doesn't hold yet.
+func cycle_watch_card(team: int, index: int) -> void:
+	var pool: Array = B.CARDS.keys().filter(func(k: String) -> bool: return k != "farm")
+	var at: int = pool.find(watch_decks[team][index])
+	for step: int in range(1,pool.size()):
+		var next: String = pool[(at+step)%pool.size()]
+		if not next in watch_decks[team]:
+			watch_decks[team][index] = next
+			break
+	watch_source[team] = -1
+	show_watch()
+
+func watch_card_rect(team: int, index: int) -> Rect2:
+	return Rect2(120+team*760+(index%4)*150,330+(index/4)*190,136,172)
+
+func watch_lord_rect(team: int, index: int) -> Rect2:
+	return Rect2(120+team*760+index*196,236,186,52)
+
+func show_watch() -> void:
+	screen = "watch"
+	clear_ui()
+	for team: int in range(2):
+		if watch_decks[team].is_empty(): set_watch_source(team,0)
+		var side := team
+		var x := 120+team*760
+		var source: int = watch_source[team]
+		button(Rect2(x,170,290,48),"牌組：%s ▸" % ("自訂" if source < 0 else WATCH_SOURCES[source]),func(): set_watch_source(side,(maxi(source,0)+1)%WATCH_SOURCES.size()); show_watch())
+		button(Rect2(x+306,170,180,48),"重新隨機",func(): set_watch_source(side,0); show_watch())
+		var index := 0
+		for lord_kind: String in B.LORDS:
+			var choice := lord_kind
+			var b := button(watch_lord_rect(team,index),"",func(): watch_lords[side] = choice; show_watch())
+			b.tooltip_text = "%s（%s）
+%s" % [B.LORDS[lord_kind].name,B.LORDS[lord_kind].role,B.LORDS[lord_kind].desc]
+			b.modulate = Color(1,1,1,0.01)
+			index += 1
+		for i: int in range(8):
+			var slot := i
+			var b := button(watch_card_rect(team,i),"",func(): cycle_watch_card(side,slot))
+			b.tooltip_text = card_description(watch_decks[team][i])+"
+（點一下換成下一張）"
+			b.modulate = Color(1,1,1,0.01)
+	button(Rect2(120,805,220,50),"回到標題",show_title)
+	button(Rect2(690,805,220,50),"互換雙方",swap_watch)
+	button(Rect2(1260,805,220,50),"開始觀戰",func(): spectating = true; start_battle())
+	queue_redraw()
+
+func swap_watch() -> void:
+	watch_decks.reverse()
+	watch_lords.reverse()
+	watch_source.reverse()
+	show_watch()
+
+func draw_watch() -> void:
+	label_at(Vector2(120,100),"觀戰設定",48)
+	label_at(Vector2(420,100),"每邊預設隨機牌組與領主；點卡牌可換成下一張",20,Color("6f5a3e"))
+	for team: int in range(2):
+		var x := 120+team*760
+		label_at(Vector2(x,150),"%s · 平均 %.1f 金幣" % ["紅獅" if team == 0 else "藍旗",DeckStore.average(watch_decks[team])],22,RED if team == 0 else BLUE)
+		var index := 0
+		for lord_kind: String in B.LORDS:
+			var r := watch_lord_rect(team,index)
+			var chosen: bool = watch_lords[team] == lord_kind
+			panel(r,Color("f2e3c0") if chosen else Color("e3d2aa"),RED if chosen else INK)
+			if chosen: draw_rect(r.grow(2),RED if team == 0 else BLUE,false,3)
+			draw_texture_rect(lord_art(lord_kind,team),Rect2(r.position+Vector2(4,3),Vector2(40,46)),false)
+			label_at(r.position+Vector2(50,22),B.LORDS[lord_kind].name,16)
+			label_at(r.position+Vector2(50,42),B.LORDS[lord_kind].role,12,Color("6f5a3e"))
+			index += 1
+		for i: int in range(8): draw_card(watch_decks[team][i],watch_card_rect(team,i))
+	draw_line(Vector2(800,150),Vector2(800,710),Color(INK,0.3),2)
+
 func card_description(kind: String) -> String:
 	return B.card_description(kind)
 
 func help_columns() -> Array[String]:
 	return [
 		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐農田；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 有選牌時取消，沒選牌時切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩，戰鬥中按 R 不重開。\n\n[b]牌組與領主[/b]\n農田固定＋領主三選一＋自選 8 張輪轉牌。農田不輪轉、不佔 8 張名額。領主由 AI 操作，只守自家領地。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2，等待時間會縮短。" % [B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
-		"[b]種田與防守[/b]\n農田自己產金幣；農民從田後方出發，順路耕田加速並回血。相同建築覆蓋自己的舊建築可補滿生命。\n部隊只往前走，不追身後範圍外的敵人；城門不反擊，靠領主、部隊與建築防守。\n\n[b]破門與勝負[/b]\n破門後該路部隊可部署到第六欄，建築仍限原始三欄。敵兵破門後需停下拆殘垣 %s 秒，再向家門前進。\n任何敵兵走進家門就輸，沒有時間限制。\n\n[b]觀戰模式[/b]\n雙方由 AI 出牌；1–4 切換 ×1／×2／×4／×8，＋／－ 逐級調速。空白鍵暫停。" % B.number(B.RUBBLE_TIME)
+		"[b]種田與防守[/b]\n農田自己產金幣；農民從田後方出發，順路耕田加速並回血。相同建築覆蓋自己的舊建築可補滿生命。\n部隊只往前走，不追身後範圍外的敵人；城門不反擊，靠領主、部隊與建築防守。\n\n[b]破門與勝負[/b]\n破門後該路部隊可部署到第六欄，建築仍限原始三欄。敵兵破門後需停下拆殘垣 %s 秒，再向家門前進。\n任何敵兵走進家門就輸，沒有時間限制。\n\n[b]觀戰模式[/b]\n開戰前調整雙方牌組與領主（預設隨機），AI 出牌；1–4 切換 ×1／×2／×4／×8，＋／－ 逐級調速。空白鍵暫停。" % B.number(B.RUBBLE_TIME)
 	]
 
 func show_help() -> void:
