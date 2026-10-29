@@ -540,4 +540,13 @@ func test_card_cooldowns() -> void:
 	check(m.hand_cd[0][0] < B.CARDS.militia.cooldown,"cards already in hand keep counting down when the hand shifts")
 	var fresh := Battle.new(9)
 	for slot: int in range(4): check(is_equal_approx(fresh.hand_cd[0][slot],B.CARDS[fresh.decks[0][slot]].cooldown),"opening hand slot %d starts cooling" % slot)
+	var late := Battle.new(4)
+	late.elapsed = B.RAMP_2
+	late.hand_cd[0] = [10.0,10.0,10.0,10.0]
+	late.step(1.0)
+	check(is_equal_approx(late.hand_cd[0][0],8.0),"cooldowns run twice as fast once ink is doubled")
+	late.elapsed = B.RAMP_1
+	late.hand_cd[0] = [10.0,10.0,10.0,10.0]
+	late.step(1.0)
+	check(is_equal_approx(late.hand_cd[0][0],8.5),"and 1.5x as fast at the first ramp")
 	finished["card_cd"] = true

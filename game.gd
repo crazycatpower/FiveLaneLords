@@ -173,7 +173,7 @@ func _physics_process(dt: float) -> void:
 func consume_events() -> void:
 	for e: Dictionary in model.events:
 		if e.kind == "breach": notice = ("我方第 %d 路城門被攻破！敵兵走進來就輸了。" if e.team == 1 else "攻破藍旗第 %d 路城門！派兵走進去就贏。") % (e.lane+1)
-		if e.kind == "ramp": notice = "墨水產出加快 ×%.1f" % e.multiplier
+		if e.kind == "ramp": notice = "墨水產出與卡牌冷卻加快 ×%.1f" % e.multiplier
 		if e.kind == "overflow" and e.team == 0 and not spectating: notice = "墨水已滿 50，繼續產出的墨水會浪費。"
 		if sound != null: sound.cue(e.kind)
 		if e.kind == "breach" and shake_enabled: shake_left = 0.25
@@ -688,7 +688,7 @@ func show_help() -> void:
 func draw_help() -> void:
 	panel(Rect2(270,130,1060,600))
 	label_at(Vector2(350,215),"操作與勝負",44)
-	var lines := ["1–4 或點卡牌選牌，再點戰場放置；右鍵／Esc 取消。","空白鍵暫停；暫停時按 R 重玩，戰鬥中 R 不會重開。","農田自己產墨水；農民從田後方出發，順路耕田加速。","部隊只往前走，領主會自行回防；箭樓可守護後方。","打破對方城門後，該路部隊可部署到第六欄。","城門破了，任何一名敵兵走進家門就輸——沒有時間限制。","三分鐘後墨水產出 ×1.5，五分鐘後 ×2；上限 50。"]
+	var lines := ["1–4 或點卡牌選牌，再點戰場放置；右鍵／Esc 取消。","空白鍵暫停；暫停時按 R 重玩，戰鬥中 R 不會重開。","農田自己產墨水；農民從田後方出發，順路耕田加速。","部隊只往前走，領主會自行回防；箭樓可守護後方。","打破對方城門後，該路部隊可部署到第六欄。","城門破了，任何一名敵兵走進家門就輸——沒有時間限制。","三分鐘後墨水與卡牌冷卻 ×1.5，五分鐘後 ×2；墨水上限 50。"]
 	for i: int in range(lines.size()): label_at(Vector2(350,290+i*52),lines[i],23)
 
 func save_settings() -> void:

@@ -284,7 +284,8 @@ func step(dt: float) -> void:
 	last_dt = dt
 	update_ai(dt)
 	for team: int in range(2):
-		for slot: int in range(4): hand_cd[team][slot] = maxf(0,hand_cd[team][slot]-dt)
+		# Card cooldowns speed up together with ink (x1.5 after 3:00, x2 after 5:00).
+		for slot: int in range(4): hand_cd[team][slot] = maxf(0,hand_cd[team][slot]-dt*multiplier())
 		base_clock[team] += dt*multiplier()
 		while base_clock[team] >= B.BASE_INTERVAL-0.000001:
 			base_clock[team] -= B.BASE_INTERVAL
