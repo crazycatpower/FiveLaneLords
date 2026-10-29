@@ -51,7 +51,7 @@ const CARDS := {
 	"spearbow":{"name":"槍弓混編","role":"遠近軍團","type":"unit","cost":8,"cooldown":6.0,"members":[["militia",2,0.0],["hunter",2,45.0]],"art":["militia","hunter"]},
 	"farm":{"name":"農田","role":"經濟·基礎","type":"building","cost":6,"cooldown":6.0,"hp":250.0,"expires":-1.0},
 	"rain":{"name":"箭雨","role":"清群法術","type":"spell","cost":6,"cooldown":6.0,"radius":110.0,"damage":200.0,"building_damage":60.0,"gate_damage":60.0},
-	"tower":{"name":"箭樓","role":"防守","type":"building","cost":7,"cooldown":8.0,"hp":500.0,"expires":-1.0,"range":200.0,"damage":18.0,"interval":0.8},
+	"tower":{"name":"箭樓","role":"防守","type":"building","cost":12,"cooldown":8.0,"hp":500.0,"expires":-1.0,"range":200.0,"damage":12.0,"interval":0.8},
 	"healer":{"name":"草藥婆","role":"支援·治療","type":"unit","cost":8,"cooldown":8.0,"count":1,"hp":160.0,"damage":6.0,"interval":1.0,"range":120.0,"speed":32.0},
 	"ox":{"name":"耕牛","role":"衝鋒·拆建","type":"unit","cost":9,"cooldown":10.0,"count":1,"hp":520.0,"damage":22.0,"interval":1.2,"range":47.0,"speed":70.0},
 	"fire":{"name":"火罐","role":"燒田法術","type":"spell","cost":11,"cooldown":15.0,"radius":95.0,"damage":420.0,"building_damage":840.0,"gate_damage":140.0},
