@@ -4,6 +4,7 @@ const B = preload("res://balance.gd")
 const L = preload("res://layout.gd")
 var checks := 0
 var failures := 0
+var finished := {}
 func _initialize() -> void:
 	create_timer(45).timeout.connect(func(): quit(2))
 	call_deferred("run")
@@ -24,7 +25,11 @@ func run() -> void:
 	test_match()
 	test_ai()
 	test_cards()
+	test_decks()
+	test_screens()
+	check(finished.has("screens"),"screen test ran to the end (a script error would stop it silently)")
 	await preview()
+	check(finished.has("preview"),"preview ran to the end")
 	print("%s: %d checks, %d failures" % ["PASS" if failures == 0 else "FAIL",checks,failures])
 	quit(0 if failures == 0 else 1)
 func test_core() -> void:
@@ -104,6 +109,17 @@ func test_core() -> void:
 func preview() -> void:
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
+	game.deck_path = "user://test-ui-deck.json"
+	game.player_deck = B.PRESETS[0].duplicate()
+	if DisplayServer.get_name() != "headless":
+		for screen: String in ["title","deck"]:
+			if screen == "deck": game.show_deck()
+			game.queue_redraw()
+			await process_frame
+			await RenderingServer.frame_post_draw
+			root.get_texture().get_image().save_png("res://%s-preview.png" % screen)
+	game.start_battle()
+	DirAccess.remove_absolute("user://test-ui-deck.json")
 	game.set_physics_process(false)
 	game.model.add_building(0,Vector2i(1,1),"farm")
 	game.model.add_building(1,Vector2i(7,3),"farm")
@@ -116,6 +132,7 @@ func preview() -> void:
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("res://preview.png")
 	game.free()
+	finished["preview"] = true
 
 func test_lords() -> void:
 	var m := Battle.new(9)
@@ -270,3 +287,47 @@ func test_cards() -> void:
 	m.ink[1] = 10
 	var c: Dictionary = m.AI.decide(m.snapshot(1))
 	check(c.kind == "fire" and c.cell.x == 1,"AI raids four player farms with fire")
+
+func test_decks() -> void:
+	var store = preload("res://deck_store.gd")
+	for deck: Array in B.PRESETS: check(store.valid(deck),"preset has eight unique cards and farmland")
+	check(not store.valid(["farm"]),"short deck rejected")
+	var deck: Array = B.PRESETS[0].duplicate()
+	deck[0] = "knight"
+	check(not store.valid(deck),"deck without farm rejected")
+	deck = B.PRESETS[0].duplicate()
+	check(store.save_deck(deck,"user://test-deck.json"),"deck saved")
+	check(store.load_deck("user://test-deck.json") == deck,"deck roundtrip")
+	DirAccess.remove_absolute("user://test-deck.json")
+
+func test_screens() -> void:
+	var game = load("res://main.tscn").instantiate()
+	root.add_child(game)
+	game.deck_path = "user://test-ui-deck.json" # never touch the player's own deck
+	game.set_physics_process(false)
+	check(game.screen == "title","game opens on the title screen")
+	var labels: Array = game.ui.map(func(b: Button) -> String: return b.text)
+	check("開始對戰" in labels and "觀戰模式" in labels and "牌組編成" in labels and "操作說明" in labels,"title offers battle, spectate, deck and help")
+	game.player_deck = B.PRESETS[1].duplicate()
+	game.show_deck()
+	game.toggle_deck_card("farm")
+	check(not "farm" in game.player_deck and game.start_button.disabled,"removing farmland disables the start button")
+	game.start_battle()
+	check(game.screen == "deck","an invalid deck cannot start a battle")
+	game.toggle_deck_card("farm")
+	check(game.player_deck.size() == 8 and not game.start_button.disabled,"adding it back re-enables start")
+	game.toggle_deck_card("mob")
+	check(game.player_deck.size() == 8 and not "mob" in game.player_deck,"a full deck refuses a ninth card")
+	game.start_battle()
+	check(game.screen == "battle" and game.model.ai_enabled == [false,true],"battle starts with the player's deck and an AI opponent")
+	var dealt: Array = game.model.decks[0].duplicate()
+	dealt.sort()
+	var chosen: Array = game.player_deck.duplicate()
+	chosen.sort()
+	check(dealt == chosen,"the battle deals the chosen eight cards")
+	game.spectating = true
+	game.start_battle()
+	check(game.model.ai_enabled == [true,true],"spectate mode lets AI play both sides")
+	game.free()
+	DirAccess.remove_absolute("user://test-ui-deck.json")
+	finished["screens"] = true
