@@ -1,54 +1,53 @@
-extends CharacterBody2D
-const BALANCE = preload("res://balance.gd")
-const LAYOUT = preload("res://layout.gd")
-
-var game: Node2D
-var hp: float = BALANCE.LORD_HP
-var respawn: float = 0.0
-var attack_timer: float = 0.0
-var facing_left: bool = false
-var bob: float = 0.0 # Walking bounce. game.gd draws the lord so he depth-sorts with the soldiers.
-
-func _ready() -> void:
-	motion_mode = MOTION_MODE_FLOATING
-	collision_layer = 0
-	collision_mask = 0
-	var shape := CollisionShape2D.new()
-	var circle := CircleShape2D.new()
-	circle.radius = 15.0
-	shape.shape = circle
-	add_child(shape)
-
-func _physics_process(delta: float) -> void:
-	if game.ended or game.paused:
+extends RefCounted
+const B = preload("res://balance.gd")
+const L = preload("res://layout.gd")
+const AI = preload("res://lord_ai.gd")
+static func create(team: int) -> Dictionary:
+	return {"kind":"lord","team":team,"pos":L.cell_center(Vector2i(2 if team == 0 else 6,2)),"hp":B.LORD_HP,"respawn":0.0,"cd":0.0,"spin":0.0,"command":0.0,"last_hit":-10.0,"think":0.0,"target":L.spawn_position(team,2),"changed":-10.0,"retreating":false,"flash":0.0}
+static func step(m: RefCounted, lord: Dictionary, dt: float) -> void:
+	if lord.hp <= 0:
+		lord.respawn -= dt
+		if lord.respawn <= 0:
+			lord.hp = B.LORD_HP
+			lord.pos = L.spawn_position(lord.team,2)
+			lord.retreating = false
 		return
-	if respawn > 0.0:
-		respawn -= delta
-		if respawn <= 0.0:
-			hp = BALANCE.LORD_HP
-			position = LAYOUT.spawn_position(0, 2)
-			show()
-		return
-	var direction := Input.get_vector("left", "right", "up", "down")
-	velocity = direction * BALANCE.LORD_SPEED
-	move_and_slide()
-	position = position.clamp(LAYOUT.LORD_MIN, LAYOUT.LORD_MAX)
-	if direction.x != 0:
-		facing_left = direction.x < 0
-	bob = sin(game.elapsed * 13.0) * minf(velocity.length() / 70.0, 2.7)
-	attack_timer -= delta
-	if attack_timer <= 0:
-		var enemy: Dictionary = game.nearest_enemy(position, BALANCE.LORD_RANGE)
-		if not enemy.is_empty():
-			enemy.hp -= BALANCE.LORD_DAMAGE
-			game.burst(game.shown_at(enemy) + Vector2(0, -25), "−30", Color("922f25"))
-			attack_timer = BALANCE.LORD_ATTACK_INTERVAL
-
-func damage(amount: float) -> void:
-	if respawn > 0:
-		return
-	hp -= amount
-	if hp <= 0:
-		respawn = BALANCE.LORD_RESPAWN
-		hide()
-		game.notice = "領主倒下！9 秒後從後方重返戰場"
+	lord.flash = maxf(0,lord.flash-dt)
+	if m.elapsed-lord.last_hit >= B.LORD_REGEN_DELAY: lord.hp = minf(B.LORD_HP,lord.hp+B.LORD_REGEN*dt)
+	lord.think -= dt
+	if lord.think <= 0:
+		lord.think = B.AI_TICK
+		var target := AI.destination(lord,m.units)
+		if lord.retreating or m.elapsed-lord.changed >= B.LORD_HYSTERESIS:
+			if target != lord.target: lord.changed = m.elapsed
+			lord.target = target
+	var min_x: float = L.spawn_position(0,0).x if lord.team == 0 else L.GRID_ORIGIN.x+3*L.CELL_SIZE.x+1
+	var max_x: float = L.GRID_ORIGIN.x+6*L.CELL_SIZE.x-1 if lord.team == 0 else L.spawn_position(1,0).x
+	lord.target.x = clampf(lord.target.x,min_x,max_x)
+	lord.pos = lord.pos.move_toward(lord.target,B.LORD_SPEED*dt)
+	lord.pos.x = clampf(lord.pos.x,min_x,max_x)
+	lord.cd -= dt
+	lord.spin = maxf(0,lord.spin-dt)
+	lord.command = maxf(0,lord.command-dt)
+	var foe: Dictionary = m.nearest(lord.pos,lord.team,B.LORD_RANGE,m.units)
+	if not foe.is_empty() and lord.cd <= 0:
+		m.damage(foe,B.LORD_DAMAGE,lord.team,"lord")
+		lord.cd = B.LORD_INTERVAL
+	var nearby: Array = []
+	var allies: Array = []
+	var ram := false
+	for u: Dictionary in m.units:
+		if u.hp <= 0: continue
+		var distance: float = lord.pos.distance_to(u.pos)
+		if u.team != lord.team and distance <= B.SPIN_RANGE:
+			nearby.append(u)
+			if u.kind == "ram": ram = true
+		if u.team == lord.team and distance <= B.COMMAND_RANGE: allies.append(u)
+	if lord.spin <= 0 and (nearby.size() >= 3 or ram):
+		for u: Dictionary in nearby: m.damage(u,B.SPIN_DAMAGE,lord.team,"lord")
+		lord.spin = B.SPIN_COOLDOWN
+		m.event("spin",lord.pos,lord.team)
+	if lord.command <= 0 and allies.size() >= 4:
+		for u: Dictionary in allies: u.buff_until = m.elapsed+B.COMMAND_TIME
+		lord.command = B.COMMAND_COOLDOWN
+		m.event("command",lord.pos,lord.team)

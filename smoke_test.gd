@@ -20,6 +20,7 @@ func offer(m: RefCounted, kind: String, team: int = 0) -> void:
 	m.cooldown[team] = 0.0
 func run() -> void:
 	test_core()
+	test_lords()
 	await preview()
 	print("%s: %d checks, %d failures" % ["PASS" if failures == 0 else "FAIL",checks,failures])
 	quit(0 if failures == 0 else 1)
@@ -112,3 +113,31 @@ func preview() -> void:
 		await RenderingServer.frame_post_draw
 		root.get_texture().get_image().save_png("res://preview.png")
 	game.free()
+
+func test_lords() -> void:
+	var m := Battle.new(9)
+	var lord: Dictionary = m.lords[0]
+	lord.hp = 200
+	lord.last_hit = m.elapsed
+	tick(m,0.6)
+	check(lord.retreating and lord.target == L.spawn_position(0,2),"low health retreats")
+	lord.hp = 500
+	tick(m,0.6)
+	check(lord.retreating,"retreat hysteresis persists below seventy percent")
+	lord.hp = 700
+	tick(m,0.6)
+	check(not lord.retreating,"healthy lord resumes")
+	m = Battle.new(8)
+	m.spawn_unit(1,0,"militia",L.cell_center(Vector2i(1,0)))
+	var reached := false
+	for frame: int in range(174):
+		m.step(1.0/60.0)
+		reached = reached or absf(m.lords[0].pos.y-L.cell_center(Vector2i(0,0)).y) < 58
+	check(reached,"lord reaches threatened lane within three seconds, even if threat is killed")
+	m.lords[0].pos.x = 2000
+	m.lords[1].pos.x = 0
+	tick(m,0.1)
+	check(m.lords[0].pos.x < L.GRID_ORIGIN.x+6*L.CELL_SIZE.x and m.lords[1].pos.x > L.GRID_ORIGIN.x+3*L.CELL_SIZE.x,"lords never enter opposing original territory")
+	m.damage(m.lords[0],9999,1,"militia")
+	tick(m,12.1)
+	check(m.lords[0].hp == B.LORD_HP,"lord revives after twelve seconds")

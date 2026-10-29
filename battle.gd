@@ -1,4 +1,5 @@
 extends RefCounted
+const Lord = preload("res://lord.gd")
 const B = preload("res://balance.gd")
 const L = preload("res://layout.gd")
 var rng := RandomNumberGenerator.new()
@@ -37,6 +38,7 @@ func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = []) -> void:
 			var swap = deck[i]
 			deck[i] = deck[j]
 			deck[j] = swap
+		lords.append(Lord.create(team))
 		decks.append(deck)
 		gates.append([B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP])
 		gate_cd.append([0.0,0.0,0.0,0.0,0.0])
@@ -141,6 +143,9 @@ func damage(target: Dictionary, amount: float, team: int, kind: String) -> void:
 	if target.hp <= 0: return
 	var dealt := minf(amount,target.hp)
 	target.hp -= amount
+	if target.kind == "lord":
+		target.last_hit = elapsed
+		if target.hp <= 0: target.respawn = B.LORD_RESPAWN
 	target.flash = 0.08
 	stats[team].damage[kind] = stats[team].damage.get(kind,0.0)+dealt
 	event("hit",target.pos,target.team)
@@ -186,8 +191,14 @@ func nearest(pos: Vector2, team: int, radius: float, candidates: Array, lane: in
 
 func attack(u: Dictionary, target: Dictionary) -> void:
 	var data: Dictionary = B.CARDS[u.kind]
-	damage(target,data.damage,u.team,u.kind)
+	damage(target,data.damage*attack_bonus(u),u.team,u.kind)
 	u.cd = data.interval
+
+func attack_bonus(u: Dictionary) -> float:
+	var factor := B.COMMAND_BONUS if u.buff_until > elapsed else 1.0
+	for lord: Dictionary in lords:
+		if lord.team == u.team and lord.hp > 0 and lord.pos.distance_to(u.pos) <= B.AURA_RANGE: factor *= B.AURA_BONUS
+	return factor
 
 func cultivate(u: Dictionary, dt: float) -> bool:
 	if u.kind != "farmer": return false
@@ -247,6 +258,7 @@ func step(dt: float) -> void:
 		spell.delay -= dt
 		if spell.delay <= 0: cast_spell(spell)
 	spells = spells.filter(func(s: Dictionary) -> bool: return s.delay > 0)
+	for lord: Dictionary in lords: Lord.step(self,lord,dt)
 	for u: Dictionary in units:
 		u.flash = maxf(0,u.flash-dt)
 		if u.hp <= 0: continue
@@ -258,6 +270,7 @@ func step(dt: float) -> void:
 		var target := nearest(u.pos,u.team,data.range,units,u.lane)
 		var building := nearest(u.pos,u.team,data.range,buildings,u.lane)
 		if not building.is_empty() and (target.is_empty() or u.pos.distance_to(building.pos) < u.pos.distance_to(target.pos)): target = building
+		if target.is_empty(): target = nearest(u.pos,u.team,54.0,lords)
 		if not target.is_empty():
 			if u.cd <= 0: attack(u,target)
 		elif cultivate(u,dt): pass
@@ -265,10 +278,10 @@ func step(dt: float) -> void:
 			var stop := L.gate_stop(1-u.team)
 			if (stop-u.pos.x)*u.face <= 0.001:
 				if u.cd <= 0:
-					hit_gate(1-u.team,u.lane,data.damage,u.kind)
+					hit_gate(1-u.team,u.lane,data.damage*attack_bonus(u),u.kind)
 					u.cd = data.interval
 			else:
-				u.pos.x = move_toward(u.pos.x,stop,data.speed*dt)
+				u.pos.x = move_toward(u.pos.x,stop,data.speed*dt*(B.COMMAND_BONUS if u.buff_until > elapsed else 1.0))
 	units = units.filter(func(u: Dictionary) -> bool: return u.hp > 0)
 	buildings = buildings.filter(func(b: Dictionary) -> bool: return b.hp > 0)
 
