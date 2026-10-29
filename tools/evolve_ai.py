@@ -76,9 +76,10 @@ def mutate(parent, rng):
 
 
 def run_worker(job):
-    params_path, start, count, out = job
+    params_path, start, count, out, base_path = job
     cmd = ["godot_console", "--headless", "--path", PROJECT, "-s", "tools/random_sim.gd", "--",
            "--mirror", f"--cand={params_path}", f"--start={start}", f"--count={count}", f"--out={out}"]
+    if base_path: cmd.append(f"--base={base_path}")
     result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", shell=(os.name == "nt"))
     if result.returncode != 0 or "SCRIPT ERROR" in result.stdout + result.stderr:
         raise RuntimeError(f"worker failed:\n{result.stdout[-1500:]}\n{result.stderr[-1500:]}")
@@ -92,8 +93,9 @@ def run_worker(job):
     return score, games, skills
 
 
-def evaluate(candidates, seed_start, seeds, workers, tag):
-    """Every candidate plays the same seeds (both sides). Returns [(score, games, skills)]."""
+def evaluate(candidates, seed_start, seeds, workers, tag, base_path=""):
+    """Every candidate plays the same seeds (both sides) against base_path's weights
+    ("" = the hand-written AI). Returns [(score, games, skills)]."""
     os.makedirs(RUNS, exist_ok=True)
     jobs, owner = [], []
     chunks = max(1, workers // len(candidates)) if len(candidates) < workers else 1
@@ -104,7 +106,7 @@ def evaluate(candidates, seed_start, seeds, workers, tag):
         for c in range(chunks):
             count = min(per, seeds - c * per)
             if count <= 0: break
-            jobs.append((path, seed_start + c * per, count, os.path.join(RUNS, f"{tag}_c{i}_{c}.jsonl")))
+            jobs.append((path, seed_start + c * per, count, os.path.join(RUNS, f"{tag}_c{i}_{c}.jsonl"), base_path))
             owner.append(i)
     totals = [[0.0, 0, 0] for _ in candidates]
     with ThreadPoolExecutor(workers) as pool:
@@ -115,14 +117,20 @@ def evaluate(candidates, seed_start, seeds, workers, tag):
     return totals
 
 
-def changed(params):
+def changed(params, reference):
     rows = []
     for k, (d, lo, hi, sigma, integer, desc) in GENES.items():
-        v = params[k]
-        if abs(v - d) > 1e-9:
-            rows.append((abs(v - d) / (hi - lo), k, d, v, desc))
+        v, r = params[k], reference[k]
+        if abs(v - r) > 1e-9:
+            rows.append((abs(v - r) / (hi - lo), k, r, v, desc))
     rows.sort(reverse=True)
     return rows
+
+
+def rate_text(total):
+    rate = total[0] / total[1]
+    se = math.sqrt(rate * (1 - rate) / total[1])
+    return f"**{rate:.1%}**（95% 信賴區間 {max(0, rate - 1.96 * se):.0%}–{min(1, rate + 1.96 * se):.0%}，{total[1]} 場）"
 
 
 def main():
@@ -134,20 +142,32 @@ def main():
     p.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     p.add_argument("--rng", type=int, default=7)
     p.add_argument("--project", default=ROOT, help="run the matches in this copy of the project (frozen code)")
+    p.add_argument("--base", default="", help="opponent weights (JSON); default: the hand-written AI")
+    p.add_argument("--start", default="", help="first parent (JSON); default: --base, else the hand-written AI")
+    p.add_argument("--out", default=OUT, help="where to write the evolved weights")
+    p.add_argument("--round", type=int, default=1, help="round number; rounds after 1 append to the report")
+    p.add_argument("--seed-base", type=int, default=100_000)
+    p.add_argument("--validate-seed", type=int, default=900_000)
     args = p.parse_args()
     global PROJECT
     PROJECT = os.path.abspath(args.project)
     rng = random.Random(args.rng)
-    parent = clean(defaults())
-    log = [f"# AI 演化報告\n\n{time.strftime('%Y-%m-%d %H:%M')}：每代 1 個親代＋{args.children} 個突變，各打 {args.seeds} 組種子 × 紅藍各一場，"
-           f"對手是現有的手寫 AI。雙方同牌組、同領主，只比打法。下一代親代＝前三名的平均。\n\n"
-           "| 代 | 親代勝率 | 最佳子代勝率 | 前三名平均 | 秒 |\n|---|---|---|---|---|\n"]
+    base_path = os.path.abspath(args.base) if args.base else ""
+    start = args.start or args.base
+    parent = clean(json.load(open(start, encoding="utf-8"))) if start else clean(defaults())
+    first = dict(parent)
+    opponent = f"第 {args.round - 1} 輪演化出的 AI（`{os.path.basename(args.base)}`）" if args.base else "現有的手寫 AI"
+    header = (f"\n## 第 {args.round} 輪（{time.strftime('%Y-%m-%d %H:%M')}）\n\n對手：{opponent}。每代 1 個親代＋{args.children} 個突變，"
+              f"各打 {args.seeds} 組種子 × 紅藍各一場；雙方同牌組、同領主，只比打法。下一代親代＝前三名的平均。\n\n"
+              "| 代 | 親代勝率 | 最佳子代勝率 | 前三名平均 | 秒 |\n|---|---|---|---|---|\n")
+    earlier = open(REPORT, encoding="utf-8").read() if args.round > 1 and os.path.exists(REPORT) else "# AI 演化報告\n"
+    log = [earlier, header]
     t_all = time.time()
     for gen in range(args.generations):
         t0 = time.time()
         children = [mutate(parent, rng) for _ in range(args.children)]
         pool = [parent] + children
-        results = evaluate(pool, 100_000 + gen * 1000, args.seeds, args.workers, f"g{gen}")
+        results = evaluate(pool, args.seed_base + gen * 1000, args.seeds, args.workers, f"r{args.round}g{gen}", base_path)
         rates = [r[0] / r[1] for r in results]
         order = sorted(range(len(pool)), key=lambda i: -rates[i])
         top = [pool[i] for i in order[:3]]
@@ -155,18 +175,19 @@ def main():
         line = f"| {gen + 1} | {rates[0]:.0%} | {rates[order[0]]:.0%} | {sum(rates[i] for i in order[:3]) / 3:.0%} | {time.time() - t0:.0f} |\n"
         print(line.strip(), flush=True)
         log.append(line)
-        json.dump(parent, open(OUT, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+        json.dump(parent, open(args.out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
         open(REPORT, "w", encoding="utf-8").write("".join(log))
-    # Final check on seeds no generation has seen.
-    final = evaluate([parent], 900_000, args.validate, args.workers, "validate")[0]
-    rate = final[0] / final[1]
-    se = math.sqrt(rate * (1 - rate) / final[1])
-    summary = (f"\n## 驗證（沒用過的 {args.validate} 組種子 × 紅藍各一場＝{final[1]} 場）\n\n"
-               f"演化後的 AI 對現有 AI 勝率 **{rate:.1%}**（95% 信賴區間 {max(0, rate - 1.96 * se):.0%}–{min(1, rate + 1.96 * se):.0%}），"
-               f"每場平均放技能 {final[2] / final[1]:.2f} 次。總耗時 {(time.time() - t_all) / 60:.0f} 分鐘。\n\n"
-               "## 改變最多的參數\n\n| 參數 | 原本 | 演化後 | 意思 |\n|---|---|---|---|\n")
-    for _, k, d, v, desc in changed(parent)[:15]:
-        summary += f"| {k} | {d:g} | {v:g} | {desc} |\n"
+    # Final checks on seeds no generation has seen: against this round's opponent, and (after
+    # round 1) against the hand-written AI too, so progress across rounds is visible.
+    summary = f"\n### 第 {args.round} 輪驗證（沒用過的 {args.validate} 組種子 × 紅藍各一場）\n\n"
+    final = evaluate([parent], args.validate_seed, args.validate, args.workers, f"r{args.round}v", base_path)[0]
+    summary += f"- 對 {opponent}：{rate_text(final)}；每場平均放技能 {final[2] / final[1]:.2f} 次。\n"
+    if base_path:
+        plain = evaluate([parent], args.validate_seed + 50_000, args.validate, args.workers, f"r{args.round}v0", "")[0]
+        summary += f"- 對現有的手寫 AI：{rate_text(plain)}。\n"
+    summary += f"- 總耗時 {(time.time() - t_all) / 60:.0f} 分鐘。\n\n### 第 {args.round} 輪改變最多的參數\n\n| 參數 | 本輪起點 | 演化後 | 意思 |\n|---|---|---|---|\n"
+    for _, k, r, v, desc in changed(parent, first)[:15]:
+        summary += f"| {k} | {r:g} | {v:g} | {desc} |\n"
     log.append(summary)
     open(REPORT, "w", encoding="utf-8").write("".join(log))
     print(summary, flush=True)
