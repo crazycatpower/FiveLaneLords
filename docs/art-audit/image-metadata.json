@@ -26,32 +26,6 @@
     ]
   },
   {
-    "file": "assets/lord.png",
-    "width": 1312,
-    "height": 1199,
-    "transparent_pct": 66.014,
-    "partial_pct": 33.94,
-    "opaque_bounds": [
-      53,
-      34,
-      1283,
-      1167
-    ]
-  },
-  {
-    "file": "assets/manuscript-v1/castle-blue.png",
-    "width": 1086,
-    "height": 1448,
-    "transparent_pct": 42.437,
-    "partial_pct": 57.518,
-    "opaque_bounds": [
-      64,
-      9,
-      1046,
-      1423
-    ]
-  },
-  {
     "file": "assets/manuscript-v1/castle-red.png",
     "width": 1086,
     "height": 1448,
@@ -143,19 +117,6 @@
     ]
   },
   {
-    "file": "assets/manuscript-v1/ink.png",
-    "width": 1296,
-    "height": 1213,
-    "transparent_pct": 69.581,
-    "partial_pct": 30.391,
-    "opaque_bounds": [
-      150,
-      34,
-      1258,
-      1182
-    ]
-  },
-  {
     "file": "assets/manuscript-v1/knight.png",
     "width": 1312,
     "height": 1199,
@@ -184,13 +145,13 @@
   {
     "file": "assets/manuscript-v1/lord-iron.png",
     "width": 1205,
-    "height": 1305,
-    "transparent_pct": 50.51,
-    "partial_pct": 49.421,
+    "height": 1306,
+    "transparent_pct": 49.437,
+    "partial_pct": 50.471,
     "opaque_bounds": [
-      90,
+      80,
       40,
-      1137,
+      1168,
       1243
     ]
   },
@@ -198,65 +159,26 @@
     "file": "assets/manuscript-v1/lord-lion.png",
     "width": 1208,
     "height": 1302,
-    "transparent_pct": 69.194,
-    "partial_pct": 30.679,
+    "transparent_pct": 67.398,
+    "partial_pct": 32.47,
     "opaque_bounds": [
-      49,
-      47,
-      1190,
-      1221
-    ]
-  },
-  {
-    "file": "assets/manuscript-v1/lord-simple-v2.png",
-    "width": 1213,
-    "height": 1296,
-    "transparent_pct": 69.169,
-    "partial_pct": 30.737,
-    "opaque_bounds": [
-      77,
-      56,
-      1181,
-      1217
-    ]
-  },
-  {
-    "file": "assets/manuscript-v1/lord-simple.png",
-    "width": 1213,
-    "height": 1297,
-    "transparent_pct": 69.281,
-    "partial_pct": 30.656,
-    "opaque_bounds": [
-      76,
-      55,
-      1172,
-      1215
-    ]
-  },
-  {
-    "file": "assets/manuscript-v1/militia-blue.png",
-    "width": 1312,
-    "height": 1199,
-    "transparent_pct": 76.243,
-    "partial_pct": 23.743,
-    "opaque_bounds": [
-      126,
-      109,
-      1250,
-      1136
+      44,
+      38,
+      1189,
+      1225
     ]
   },
   {
     "file": "assets/manuscript-v1/militia-red.png",
     "width": 1199,
     "height": 1312,
-    "transparent_pct": 74.708,
-    "partial_pct": 25.267,
+    "transparent_pct": 67.543,
+    "partial_pct": 32.416,
     "opaque_bounds": [
-      125,
-      143,
-      1175,
-      1203
+      19,
+      37,
+      1193,
+      1249
     ]
   },
   {
@@ -387,19 +309,6 @@
       43,
       1517,
       967
-    ]
-  },
-  {
-    "file": "assets/militia.png",
-    "width": 1212,
-    "height": 1297,
-    "transparent_pct": 70.854,
-    "partial_pct": 29.043,
-    "opaque_bounds": [
-      49,
-      91,
-      1195,
-      1217
     ]
   },
   {

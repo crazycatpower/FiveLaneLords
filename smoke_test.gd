@@ -26,6 +26,8 @@ func offer(m: RefCounted, kind: String, team: int = 0) -> void:
 	m.ink[team] = 50.0
 	m.hand_cd[team] = [0.0,0.0,0.0,0.0]
 func run() -> void:
+	test_art_regressions()
+	check(finished.has("art_regressions"),"art regression test completed")
 	test_descriptions()
 	check(finished.has("descriptions"),"description test completed")
 	test_core()
@@ -859,3 +861,48 @@ func test_help_layout() -> void:
 	check(not words.contains("墨水") and not words.contains("皇冠"),"help omits obsolete rules")
 	game.free()
 	finished["help_layout"] = true
+
+func test_art_regressions() -> void:
+	var game = load("res://main.tscn").instantiate()
+	root.add_child(game)
+	game.set_physics_process(false)
+	check(game.art("castle_red",1).get_size() == game.art("castle_red",0).get_size(),"blue castle keeps source resolution")
+	check(game.team_material("castle_red",Vector2(0.4,0.2),Color.from_hsv(0.055,0.5,0.6)),"weathered castle paint stays in team palette")
+	check(not game.team_material("castle_red",Vector2(0.6,0.8),Color("bf3720")),"castle wooden door is protected from team paint")
+	check(game.art("farm",1) == game.art("farm",0),"farm soil and crops are never recoloured")
+	check(not game.team_material("ox",Vector2(0.75,0.4),Color("bf3720")),"ox coat stays protected even with a red-brown pixel")
+	check(game.team_material("ox",Vector2(0.42,0.35),Color("bf3720")),"ox blanket accepts team red")
+	check(not game.team_material("militia",Vector2(0.4,0.4),Color("89552d")),"brown leather is outside team palette")
+	var sample := Image.create(4,1,false,Image.FORMAT_RGBA8)
+	var colors := [Color("c7291d"),Color("89552d"),Color("edba79"),Color(1,0,0,0)]
+	for i: int in range(colors.size()): sample.set_pixel(i,0,colors[i])
+	var converted: Image = game.recolor_blue(ImageTexture.create_from_image(sample),0,"militia").get_image()
+	check(converted.get_pixel(0,0).b > converted.get_pixel(0,0).r,"red cloth becomes blue")
+	for i: int in range(1,4): check(converted.get_pixel(i,0).is_equal_approx(sample.get_pixel(i,0)),"leather, skin and transparent pixels retained: "+str(i))
+	for kind: String in ["ox","ram","militia","lord_lion","lord_iron","tower"]:
+		var rect: Rect2 = game.actor_rect(kind)
+		var source: Vector2 = game.art(kind).get_size()
+		check(is_equal_approx(rect.size.x/rect.size.y,source.x/source.y),"actor preserves source aspect: "+kind)
+	check(game.actor_rect("ox").size.x > game.actor_rect("ox").size.y,"ox stays horizontal on the battlefield")
+	for kind: String in ["guard","spearbow","ram"]:
+		check(game.card_art_kinds(kind) == B.CARDS[kind].art,"preview and flight use legion members: "+kind)
+	var farm_rect: Rect2 = game.card_rect(Battle.FARM_SLOT)
+	check(farm_rect.end.y-22+18 < L.VIEWPORT_SIZE.y,"permanent farm label is inside viewport")
+	for kind: String in B.LORDS:
+		var m := Battle.new(1,[],[],kind,kind)
+		for team: int in range(2):
+			m.damage(m.lords[team],B.LORDS[kind].hp+1,1-team,"militia")
+			var death: Dictionary = m.events.filter(func(e: Dictionary) -> bool: return e.kind == "death").back()
+			check(death.art_kind == "lord_"+kind and death.face == (1.0 if team == 0 else -1.0),"death preserves lord identity and facing: "+kind+str(team))
+	var m := bare(1)
+	var u := m.spawn_unit(1,2,"hunter",Vector2(800,300))
+	u.face = -1.0
+	m.damage(u,u.hp+1,0,"militia")
+	var death: Dictionary = m.events.filter(func(e: Dictionary) -> bool: return e.kind == "death").back()
+	check(death.face == u.face and death.art_kind == u.kind,"unit death preserves facing and identity")
+	var b := m.add_building(1,Vector2i(8,2),"tower")
+	m.damage(b,b.hp+1,0,"militia")
+	death = m.events.filter(func(e: Dictionary) -> bool: return e.kind == "death").back()
+	check(death.face == 1.0,"building death keeps unmirrored orientation")
+	game.free()
+	finished["art_regressions"] = true

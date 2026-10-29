@@ -20,6 +20,7 @@ var model: RefCounted
 var font: Font
 var textures: Dictionary = {}
 var blue_art: Dictionary = {}
+static var recolor_cache: Dictionary = {}
 const ROMAN := ["I","II","III","IV","V"]
 var selected := -1
 var notice := "1–4 選牌 · 點戰場放置 · 右鍵取消 · 空白鍵暫停"
@@ -78,7 +79,7 @@ func _ready() -> void:
 	# One shared art set (producer decision): the blue side is made by swapping red cloth to blue,
 	# not by tinting the whole picture (that turned red into purple and darkened the fields).
 	for kind: String in textures:
-		if kind != "castle_blue": blue_art[kind] = recolor_blue(textures[kind],256 if kind == "castle_red" else 180)
+		if kind != "castle_blue": blue_art[kind] = recolor_blue(textures[kind],0 if kind == "castle_red" else 384,kind)
 	textures.castle_blue = textures.castle_red
 	# Darkened field edges pull the eye to the middle of the battle.
 	var shade := Gradient.new()
@@ -380,35 +381,78 @@ func art(kind: String, team: int = 0) -> Texture2D:
 func lord_art(kind: String, team: int = 0) -> Texture2D:
 	return art("lord_"+kind,team)
 
-# Copy of a texture with saturated reds turned to the blue banner colour; other colours untouched.
-static func recolor_blue(source: Texture2D, max_size: int) -> Texture2D:
+# Recolour only designated team materials. Natural fields/skin/wood are not team ink.
+# Ox cloth additionally has a spatial mask so its brown coat never enters the palette swap.
+static func team_material(kind: String, uv: Vector2, c: Color) -> bool:
+	if kind in ["farm","farmer","harvest","rain","fire"]: return false
+	if kind == "ox" and not Rect2(0.30,0.20,0.26,0.36).has_point(uv): return false
+	if kind == "ram" and uv.y > 0.55: return false
+	# Architecture's weathered red paint is less saturated than character cloth.
+	if kind in ["castle_red","castle_blue"]:
+		if Rect2(0.45,0.65,0.27,0.35).has_point(uv): return false # wooden gate, not painted team cloth
+		return c.a >= 0.05 and c.s >= 0.33 and c.v >= 0.18 and (c.h <= 0.07 or c.h >= 0.93)
+	return c.a >= 0.05 and c.s >= 0.55 and c.v >= 0.25 and (c.h <= 0.035 or c.h >= 0.965)
+
+static func recolor_blue(source: Texture2D, max_size: int, kind: String = "") -> Texture2D:
+	if kind in ["farm","farmer","harvest","rain","fire"]: return source
+	var key := str(source.get_instance_id())+":"+str(max_size)+":"+kind
+	if recolor_cache.has(key): return recolor_cache[key]
 	var img := source.get_image()
 	if img.is_compressed(): img.decompress()
 	img.convert(Image.FORMAT_RGBA8)
-	var scale := minf(1.0,float(max_size)/maxf(img.get_width(),img.get_height()))
+	var scale := minf(1.0,float(max_size)/maxf(img.get_width(),img.get_height())) if max_size > 0 else 1.0
 	if scale < 1.0: img.resize(maxi(1,roundi(img.get_width()*scale)),maxi(1,roundi(img.get_height()*scale)),Image.INTERPOLATE_LANCZOS)
 	for y: int in range(img.get_height()):
 		for x: int in range(img.get_width()):
 			var c := img.get_pixel(x,y)
-			if c.a < 0.05 or c.s < 0.33 or c.v < 0.18 or (c.h > 0.07 and c.h < 0.93): continue
+			if not team_material(kind,Vector2(float(x)/img.get_width(),float(y)/img.get_height()),c): continue
 			c.h = 0.6
 			c.s = minf(1.0,c.s*0.95)
-			c.v = c.v*0.9
+			c.v *= 0.9
 			img.set_pixel(x,y,c)
-	return ImageTexture.create_from_image(img)
+	var result := ImageTexture.create_from_image(img)
+	recolor_cache[key] = result
+	return result
+
+static func fitted_rect(source_size: Vector2, box: Rect2, bottom: bool = false) -> Rect2:
+	var size := source_size*minf(box.size.x/source_size.x,box.size.y/source_size.y)
+	var pos := box.position+(box.size-size)*0.5
+	if bottom: pos.y = box.end.y-size.y
+	return Rect2(pos,size)
+
+func draw_fitted(texture: Texture2D, box: Rect2, shade: Color = Color.WHITE, bottom: bool = false) -> void:
+	draw_texture_rect(texture,fitted_rect(texture.get_size(),box,bottom),false,shade)
+
+func actor_rect(kind: String) -> Rect2:
+	if kind.begins_with("lord_"): return fitted_rect(art(kind).get_size(),Rect2(-47,-67,94,94),true)
+	if kind in ["farm","mill","tower","scarecrow"]: return fitted_rect(art(kind).get_size(),Rect2(-45,-39,90,78),true)
+	var width := 112.0 if kind in ["ox","ram"] else 80.0
+	return fitted_rect(art(kind).get_size(),Rect2(-width/2,-63,width,80),true)
+
+func draw_actor(kind: String, team: int, pos: Vector2, face: float, shade: Color = Color.WHITE) -> void:
+	draw_set_transform(pos,0,Vector2(face,1))
+	draw_texture_rect(art(kind,team),actor_rect(kind),false,shade)
+	draw_set_transform(Vector2.ZERO)
+
+func card_art_kinds(kind: String) -> Array:
+	return B.CARDS[kind].get("art",[kind])
+
+func draw_card_art(kind: String, box: Rect2, team: int = 0, shade: Color = Color.WHITE) -> void:
+	var kinds := card_art_kinds(kind)
+	for i: int in range(kinds.size()):
+		var part := box
+		if kinds.size() > 1:
+			part.size.x = box.size.x*0.58
+			part.position.x += i*box.size.x*0.42
+		draw_fitted(art(kinds[i],team),part,shade,true)
 
 func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 	var data: Dictionary = B.CARDS[kind]
 	var s := rect.size
 	var short: bool = screen == "battle" and model.ink[0] < data.cost
 	draw_texture_rect(ART.card(selected == slot and slot >= 0),rect,false)
-	var arts: Array = data.get("art",[kind])
 	var shade := Color(0.45,0.45,0.45) if short else Color.WHITE
-	if arts.size() == 1: draw_texture_rect(art(kind),Rect2(rect.position+s*Vector2(0.17,0.13),s*Vector2(0.66,0.5)),false,shade)
-	else:
-		# Legion cards show their troops side by side.
-		draw_texture_rect(art(arts[0]),Rect2(rect.position+s*Vector2(0.08,0.14),s*Vector2(0.5,0.48)),false,shade)
-		draw_texture_rect(art(arts[1]),Rect2(rect.position+s*Vector2(0.42,0.14),s*Vector2(0.5,0.48)),false,shade)
+	draw_card_art(kind,Rect2(rect.position+s*Vector2(0.08,0.13),s*Vector2(0.84,0.5)),0,shade)
 	# Name and type sit above the frame's bottom corner flowers (they start ~83% down).
 	draw_string(font,rect.position+Vector2(0,s.y*0.74),data.name,HORIZONTAL_ALIGNMENT_CENTER,s.x,17,INK)
 	draw_string(font,rect.position+Vector2(0,s.y*0.83),data.role,HORIZONTAL_ALIGNMENT_CENTER,s.x,12,Color("7a6446"))
@@ -477,7 +521,7 @@ func draw_battle() -> void:
 		draw_string(font,Vector2(grid.position.x+6,grid.position.y+lane*L.CELL_SIZE.y+20),ROMAN[lane],HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color(INK,0.6))
 	for b: Dictionary in model.buildings:
 		team_shadow(b.pos+Vector2(0,30),40,Color(0.25,0.17,0.08))
-		draw_texture_rect(art(b.kind,b.team),Rect2(b.pos-Vector2(45,39),Vector2(90,78)),false)
+		draw_actor(b.kind,b.team,b.pos,1.0)
 		if b.hp < b.max_hp: bar(Rect2(b.pos-Vector2(30,43),Vector2(60,5)),b.hp,b.max_hp,RED if b.team == 0 else BLUE)
 		if b.boost_until > model.elapsed: draw_arc(b.pos,37,0,TAU,20,Color.GOLD,2)
 	layout_formations()
@@ -593,9 +637,7 @@ func draw_unit(u: Dictionary) -> void:
 	var pos: Vector2 = u.draw-Vector2(u.face*4,0) if fx_enabled and u.flash > 0 else u.draw # small knockback on hit
 	var bounce := sin(model.elapsed*8+u.phase)*2
 	team_base(pos+Vector2(0,16),24,RED if u.team == 0 else BLUE)
-	draw_set_transform(pos+Vector2(0,bounce),0,Vector2(u.face,1))
-	draw_texture_rect(art(u.kind,u.team),Rect2(-37,-63,74,80),false,Color(1.6,1.6,1.6) if fx_enabled and u.flash > 0 else Color.WHITE)
-	draw_set_transform(Vector2.ZERO)
+	draw_actor(u.kind,u.team,pos+Vector2(0,bounce),u.face,Color(1.6,1.6,1.6) if fx_enabled and u.flash > 0 else Color.WHITE)
 	if u.hp < u.max_hp: bar(Rect2(pos-Vector2(24,68),Vector2(48,5)),u.hp,u.max_hp,RED if u.team == 0 else BLUE)
 	var climb: float = u.get("climb",0.0)
 	if climb > 0 and climb < B.RUBBLE_TIME: bar(Rect2(pos-Vector2(24,75),Vector2(48,4)),climb,B.RUBBLE_TIME,Color.GOLD) # clearing the rubble
@@ -605,10 +647,8 @@ func draw_lord(lord: Dictionary) -> void:
 	team_shadow(lord.pos+Vector2(0,24),30,Color(0.25,0.17,0.08))
 	draw_arc(lord.pos+Vector2(0,24),30,0,TAU,32,Color(0.8,0.6,0.15,0.8),2) # gold ring marks the lords
 	# The art faces right; the blue lord is mirrored so both lords face the enemy.
-	draw_set_transform(lord.pos,0,Vector2(1 if lord.team == 0 else -1,1))
-	draw_texture_rect(lord_art(lord.lord,lord.team),Rect2(Vector2(-39,-67),Vector2(78,94)),false)
-	draw_set_transform(Vector2.ZERO)
-	bar(Rect2(lord.pos-Vector2(30,72),Vector2(60,4)),lord.hp,lord.max_hp,RED if lord.team == 0 else BLUE)
+	draw_actor("lord_"+lord.lord,lord.team,lord.pos,1.0 if lord.team == 0 else -1.0)
+	if lord.hp < lord.max_hp: bar(Rect2(lord.pos-Vector2(30,72),Vector2(60,4)),lord.hp,lord.max_hp,RED if lord.team == 0 else BLUE)
 
 func layout_formations() -> void:
 	# Units may overlap (producer decision 2026-10-29). Each one keeps the small up/down offset it got
@@ -625,7 +665,7 @@ func draw_preview() -> void:
 	var color := Color(0.2,0.7,0.3,0.35) if model.can_play(0,selected,pos) else Color(0.8,0.1,0.1,0.35)
 	if data.type == "spell": draw_circle(pos,data.radius,color)
 	else:
-		draw_texture_rect(art(kind),Rect2(L.cell_center(cell)-Vector2(35,40),Vector2(70,80)),false,Color(1,1,1,0.5))
+		draw_card_art(kind,Rect2(L.cell_center(cell)-Vector2(45,40),Vector2(90,80)),0,Color(1,1,1,0.5))
 		if data.type == "unit":
 			var lanes: Array = [cell.y]
 			if data.get("spread",false):
@@ -646,10 +686,10 @@ func draw_effects() -> void:
 				for i: int in range(6): draw_circle(e.pos+Vector2((i-3)*8*progress,-sin(progress*PI)*28),3,Color("8a642c"))
 			"play":
 				var source := card_rect(e.get("slot",0)).get_center() if e.team == 0 else Vector2(1240,40)
-				if progress < 0.6: draw_texture_rect(art(e.card),Rect2(source.lerp(e.pos,progress/0.6)-Vector2(25,30),Vector2(50,60)),false,Color(1,1,1,0.75))
+				if progress < 0.6: draw_card_art(e.card,Rect2(source.lerp(e.pos,progress/0.6)-Vector2(35,30),Vector2(70,60)),e.team,Color(1,1,1,0.75))
 				else: draw_circle(e.pos,(progress-0.6)*90,Color(0.2,0.15,0.1,(1-progress)*0.3))
 			"death":
-				draw_texture_rect(art(e.card,e.team),Rect2(e.pos-Vector2(32,54),Vector2(64,70)),false,Color(1,1,1,1-progress))
+				draw_actor(e.get("art_kind",e.card),e.team,e.pos,e.get("face",1.0 if e.team == 0 else -1.0),Color(1,1,1,1-progress))
 				for i: int in range(5): draw_circle(e.pos+Vector2(cos(i*2),sin(i*2))*progress*24,3*(1-progress),INK)
 			"burn":
 				draw_circle(e.pos,35,Color(0.15,0.07,0.02,0.35*(1-progress)))
@@ -703,7 +743,7 @@ func draw_hud() -> void:
 	if selected == Battle.FARM_SLOT: fr.position.y -= 16
 	elif hover_slot == Battle.FARM_SLOT: fr.position.y -= 8
 	draw_card("farm",fr,Battle.FARM_SLOT)
-	var tag := Rect2(farm_rect.position.x+farm_rect.size.x/2-24,farm_rect.end.y-6,48,18)
+	var tag := Rect2(farm_rect.position.x+farm_rect.size.x/2-24,farm_rect.end.y-22,48,18)
 	draw_rect(tag,Color("3f5a2c"))
 	draw_string(font,tag.position+Vector2(0,14),"常駐",HORIZONTAL_ALIGNMENT_CENTER,tag.size.x,13,Color("efdfb9"))
 	draw_line(Vector2(551,728),Vector2(551,888),Color(INK,0.35),2)
@@ -723,7 +763,7 @@ func draw_hud() -> void:
 			draw_string(font,SPEED_RECTS[i].position+Vector2(0,25),"×%d" % SPEEDS[i],HORIZONTAL_ALIGNMENT_CENTER,SPEED_RECTS[i].size.x,18,INK)
 	var mouse := get_global_mouse_position()
 	if dragging and selected >= 0 and card_at(mouse) < 0 and model.cell_at(mouse).x < 0:
-		draw_texture_rect(art(model.kind_at(0,selected)),Rect2(mouse-Vector2(30,36),Vector2(60,72)),false,Color(1,1,1,0.7))
+		draw_card_art(model.kind_at(0,selected),Rect2(mouse-Vector2(40,36),Vector2(80,72)),0,Color(1,1,1,0.7))
 	if spectating: label_at(Vector2(1220,766),"雙方領主",20)
 	else: draw_skill_button()
 	for lord: Dictionary in model.lords:
@@ -846,7 +886,7 @@ func draw_deck() -> void:
 		var info: Dictionary = B.LORDS[lord_kind]
 		panel(r,Color("f2e3c0") if lord_kind == player_lord else Color("e3d2aa"),RED if lord_kind == player_lord else INK)
 		if lord_kind == player_lord: draw_rect(r.grow(2),RED,false,3)
-		draw_texture_rect(lord_art(lord_kind),Rect2(r.position+Vector2(6,6),Vector2(64,78)),false)
+		draw_fitted(lord_art(lord_kind),Rect2(r.position+Vector2(6,6),Vector2(64,78)))
 		label_at(r.position+Vector2(76,32),info.name,18)
 		label_at(r.position+Vector2(76,56),"%s · %d 血" % [info.role,int(info.hp)],12,Color("6f5a3e"))
 		label_at(r.position+Vector2(76,78),"技能：%s" % info.skill,12,RED)
@@ -947,7 +987,7 @@ func draw_watch() -> void:
 			var chosen: bool = watch_lords[team] == lord_kind
 			panel(r,Color("f2e3c0") if chosen else Color("e3d2aa"),RED if chosen else INK)
 			if chosen: draw_rect(r.grow(2),RED if team == 0 else BLUE,false,3)
-			draw_texture_rect(lord_art(lord_kind,team),Rect2(r.position+Vector2(4,3),Vector2(40,46)),false)
+			draw_fitted(lord_art(lord_kind,team),Rect2(r.position+Vector2(4,3),Vector2(40,46)))
 			label_at(r.position+Vector2(50,22),B.LORDS[lord_kind].name,16)
 			label_at(r.position+Vector2(50,42),B.LORDS[lord_kind].role,12,Color("6f5a3e"))
 			index += 1

@@ -26,7 +26,7 @@ static func ornament(index: int) -> AtlasTexture:
 		return region("ornament-kit",Rect2(20,470,415,125))
 	if index == 5:
 		return region("ornament-kit",Rect2(450,470,350,125))
-	return region("ornament-kit",Rect2((index % 4)*384,(index / 4)*341,384,341))
+	return region("ornament-kit",Rect2((index % 4)*384,55,384,345))
 
 static func object_icon(index: int) -> AtlasTexture:
 	return region("small-objects",Rect2((index % 4)*313.5,(index / 4)*313.5,313.5,313.5))

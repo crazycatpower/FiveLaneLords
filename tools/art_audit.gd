@@ -40,10 +40,10 @@ func run() -> void:
  board.game = game
  for kind: String in game.textures:
   if kind == "castle_blue": continue
-  var size := Vector2(64,70)
-  if kind.begins_with("lord_"): size = Vector2(78,94)
+  var size: Vector2 = game.actor_rect(kind).size
+  if kind.begins_with("lord_"): size = game.actor_rect(kind).size
   elif kind == "castle_red": size = Vector2(70,110) # actual castles inspected in the scene screenshots
-  elif kind in ["farm","mill","tower","scarecrow"]: size = Vector2(90,78)
+  elif kind in ["farm","mill","tower","scarecrow"]: size = game.actor_rect(kind).size
   elif kind == "gate": size = Vector2(54,50)
   elif kind == "crest": size = Vector2(48,50)
   elif kind in ["fire","rain","harvest"]: size = Vector2(44,60)
@@ -57,12 +57,13 @@ func run() -> void:
   board.queue_redraw()
   await process_frame
   await RenderingServer.frame_post_draw
-  root.get_texture().get_image().save_png("res://docs/art-audit/sheet-%d.png" % (page+1))
+  await save_shot("sheet-%d" % (page+1))
  print("Art audit: %d entries" % board.entries.size())
  board.free()
  game.show()
  game.player_deck = game.B.PRESETS[0].duplicate()
  game.player_lord = "lion"
+ game.seed_value = 3
  game.deck_path = "user://audit-deck.json"
  game.show_title()
  await shot("title")
@@ -88,6 +89,7 @@ func run() -> void:
  await shot("pause")
  game.model.paused = false
  game.model.damage(game.model.lords[0],9999,1,"militia")
+ var lord_death: Dictionary = game.model.events.filter(func(e: Dictionary) -> bool: return e.kind == "death").back()
  game.consume_events()
  await shot("lord-death")
  game.model.finish(0)
@@ -110,7 +112,7 @@ func run() -> void:
  game.consume_events()
  for e: Dictionary in game.effects: e.life = e.duration*0.7
  await shot("guard-play")
- var findings := {"guard_art":game.art("guard").resource_path,"spearbow_art":game.art("spearbow").resource_path,"lord_death_art":game.art("lord").resource_path,"castle_source":game.textures.castle_red.get_size(),"castle_blue":game.blue_art.castle_red.get_size()}
+ var findings := {"guard_art":game.card_art_kinds("guard"),"spearbow_art":game.card_art_kinds("spearbow"),"lord_death_art":game.art(lord_death.art_kind).resource_path,"castle_source":game.textures.castle_red.get_size(),"castle_blue":game.blue_art.castle_red.get_size()}
  var data := FileAccess.open("res://docs/art-audit/runtime-mapping.json",FileAccess.WRITE)
  data.store_string(JSON.stringify(findings,"  "))
  data.close()
@@ -122,5 +124,14 @@ func shot(name: String) -> void:
  root.get_child(root.get_child_count()-1).queue_redraw()
  await process_frame
  await RenderingServer.frame_post_draw
- root.get_texture().get_image().save_png("res://docs/art-audit/"+name+".png")
+ await save_shot(name)
 
+
+func save_shot(name: String) -> void:
+ var captured := root.get_texture().get_image()
+ var path := "res://docs/art-audit/"+name+".png"
+ for attempt: int in range(3):
+  if captured.save_png(path) == OK: return
+  await create_timer(0.3).timeout
+ push_error("Cannot save audit evidence: "+path)
+ quit(1)

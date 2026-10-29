@@ -282,7 +282,11 @@ func damage(target: Dictionary, amount: float, team: int, kind: String) -> void:
 	if target.has("cell") and target.team == 0: building_alarm[target.cell.y] = 1.5
 	if target.hp <= 0:
 		if target.kind == "farm" and elapsed < 180.0: stats[target.team].farms_lost_early += 1
-		event("death",target.pos,target.team,{"card":target.kind})
+		var art_kind: String = "lord_"+target.lord if target.kind == "lord" else target.kind
+		var face: float = target.get("face",1.0 if target.team == 0 else -1.0)
+		if target.has("cell"): face = 1.0
+		var visual_pos: Vector2 = target.pos+Vector2(0,target.get("dy",0.0))
+		event("death",visual_pos,target.team,{"card":target.kind,"art_kind":art_kind,"face":face})
 		if target.kind == "farm" and kind == "fire":
 			stats[target.team].burned += 1
 			event("burn",target.pos,target.team)
@@ -437,7 +441,7 @@ func step(dt: float) -> void:
 		if b.hp <= 0: continue
 		if b.expires > 0 and elapsed >= b.expires:
 			b.hp = 0
-			event("death",b.pos,b.team,{"card":b.kind})
+			event("death",b.pos,b.team,{"card":b.kind,"art_kind":b.kind,"face":1.0})
 			continue
 		if b.kind == "farm":
 			var active_dt: float = clampf(elapsed-b.ready_at,0,dt)
