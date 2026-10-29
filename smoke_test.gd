@@ -172,10 +172,10 @@ func test_lord_skills() -> void:
 
 func test_core() -> void:
 	var m := bare(42)
-	check(m.ink == [10.0,10.0],"opening ink")
+	check(m.ink == [B.START_INK,B.START_INK] and B.START_INK == 25.0,"opening gold is 25 on both sides")
 	check(m.decks[0].size() == 8,"eight cards")
 	tick(m,2)
-	check(m.ink == [11.0,11.0],"base income two seconds")
+	check(m.ink == [B.START_INK+1,B.START_INK+1],"base income two seconds")
 	var farm := m.add_building(0,Vector2i(1,0),"farm")
 	tick(m,B.FARM_START+B.FARM_INTERVAL-0.1)
 	check(m.stats[0].drops == 0,"farm waits three plus twenty seconds")

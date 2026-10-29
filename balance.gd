@@ -1,5 +1,5 @@
 extends RefCounted
-const START_INK := 10.0
+const START_INK := 25.0 # producer 2026-10-29 (was 10)
 const MAX_INK := 50.0
 const BASE_INTERVAL := 2.0 # +1 ink every 2 s = 0.5 ink per second
 const FARM_INTERVAL := 20.0
