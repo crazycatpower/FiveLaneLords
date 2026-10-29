@@ -235,6 +235,8 @@ func draw_unit(u: Dictionary) -> void:
 	draw_texture_rect(art(u.kind,u.team),Rect2(-32,-54,64,70),false,Color(1.5,1.5,1.5) if u.flash > 0 else team_tint(u.team))
 	draw_set_transform(Vector2.ZERO)
 	bar(Rect2(pos-Vector2(23,59),Vector2(46,4)),u.hp,u.max_hp,RED if u.team == 0 else BLUE)
+	var climb: float = u.get("climb",0.0)
+	if climb > 0 and climb < B.RUBBLE_TIME: bar(Rect2(pos-Vector2(23,66),Vector2(46,4)),climb,B.RUBBLE_TIME,Color.GOLD) # clearing the rubble
 
 func draw_lord(lord: Dictionary) -> void:
 	if lord.hp <= 0: return

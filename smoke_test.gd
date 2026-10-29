@@ -181,7 +181,9 @@ func test_match() -> void:
 	tick(m,0.1)
 	check(m.gates[0][0] == 0 and not m.ended,"breaking a gate alone does not end the game")
 	check(m.events.any(func(e: Dictionary) -> bool: return e.kind == "breach" and e.team == 1 and e.lane == 0),"breach is announced with its lane")
-	# Gate broken: the attacker walks on; reaching our home line loses the game.
+	# Gate broken: the attacker clears the rubble for RUBBLE_TIME, then walks on; reaching our home line loses.
+	tick(m,B.RUBBLE_TIME-0.3)
+	check(not m.ended and is_equal_approx(raider.pos.x,L.gate_stop(0)) and raider.climb > 0,"attackers stop to clear the rubble first")
 	for i: int in range(600):
 		m.step(1.0/60.0)
 		if m.ended: break

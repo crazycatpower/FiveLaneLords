@@ -9,7 +9,10 @@ const CULTIVATE_TIME := 1.5
 const BOOST_TIME := 15.0
 const PLAY_COOLDOWN := 0.8
 const MELEE_RANGE := 47.0
-const GATE_HP := 600.0
+const GATE_HP := 400.0
+# After a gate falls, every attacker must stop at the gate and clear the rubble this long before
+# walking in, which gives the lord time to come back and defend.
+const RUBBLE_TIME := 3.0
 # No crowns, castle HP or time limit: the first enemy soldier to walk through a broken gate wins.
 # Ink speeds up over time so matches still end.
 const RAMP_1 := 180.0 # ink x1.5 from 3:00

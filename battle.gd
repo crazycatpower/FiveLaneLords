@@ -315,14 +315,18 @@ func step(dt: float) -> void:
 			# Gate standing: halt and batter it. Gate broken: keep walking; reaching the home line wins.
 			var enemy: int = 1-u.team
 			var open: bool = gates[enemy][u.lane] <= 0
-			var stop: float = L.gate_icon_x(enemy) if open else L.gate_stop(enemy)
+			var climbed: bool = u.get("climb",0.0) >= B.RUBBLE_TIME
+			var stop: float = L.gate_icon_x(enemy) if open and climbed else L.gate_stop(enemy)
 			var forward := 1.0 if u.team == 0 else -1.0
 			if (stop-u.pos.x)*forward <= 0.001:
-				if open:
+				if open and not climbed:
+					u.climb = u.get("climb",0.0)+dt
+					if enemy == 0: alarm[u.lane] = 1.5
+				elif open:
 					event("invaded",u.pos,u.team,{"lane":u.lane})
 					finish(u.team)
 					break
-				if u.cd <= 0:
+				elif u.cd <= 0:
 					var amount: float = data.damage
 					if u.kind == "ox":
 						amount = (B.OX_CHARGE if not u.charged else data.damage)*B.OX_BUILDING_BONUS
