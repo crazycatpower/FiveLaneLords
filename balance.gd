@@ -10,9 +10,10 @@ const BOOST_TIME := 15.0
 const PLAY_COOLDOWN := 0.8
 const MELEE_RANGE := 47.0
 const GATE_HP := 600.0
-const CASTLE_HP := 2500.0
-const MATCH_TIME := 240.0
-const OVERTIME := 120.0
+# No crowns, castle HP or time limit: the first enemy soldier to walk through a broken gate wins.
+# Ink speeds up over time so matches still end.
+const RAMP_1 := 180.0 # ink x1.5 from 3:00
+const RAMP_2 := 300.0 # ink x2 from 5:00
 const GATE_RANGE := 160.0
 const GATE_DAMAGE := 30.0
 const GATE_INTERVAL := 1.0

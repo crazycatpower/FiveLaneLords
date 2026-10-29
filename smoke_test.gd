@@ -164,13 +164,36 @@ func test_lords() -> void:
 
 func test_match() -> void:
 	var m := Battle.new(1)
+	m.elapsed = 179
+	check(m.multiplier() == 1.0,"normal ink speed before three minutes")
 	m.elapsed = 180
-	check(m.multiplier() == 1.5,"last minute multiplier")
-	m.elapsed = 240
-	m.update_clock()
-	check(m.overtime and not m.ended and m.multiplier() == 2,"tied game enters overtime")
-	m.hit_gate(1,0,600)
-	check(m.ended and m.winner == 0 and m.crowns[0] == 1,"next overtime crown wins")
+	check(m.multiplier() == 1.5,"ink x1.5 from three minutes")
+	m.elapsed = 300
+	check(m.multiplier() == 2.0,"ink x2 from five minutes")
+	m.elapsed = 900
+	m.step(0.01)
+	check(not m.ended,"no time limit")
+	# Gate standing: attackers stop and batter it; nobody wins.
+	m = Battle.new(1)
+	m.lords.clear()
+	m.gates[0][0] = 1
+	var raider := m.spawn_unit(1,0,"knight",Vector2(L.gate_stop(0)+1,L.cell_center(Vector2i(0,0)).y))
+	tick(m,0.1)
+	check(m.gates[0][0] == 0 and not m.ended,"breaking a gate alone does not end the game")
+	check(m.events.any(func(e: Dictionary) -> bool: return e.kind == "breach" and e.team == 1 and e.lane == 0),"breach is announced with its lane")
+	# Gate broken: the attacker walks on; reaching our home line loses the game.
+	for i: int in range(600):
+		m.step(1.0/60.0)
+		if m.ended: break
+	check(m.ended and m.winner == 1 and raider.pos.x <= L.gate_icon_x(0)+0.01,"an enemy walking through a broken gate wins")
+	m = Battle.new(1)
+	m.lords.clear()
+	m.gates[1][4] = 0
+	m.spawn_unit(0,4,"ram",Vector2(L.gate_stop(1)-5,L.cell_center(Vector2i(0,4)).y))
+	for i: int in range(600):
+		m.step(1.0/60.0)
+		if m.ended: break
+	check(m.ended and m.winner == 0,"our ram walking in wins too")
 	m = Battle.new(1)
 	m.hit_gate(1,2,600)
 	offer(m,"militia")
@@ -181,21 +204,11 @@ func test_match() -> void:
 	m.hit_gate(0,3,600)
 	offer(m,"militia",1)
 	check(m.can_play(1,0,L.cell_center(Vector2i(3,3))),"blue breach mirrors deployment")
-	m.elapsed = 360
-	m.overtime = true
-	m.castle[0] = 2300
-	m.update_clock()
-	check(m.winner == 1,"overtime health tiebreak")
 	m = Battle.new(1)
 	m.lords.clear()
 	var u := m.spawn_unit(1,0,"militia",Vector2(L.gate_stop(0)+100,L.cell_center(Vector2i(0,0)).y))
 	m.step(0.01)
 	check(u.hp == 55,"gate counters enemies within 160 px")
-	m = Battle.new(1)
-	m.elapsed = 360
-	m.overtime = true
-	m.update_clock()
-	check(m.ended and m.winner == -1,"equal health yields draw")
 
 func test_ai() -> void:
 	var m := Battle.new(3)

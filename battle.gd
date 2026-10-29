@@ -15,14 +15,12 @@ var spells: Array[Dictionary] = []
 var lords: Array = []
 var gates: Array = []
 var gate_cd: Array = []
-var castle: Array = [B.CASTLE_HP,B.CASTLE_HP]
-var crowns: Array = [0,0]
 var alarm: Array = [0.0,0.0,0.0,0.0,0.0]
 var building_alarm: Array = [0.0,0.0,0.0,0.0,0.0]
 var stats: Array = []
 var events: Array[Dictionary] = []
 var elapsed := 0.0
-var overtime := false
+var last_dt := 0.0
 var ended := false
 var winner := -2
 var paused := false
@@ -73,7 +71,7 @@ func building_at(cell: Vector2i) -> Dictionary:
 	return {}
 
 func multiplier() -> float:
-	return 2.0 if overtime else (1.5 if elapsed >= B.MATCH_TIME-60 else 1.0)
+	return 2.0 if elapsed >= B.RAMP_2 else (1.5 if elapsed >= B.RAMP_1 else 1.0)
 
 func production_rate(team: int) -> float:
 	var rate := 1.0/B.BASE_INTERVAL
@@ -169,22 +167,12 @@ func damage(target: Dictionary, amount: float, team: int, kind: String) -> void:
 			event("burn",target.pos,target.team)
 
 func hit_gate(side: int, lane: int, amount: float, kind: String = "militia") -> void:
-	var dealt: float
-	if gates[side][lane] > 0:
-		dealt = minf(gates[side][lane],amount)
-		gates[side][lane] = maxf(0,gates[side][lane]-amount)
-		if gates[side][lane] == 0:
-			crowns[1-side] += 1
-			if overtime: finish(1-side)
-			event("breach",Vector2(L.gate_icon_x(side),L.cell_center(Vector2i(0,lane)).y),1-side)
-	else:
-		dealt = minf(castle[side],amount)
-		castle[side] = maxf(0,castle[side]-amount)
+	if gates[side][lane] <= 0: return # already open; the attackers just walk in
+	var dealt: float = minf(gates[side][lane],amount)
+	gates[side][lane] = maxf(0,gates[side][lane]-amount)
+	if gates[side][lane] == 0: event("breach",Vector2(L.gate_icon_x(side),L.cell_center(Vector2i(0,lane)).y),1-side,{"lane":lane})
 	stats[1-side].damage[kind] = stats[1-side].damage.get(kind,0.0)+dealt
 	if side == 0: alarm[lane] = 1.5
-	if castle[side] <= 0:
-		crowns[1-side] = 5
-		finish(1-side)
 
 func finish(side: int) -> void:
 	ended = true
@@ -269,6 +257,7 @@ func cultivate(u: Dictionary, dt: float) -> bool:
 func step(dt: float) -> void:
 	if paused or ended: return
 	elapsed += dt
+	last_dt = dt
 	update_ai(dt)
 	for team: int in range(2):
 		cooldown[team] = maxf(0,cooldown[team]-dt)
@@ -326,8 +315,16 @@ func step(dt: float) -> void:
 			if u.cd <= 0: attack(u,target)
 		elif cultivate(u,dt): pass
 		else:
-			var stop := L.gate_stop(1-u.team)
-			if (stop-u.pos.x)*u.face <= 0.001:
+			# Gate standing: halt and batter it. Gate broken: keep walking; reaching the home line wins.
+			var enemy: int = 1-u.team
+			var open: bool = gates[enemy][u.lane] <= 0
+			var stop: float = L.gate_icon_x(enemy) if open else L.gate_stop(enemy)
+			var forward := 1.0 if u.team == 0 else -1.0
+			if (stop-u.pos.x)*forward <= 0.001:
+				if open:
+					event("invaded",u.pos,u.team,{"lane":u.lane})
+					finish(u.team)
+					break
 				if u.cd <= 0:
 					var amount: float = data.damage
 					if u.kind == "ox":
@@ -374,13 +371,8 @@ func update_gates(dt: float) -> void:
 
 func update_clock() -> void:
 	if ended: return
-	if not overtime and elapsed >= B.MATCH_TIME:
-		if crowns[0] != crowns[1]: finish(0 if crowns[0] > crowns[1] else 1)
-		else:
-			overtime = true
-			event("overtime",Vector2(800,50))
-	if overtime and elapsed >= B.MATCH_TIME+B.OVERTIME:
-		finish(-1 if is_equal_approx(castle[0],castle[1]) else (0 if castle[0] > castle[1] else 1))
+	for ramp: float in [B.RAMP_1,B.RAMP_2]:
+		if elapsed >= ramp and elapsed-last_dt < ramp: event("ramp",Vector2(800,50),0,{"multiplier":multiplier()})
 
 func snapshot(team: int) -> Dictionary:
 	var candidates: Array = []

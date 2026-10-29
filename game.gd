@@ -92,7 +92,8 @@ func _physics_process(dt: float) -> void:
 
 func consume_events() -> void:
 	for e: Dictionary in model.events:
-		if e.kind == "breach": notice = "第 %d 路破門！" % (model.cell_at(Vector2(L.GRID_ORIGIN.x,e.pos.y)).y+1)
+		if e.kind == "breach": notice = ("我方第 %d 路城門被攻破！敵兵走進來就輸了。" if e.team == 1 else "攻破藍旗第 %d 路城門！派兵走進去就贏。") % (e.lane+1)
+		if e.kind == "ramp": notice = "墨水產出加快 ×%.1f" % e.multiplier
 		if e.kind == "overflow" and e.team == 0: notice = "墨水已滿 50，繼續產出的墨水會浪費。"
 		if fx_enabled:
 			var copy := e.duplicate()
@@ -213,7 +214,7 @@ func draw_battle() -> void:
 	draw_hud()
 	if model.paused or model.ended:
 		panel(L.OVERLAY_RECT,Color("ead6aa"))
-		label_at(L.OVERLAY_TITLE,"戰局暫停" if not model.ended else ("和局" if model.winner == -1 else ("紅獅勝利" if model.winner == 0 else "藍旗勝利")),30)
+		label_at(L.OVERLAY_TITLE,"戰局暫停" if not model.ended else ("紅獅勝利！我軍攻進藍旗主堡" if model.winner == 0 else "敗北：藍旗士兵攻進了我方主堡"),30)
 		label_at(L.OVERLAY_HELP,"空白鍵繼續 · R 重新開始",20)
 
 # Both sides share one art set (producer decision); until recolored art exists, tint the blue side
@@ -279,12 +280,13 @@ func draw_hud() -> void:
 	panel(L.HUD_FRAME)
 	for team: int in range(2):
 		var x := 65.0 if team == 0 else 1050.0
-		label_at(Vector2(x,43),("紅獅" if team == 0 else "藍旗")+"  ♛ %d" % model.crowns[team],23,RED if team == 0 else BLUE)
-		bar(Rect2(x,53,350,10),model.castle[team],B.CASTLE_HP,RED if team == 0 else BLUE)
+		var standing: int = model.gates[team].filter(func(hp: float) -> bool: return hp > 0).size()
+		label_at(Vector2(x,43),("紅獅" if team == 0 else "藍旗")+"  城門 %d / 5" % standing,23,RED if team == 0 else BLUE)
+		for lane: int in range(5): bar(Rect2(x+lane*70,53,62,10),model.gates[team][lane],B.GATE_HP,RED if team == 0 else BLUE)
 		label_at(Vector2(x+170,43),"墨水 %d / 50" % model.ink[team],18)
-	var time := maxi(0,ceili((B.MATCH_TIME+B.OVERTIME if model.overtime else B.MATCH_TIME)-model.elapsed))
+	var time := int(model.elapsed)
 	label_at(Vector2(725,58),"%02d:%02d" % [time/60,time%60],30,RED if model.multiplier() > 1 else INK)
-	if model.multiplier() > 1: label_at(Vector2(715,79),"%s ×%.1f" % ["加時" if model.overtime else "墨水",model.multiplier()],14,RED)
+	if model.multiplier() > 1: label_at(Vector2(722,79),"墨水 ×%.1f" % model.multiplier(),14,RED)
 	panel(L.PAUSE_RECT)
 	label_at(L.PAUSE_RECT.position+Vector2(10,27),"Ⅱ",23)
 	panel(L.COMMAND_FRAME)
@@ -317,7 +319,7 @@ func draw_title() -> void:
 	draw_texture_rect(textures.castle_blue,Rect2(1150,290,350,480),false)
 	draw_string(font,Vector2(0,190),"羊皮紙戰記",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,76,INK)
 	draw_string(font,Vector2(0,245),"種下村莊，寫下你的戰史。",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,28,INK)
-	draw_string(font,Vector2(0,800),"八張村莊牌 · 五路戰線 · 四分鐘攻城",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,23,INK)
+	draw_string(font,Vector2(0,800),"八張村莊牌 · 五路戰線 · 城門一破，敵兵進家就輸",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,23,INK)
 
 func show_deck() -> void:
 	screen = "deck"
@@ -377,5 +379,5 @@ func show_help() -> void:
 func draw_help() -> void:
 	panel(Rect2(270,130,1060,600))
 	label_at(Vector2(350,215),"操作與勝負",44)
-	var lines := ["1–4 或點卡牌選牌，再點戰場放置；右鍵／Esc 取消。","空白鍵暫停；暫停時按 R 重玩，戰鬥中 R 不會重開。","農田自己產墨水；農民從田後方出發，順路耕田加速。","部隊只往前走，領主會自行回防；箭樓可守護後方。","破門得皇冠，該路部隊部署區延伸至第六欄。","四分鐘比皇冠，平手加時兩分鐘；拆主堡直接勝利。","最後一分鐘產墨水 ×1.5，加時 ×2；上限 50。"]
+	var lines := ["1–4 或點卡牌選牌，再點戰場放置；右鍵／Esc 取消。","空白鍵暫停；暫停時按 R 重玩，戰鬥中 R 不會重開。","農田自己產墨水；農民從田後方出發，順路耕田加速。","部隊只往前走，領主會自行回防；箭樓可守護後方。","打破對方城門後，該路部隊可部署到第六欄。","城門破了，任何一名敵兵走進家門就輸——沒有時間限制。","三分鐘後墨水產出 ×1.5，五分鐘後 ×2；上限 50。"]
 	for i: int in range(lines.size()): label_at(Vector2(350,290+i*52),lines[i],23)
