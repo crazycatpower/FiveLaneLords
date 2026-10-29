@@ -94,8 +94,12 @@ func gain_ink(team: int, amount: float) -> void:
 
 func farm_speed(b: Dictionary) -> float:
 	var speed := 2.0 if maxf(b.boost_until,b.harvest_until) > elapsed else 1.0
+	# One mill per lane counts; a second mill in the same lane does not stack (but any lane may have one,
+	# so the card is never stuck in hand).
 	for mill: Dictionary in buildings:
-		if mill.kind == "mill" and mill.hp > 0 and mill.team == b.team and mill.cell.y == b.cell.y: speed *= B.MILL_BONUS
+		if mill.kind == "mill" and mill.hp > 0 and mill.team == b.team and mill.cell.y == b.cell.y:
+			speed *= B.MILL_BONUS
+			break
 	return speed
 
 func farm_drop(b: Dictionary) -> void:
@@ -124,7 +128,6 @@ func play_error(team: int, slot: int, pos: Vector2) -> String:
 		return "建築只能蓋在我方左側三欄。" if card.type == "building" else "部隊只能放在我方左側三欄（打破對方城門的那一路可到第六欄）。"
 	if card.type == "building":
 		if not building_at(cell).is_empty(): return "這格已經有建築了。"
-		if kind == "mill" and count_buildings(team,"mill") > 0: return "每方只能有一座磨坊。"
 	return ""
 
 func play(team: int, slot: int, pos: Vector2) -> bool:

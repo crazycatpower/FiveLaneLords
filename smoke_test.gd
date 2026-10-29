@@ -287,7 +287,9 @@ func test_cards() -> void:
 	m.add_building(0,Vector2i(2,0),"mill")
 	check(m.farm_speed(farm) == B.MILL_BONUS and m.farm_speed(other) == 1,"mill boosts only its lane")
 	offer(m,"mill")
-	check(not m.can_play(0,0,L.cell_center(Vector2i(0,1))),"one mill per side")
+	check(m.can_play(0,0,L.cell_center(Vector2i(0,1))),"a second mill can always be built (no dead card)")
+	m.add_building(0,Vector2i(0,0),"mill")
+	check(m.farm_speed(farm) == B.MILL_BONUS,"two mills in one lane do not stack")
 	var before: float = m.ink[0]
 	m.cast_spell({"kind":"harvest","team":0,"pos":farm.pos})
 	check(m.stats[0].drops == 2 and farm.harvest_until == 8,"harvest produces immediately on nearby farms")

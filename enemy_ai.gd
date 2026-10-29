@@ -5,7 +5,11 @@ const L = preload("res://layout.gd")
 # Pure decision: snapshot in, legal play out. No model mutation or random globals.
 # Lanes are scored separately so the AI defends whichever lane is in danger, spreads farms,
 # and spreads its attacks instead of feeding every troop into one lane.
-const DEFEND_REACH := 4.5 # columns from our gate at which an approaching enemy counts as a threat
+const DEFEND_REACH := 4.5
+# With this much ink and no better play, spend the most useful card in hand anyway. Without it a
+# hand of buildings and idle spells never left the hand, the deck stopped rotating and the AI sat
+# at the 50-ink cap (about 35% of all ink was wasted in tools/sim.gd).
+const SPEND_AT := 35.0 # columns from our gate at which an approaching enemy counts as a threat
 
 static func decide(s: Dictionary) -> Dictionary:
 	var team: int = s.team
@@ -20,6 +24,7 @@ static func decide(s: Dictionary) -> Dictionary:
 	var their_farms := [0,0,0,0,0]
 	var their_guard := [0.0,0.0,0.0,0.0,0.0]
 	var farm_total := 0
+	var own_buildings := 0
 	for u: Dictionary in s.units:
 		if u.hp <= 0: continue
 		if u.team == team:
@@ -35,6 +40,7 @@ static func decide(s: Dictionary) -> Dictionary:
 	for b: Dictionary in s.buildings:
 		if b.hp <= 0: continue
 		if b.team == team:
+			own_buildings += 1
 			if b.kind == "farm":
 				my_farms[b.cell.y] += 1
 				farm_total += 1
@@ -111,6 +117,8 @@ static func decide(s: Dictionary) -> Dictionary:
 					for b: Dictionary in s.buildings:
 						if b.team == team and b.kind == "farm" and b.pos.distance_to(c.pos) <= data.radius: count += 1
 					if count >= 2: score = 670+count
+			if defend < 0 and score == -INF and s.ink >= SPEND_AT:
+				score = spend_score(c,s,team,lane,col,target_lane,foes,urgency,my_farms,15-own_buildings)
 			if score > best_score:
 				best_score = score
 				best = c.duplicate()
@@ -122,3 +130,26 @@ static func decide(s: Dictionary) -> Dictionary:
 static func jitter(lane: int, elapsed: float) -> float:
 	var x := sin(lane*12.9898+floorf(elapsed/8.0)*78.233)*43758.5453
 	return (x-floorf(x))*80.0
+
+# Fallback value of a card when the AI has ink to burn (see SPEND_AT). All scores stay below the
+# deliberate plays (>= 600), so this only decides between otherwise unwanted cards.
+static func spend_score(c: Dictionary, s: Dictionary, team: int, lane: int, col: int, target_lane: int, foes: Array, urgency: Array, my_farms: Array, free_cells: int) -> float:
+	var data: Dictionary = B.CARDS[c.kind]
+	# Keep a few cells open, or every building card in the deck ends up stuck in hand.
+	if data.type == "building" and free_cells <= 3: return -INF
+	match c.kind:
+		"tower": return 520.0+urgency[lane]*0.05+my_farms[lane]*10-absf(col-1)*6
+		"scarecrow": return 500.0+urgency[lane]*0.04+my_farms[lane]*10-absf(col-2)*6
+		"mill": return 515.0+my_farms[lane]*25-col*4 if my_farms.max() > 0 else -INF
+		"farm": return 505.0-my_farms[lane]*20-col*5
+		"harvest", "rain", "fire":
+			var value := 0.0
+			for u: Dictionary in s.units:
+				if u.team != team and u.hp > 0 and u.pos.distance_to(c.pos) <= data.radius: value += 60.0
+			for b: Dictionary in s.buildings:
+				if b.hp <= 0 or b.pos.distance_to(c.pos) > data.radius: continue
+				if c.kind == "harvest" and b.team == team and b.kind == "farm": value += 40.0
+				if c.kind == "fire" and b.team != team: value += 80.0
+			return 490.0+value if value > 0 else 300.0-data.cost
+	if data.type == "unit": return 480.0+(30.0 if lane == target_lane else 0.0)+col*3-data.cost*0.5
+	return -INF
