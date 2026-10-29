@@ -157,15 +157,15 @@
   },
   {
     "file": "assets/manuscript-v1/lord-lion.png",
-    "width": 1208,
-    "height": 1302,
-    "transparent_pct": 67.398,
-    "partial_pct": 32.47,
+    "width": 1214,
+    "height": 1295,
+    "transparent_pct": 64.604,
+    "partial_pct": 35.363,
     "opaque_bounds": [
-      44,
-      38,
-      1189,
-      1225
+      125,
+      21,
+      1005,
+      1244
     ]
   },
   {
