@@ -55,6 +55,11 @@ func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = []) -> void:
 		decks.append(deck)
 		gates.append([B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP])
 		stats.append({"produced":0.0,"wasted":0.0,"planted":0,"burned":0,"plays":0,"used":{},"damage":{},"spent":{},"cultivated":0,"drops":0})
+	# Both sides start with two farms; they are not counted as planted.
+	for team: int in range(2):
+		for cell: Vector2i in B.START_FARMS:
+			add_building(team,Vector2i(cell.x if team == 0 else 8-cell.x,cell.y),"farm")
+		stats[team].planted = 0
 
 func event(kind: String, pos: Vector2, team: int = 0, extra: Dictionary = {}) -> void:
 	var e := {"kind":kind,"pos":pos,"team":team,"time":elapsed}
@@ -275,6 +280,7 @@ func cultivate(u: Dictionary, dt: float) -> bool:
 			for b: Dictionary in buildings:
 				if b.id == u.work_id and b.hp > 0:
 					b.boost_until = elapsed+B.BOOST_TIME
+					b.hp = minf(b.max_hp,b.hp+B.FARMER_HEAL)
 					stats[u.team].cultivated += 1
 					event("cultivate",b.pos,u.team)
 		return true

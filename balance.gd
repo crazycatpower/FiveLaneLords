@@ -1,10 +1,12 @@
 extends RefCounted
 const START_INK := 10.0
 const MAX_INK := 50.0
-const BASE_INTERVAL := 2.0
-const FARM_INTERVAL := 10.0
+const BASE_INTERVAL := 2.0 # +1 ink every 2 s = 0.5 ink per second
+const FARM_INTERVAL := 20.0
 const FARM_START := 3.0
-const FARM_DROP := 2.0
+const FARM_DROP := 4.0 # a farm gives +4 every 20 s (every 10 s while cultivated)
+const FARMER_HEAL := 100.0 # each cultivation also repairs the farm by this much
+const START_FARMS := [Vector2i(0,1),Vector2i(0,3)] # both sides begin with these two farms (lanes II and IV, back column; mirrored for blue)
 const CULTIVATE_TIME := 1.5
 const BOOST_TIME := 15.0
 const PLACE_JITTER := 16.0 # units are drawn up to this many px above/below their lane line (looks only)

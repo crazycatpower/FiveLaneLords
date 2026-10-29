@@ -8,6 +8,11 @@ var finished := {}
 func _initialize() -> void:
 	create_timer(45).timeout.connect(func(): quit(2))
 	call_deferred("run")
+# A battle with the two starting farms removed, so each mechanic can be tested on its own.
+func bare(seed_value: int = 1, deck_a: Array = [], deck_b: Array = []) -> Battle:
+	var m := Battle.new(seed_value,deck_a,deck_b)
+	m.buildings.clear()
+	return m
 func check(ok: bool, message: String) -> void:
 	checks += 1
 	if not ok:
@@ -33,6 +38,8 @@ func run() -> void:
 	test_tutorial()
 	test_card_cooldowns()
 	test_repair()
+	test_start_farms()
+	check(finished.has("start_farms"),"start farm test ran to the end")
 	check(finished.has("repair"),"repair test ran to the end")
 	check(finished.has("card_cd"),"card cooldown test ran to the end")
 	check(finished.has("tutorial"),"tutorial test ran to the end")
@@ -45,20 +52,20 @@ func run() -> void:
 	print("%s: %d checks, %d failures" % ["PASS" if failures == 0 else "FAIL",checks,failures])
 	quit(0 if failures == 0 else 1)
 func test_core() -> void:
-	var m := Battle.new(42)
+	var m := bare(42)
 	check(m.ink == [10.0,10.0],"opening ink")
 	check(m.decks[0].size() == 8,"eight cards")
 	tick(m,2)
 	check(m.ink == [11.0,11.0],"base income two seconds")
 	var farm := m.add_building(0,Vector2i(1,0),"farm")
-	tick(m,12.9)
-	check(m.stats[0].drops == 0,"farm waits three plus ten seconds")
+	tick(m,B.FARM_START+B.FARM_INTERVAL-0.1)
+	check(m.stats[0].drops == 0,"farm waits three plus twenty seconds")
 	tick(m,0.1)
-	check(m.stats[0].drops == 1,"farm produces two ink after thirteen seconds")
+	check(m.stats[0].drops == 1 and B.FARM_DROP == 4 and B.FARM_INTERVAL == 20,"farm produces four ink after twenty-three seconds")
 	m.ink[0] = 49.0
 	m.gain_ink(0,2)
 	check(m.ink[0] == 50 and m.stats[0].wasted == 1,"overflow counted")
-	m = Battle.new(42)
+	m = bare(42)
 	farm = m.add_building(0,Vector2i(1,0),"farm")
 	var farmer := m.spawn_unit(0,0,"farmer",farm.pos)
 	tick(m,1)
@@ -70,7 +77,7 @@ func test_core() -> void:
 	var behind := m.add_building(0,Vector2i(0,0),"farm")
 	tick(m,1)
 	check(behind.boost_until == 0,"farmer never returns to a field behind")
-	m = Battle.new(1)
+	m = bare(1)
 	for row: int in range(5):
 		for col: int in range(3):
 			offer(m,"farm")
@@ -105,12 +112,12 @@ func test_core() -> void:
 	m.play(0,0,L.cell_center(Vector2i(2,4)))
 	check("farm" in m.decks[0].slice(0,4),"returns after four subsequent plays")
 	for side: int in range(2):
-		m = Battle.new(1)
+		m = bare(1)
 		var attacker := m.spawn_unit(1-side,0,"militia",Vector2(L.gate_stop(side),L.cell_center(Vector2i(0,0)).y))
 		var defender := m.spawn_unit(side,0,"militia",L.spawn_position(side,0))
 		tick(m,0.2)
 		check(attacker.hp < 85 and defender.hp < 85,"gate fights on both sides")
-	m = Battle.new(1)
+	m = bare(1)
 	var u := m.spawn_unit(0,0,"militia",Vector2(800,162))
 	m.spawn_unit(1,0,"militia",Vector2(700,162))
 	tick(m,0.2)
@@ -119,8 +126,8 @@ func test_core() -> void:
 	var t: float = m.elapsed
 	tick(m,1)
 	check(m.elapsed == t,"pause freezes simulation")
-	var a := Battle.new(77)
-	var b := Battle.new(77)
+	var a := bare(77)
+	var b := bare(77)
 	check(a.decks == b.decks,"seeded shuffle reproducible")
 	for row: int in range(5):
 		for col: int in range(9): check(m.cell_at(L.cell_center(Vector2i(col,row))) == Vector2i(col,row),"grid roundtrip")
@@ -153,7 +160,7 @@ func preview() -> void:
 	finished["preview"] = true
 
 func test_lords() -> void:
-	var m := Battle.new(9)
+	var m := bare(9)
 	var lord: Dictionary = m.lords[0]
 	lord.hp = 200
 	lord.last_hit = m.elapsed
@@ -169,7 +176,7 @@ func test_lords() -> void:
 	lord.last_hit = m.elapsed
 	tick(m,B.LORD_REGEN_DELAY+1.0)
 	check(lord.hp > 100 and lord.hp <= 100+B.LORD_REGEN*1.1,"slow regeneration starts after the delay")
-	m = Battle.new(8)
+	m = bare(8)
 	m.spawn_unit(1,0,"militia",L.cell_center(Vector2i(1,0)))
 	var reached := false
 	for frame: int in range(174):
@@ -177,13 +184,13 @@ func test_lords() -> void:
 		reached = reached or absf(m.lords[0].pos.y-L.cell_center(Vector2i(0,0)).y) < 58
 	check(reached,"lord reaches threatened lane within three seconds, even if threat is killed")
 	# Repro of "the lord does not really defend": a knight battering our lane-4 gate must get hit.
-	var d := Battle.new(8)
+	var d := bare(8)
 	d.lords[1].pos = Vector2(5000,0) # keep the blue lord out of it
 	var raider := d.spawn_unit(1,3,"knight",Vector2(L.gate_stop(0),L.cell_center(Vector2i(0,3)).y))
 	tick(d,5.0)
 	check(raider.hp < B.CARDS.knight.hp,"lord walks up to a gate raider and hits it")
 	# A raider clearing rubble is urgent: the lord switches lanes at once, even when hurt.
-	d = Battle.new(8)
+	d = bare(8)
 	d.lords[1].pos = Vector2(5000,0)
 	d.lords[0].hp = B.LORD_HP*0.2
 	d.lords[0].last_hit = d.elapsed
@@ -202,7 +209,7 @@ func test_lords() -> void:
 	check(m.lords[0].hp == B.LORD_HP,"lord revives after twelve seconds")
 
 func test_match() -> void:
-	var m := Battle.new(1)
+	var m := bare(1)
 	m.elapsed = 179
 	check(m.multiplier() == 1.0,"normal ink speed before three minutes")
 	m.elapsed = 180
@@ -213,7 +220,7 @@ func test_match() -> void:
 	m.step(0.01)
 	check(not m.ended,"no time limit")
 	# Gate standing: attackers stop and batter it; nobody wins.
-	m = Battle.new(1)
+	m = bare(1)
 	m.lords.clear()
 	m.gates[0][0] = 1
 	var raider := m.spawn_unit(1,0,"knight",Vector2(L.gate_stop(0)+1,L.cell_center(Vector2i(0,0)).y))
@@ -227,7 +234,7 @@ func test_match() -> void:
 		m.step(1.0/60.0)
 		if m.ended: break
 	check(m.ended and m.winner == 1 and raider.pos.x <= L.gate_icon_x(0)+0.01,"an enemy walking through a broken gate wins")
-	m = Battle.new(1)
+	m = bare(1)
 	m.lords.clear()
 	m.gates[1][4] = 0
 	m.spawn_unit(0,4,"ram",Vector2(L.gate_stop(1)-5,L.cell_center(Vector2i(0,4)).y))
@@ -235,7 +242,7 @@ func test_match() -> void:
 		m.step(1.0/60.0)
 		if m.ended: break
 	check(m.ended and m.winner == 0,"our ram walking in wins too")
-	m = Battle.new(1)
+	m = bare(1)
 	m.hit_gate(1,2,600)
 	offer(m,"militia")
 	check(m.can_play(0,0,L.cell_center(Vector2i(5,2))),"breach expands unit deployment to column six")
@@ -245,14 +252,14 @@ func test_match() -> void:
 	m.hit_gate(0,3,600)
 	offer(m,"militia",1)
 	check(m.can_play(1,0,L.cell_center(Vector2i(3,3))),"blue breach mirrors deployment")
-	m = Battle.new(1)
+	m = bare(1)
 	m.lords.clear()
 	var u := m.spawn_unit(1,0,"militia",Vector2(L.gate_stop(0)+100,L.cell_center(Vector2i(0,0)).y))
 	m.step(0.01)
 	check(u.hp == u.max_hp,"gates never shoot back")
 
 func test_ai() -> void:
-	var m := Battle.new(3)
+	var m := bare(3)
 	m.ink[1] = 0
 	check(m.AI.decide(m.snapshot(1)).is_empty(),"AI cannot afford a card with zero ink")
 	offer(m,"farm",1)
@@ -275,14 +282,14 @@ func test_ai() -> void:
 	m.spawn_unit(0,0,"militia",L.cell_center(Vector2i(7,0)))
 	c = m.AI.decide(m.snapshot(1))
 	check(c.cell.y == 0 and c.pos.x >= L.cell_center(Vector2i(7,0)).x,"AI intercepts ahead of incoming attacker")
-	m = Battle.new(3)
+	m = bare(3)
 	m.decks[1] = ["farm","farmer","harvest","mill","militia","rain","tower","scarecrow"]
 	m.hand_cd[1] = [0.0,0.0,0.0,0.0] # tests swap hands directly; skip the arrival cooldown
 	m.ink[1] = 30
 	m.spawn_unit(0,1,"ram",Vector2(L.gate_stop(1),L.cell_center(Vector2i(0,1)).y))
 	c = m.AI.decide(m.snapshot(1))
 	check(c.get("kind","") == "farm","AI keeps playing when nothing in hand can answer a threat")
-	m = Battle.new(3)
+	m = bare(3)
 	m.ai_enabled[1] = true
 	tick(m,35)
 	check(m.stats[1].plays > 0 and m.ink[1] >= 0,"AI acts through shared paid play interface")
@@ -293,7 +300,7 @@ func test_cards() -> void:
 	var costs: Array = B.CARDS.values().map(func(c: Dictionary) -> int: return c.cost)
 	check(costs.min() == 1 and costs.max() == 30,"card costs span 1 to 30")
 	check(B.CARDS.values().all(func(c: Dictionary) -> bool: return c.has("role") and not c.role.is_empty()),"every card has a role")
-	var m := Battle.new(1)
+	var m := bare(1)
 	m.lords.clear()
 	var farm := m.add_building(0,Vector2i(1,0),"farm")
 	var other := m.add_building(0,Vector2i(1,1),"farm")
@@ -307,12 +314,12 @@ func test_cards() -> void:
 	m.cast_spell({"kind":"harvest","team":0,"pos":farm.pos})
 	check(m.stats[0].drops == 2 and farm.harvest_until == 8,"harvest produces immediately on nearby farms")
 	check(m.farm_speed(farm) == 2*B.MILL_BONUS,"harvest and mill stack multiplicatively")
-	m = Battle.new(2)
+	m = bare(2)
 	m.lords.clear()
 	var target := m.add_building(1,Vector2i(7,0),"mill")
 	m.cast_spell({"kind":"fire","team":0,"pos":target.pos})
 	check(target.hp == maxf(0,B.CARDS.mill.hp-B.CARDS.fire.building_damage) and B.CARDS.fire.building_damage == 2*B.CARDS.fire.damage,"fire does double damage to buildings")
-	m = Battle.new(2)
+	m = bare(2)
 	m.lords.clear()
 	var ox := m.spawn_unit(0,0,"ox",Vector2(700,162))
 	var knight := m.spawn_unit(1,0,"knight",Vector2(720,162))
@@ -324,7 +331,7 @@ func test_cards() -> void:
 	ox.hp = 300
 	m.heal(healer,1)
 	check(ox.hp == 300+B.HEAL_AMOUNT,"herbalist heals nearby allies")
-	m = Battle.new(2)
+	m = bare(2)
 	m.lords.clear()
 	var hunter := m.spawn_unit(0,0,"hunter",Vector2(700,162))
 	knight = m.spawn_unit(1,0,"knight",Vector2(820,162))
@@ -332,24 +339,24 @@ func test_cards() -> void:
 	check(knight.hp == B.CARDS.knight.hp and m.projectiles.size() == 1,"arrow has real flight delay")
 	m.update_projectiles(0.35)
 	check(knight.hp == B.CARDS.knight.hp-B.CARDS.hunter.damage and m.projectiles.is_empty(),"arrow damages on arrival")
-	m = Battle.new(2)
+	m = bare(2)
 	m.lords.clear()
 	var ram := m.spawn_unit(0,0,"ram",Vector2(700,162))
 	m.spawn_unit(1,0,"knight",Vector2(710,162))
 	m.step(0.1)
 	check(ram.pos.x > 700,"ram ignores blocking units")
-	m = Battle.new(2)
+	m = bare(2)
 	m.lords.clear()
 	var militia := m.spawn_unit(0,0,"militia",Vector2(1135,162))
 	knight = m.spawn_unit(1,0,"knight",Vector2(1140,162))
 	var scarecrow := m.add_building(1,Vector2i(7,0),"scarecrow")
 	m.step(0.01)
 	check(scarecrow.hp < 400 and knight.hp == B.CARDS.knight.hp,"scarecrow takes priority over nearer troops")
-	m = Battle.new(2)
+	m = bare(2)
 	offer(m,"mob")
 	m.play(0,0,L.cell_center(Vector2i(1,1)))
 	check(m.units.size() == 5 and m.units.back().spawn_delay > 0,"mob deploys five staggered troops")
-	m = Battle.new(2)
+	m = bare(2)
 	for lane: int in range(4): m.add_building(0,Vector2i(1,lane),"farm")
 	m.decks[1] = ["fire","militia","rain","tower","farm","farmer","ox","mob"]
 	m.hand_cd[1] = [0.0,0.0,0.0,0.0] # tests swap hands directly; skip the arrival cooldown
@@ -474,7 +481,7 @@ func test_feel() -> void:
 	finished["feel"] = true
 
 func test_overlap() -> void:
-	var m := Battle.new(5)
+	var m := bare(5)
 	m.lords.clear()
 	var y := L.cell_center(Vector2i(0,2)).y
 	var units: Array = []
@@ -488,13 +495,13 @@ func test_opening_hand() -> void:
 	var missing := 0
 	for seed_value: int in range(200):
 		for preset: Array in B.PRESETS:
-			var m := Battle.new(seed_value,preset.duplicate(),preset.duplicate())
+			var m := bare(seed_value,preset.duplicate(),preset.duplicate())
 			for team: int in range(2):
 				if not "farm" in m.decks[team].slice(0,4): missing += 1
 				if m.decks[team].size() != 8: missing += 1
 	check(missing == 0,"every opening hand holds farmland (200 seeds x 3 decks x 2 sides)")
-	var a := Battle.new(31,B.PRESETS[1].duplicate())
-	var b := Battle.new(31,B.PRESETS[1].duplicate())
+	var a := bare(31,B.PRESETS[1].duplicate())
+	var b := bare(31,B.PRESETS[1].duplicate())
 	check(a.decks == b.decks,"opening hand stays reproducible per seed")
 	finished["opening"] = true
 
@@ -532,7 +539,7 @@ func test_tutorial() -> void:
 func test_card_cooldowns() -> void:
 	var cds: Array = B.CARDS.values().map(func(c: Dictionary) -> float: return c.cooldown)
 	check(cds.min() >= 0 and cds.max() <= 30 and cds.max() == 30,"card cooldowns run 0 to 30 seconds")
-	var m := Battle.new(4,["farm","militia","rain","tower","knight","farmer","fire","scarecrow"])
+	var m := bare(4,["farm","militia","rain","tower","knight","farmer","fire","scarecrow"])
 	m.decks[0] = ["farm","militia","rain","tower","knight","farmer","fire","scarecrow"]
 	m.hand_cd[0] = [0.0,0.0,0.0,0.0] # tests swap hands directly; skip the arrival cooldown
 	m.hand_cd[0] = [B.CARDS.farm.cooldown,B.CARDS.militia.cooldown,B.CARDS.rain.cooldown,B.CARDS.tower.cooldown]
@@ -543,9 +550,9 @@ func test_card_cooldowns() -> void:
 	check(m.play(0,0,L.cell_center(Vector2i(1,1))),"it can be played once the cooldown is over")
 	check(m.decks[0][3] == "knight" and is_equal_approx(m.hand_cd[0][3],B.CARDS.knight.cooldown),"the newly drawn card starts its own cooldown")
 	check(m.hand_cd[0][0] < B.CARDS.militia.cooldown,"cards already in hand keep counting down when the hand shifts")
-	var fresh := Battle.new(9)
+	var fresh := bare(9)
 	check(fresh.hand_cd == [[0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0]],"the opening hand has no cooldown")
-	var late := Battle.new(4)
+	var late := bare(4)
 	late.elapsed = B.RAMP_2
 	late.hand_cd[0] = [10.0,10.0,10.0,10.0]
 	late.step(1.0)
@@ -557,7 +564,7 @@ func test_card_cooldowns() -> void:
 	finished["card_cd"] = true
 
 func test_repair() -> void:
-	var m := Battle.new(6)
+	var m := bare(6)
 	m.lords.clear()
 	var tower := m.add_building(0,Vector2i(2,1),"tower")
 	tower.hp = 100
@@ -579,3 +586,19 @@ func test_repair() -> void:
 	var c: Dictionary = m.AI.decide(m.snapshot(1))
 	check(c.get("kind","") == "farm" and c.get("cell",Vector2i(-1,-1)) == Vector2i(8,3),"AI repairs a badly damaged farm")
 	finished["repair"] = true
+
+func test_start_farms() -> void:
+	var m := Battle.new(3)
+	var mine: Array = m.buildings.filter(func(b: Dictionary) -> bool: return b.team == 0 and b.kind == "farm").map(func(b: Dictionary) -> Vector2i: return b.cell)
+	var theirs: Array = m.buildings.filter(func(b: Dictionary) -> bool: return b.team == 1 and b.kind == "farm").map(func(b: Dictionary) -> Vector2i: return b.cell)
+	check(mine == [Vector2i(0,1),Vector2i(0,3)] and theirs == [Vector2i(8,1),Vector2i(8,3)],"both sides start with two farms in lanes II and IV")
+	check(m.stats[0].planted == 0,"starting farms are not counted as planted")
+	var farm: Dictionary = m.buildings[0]
+	farm.hp = 50
+	var hoer := m.spawn_unit(0,farm.cell.y,"farmer",farm.pos-Vector2(20,0))
+	m.lords.clear()
+	for i: int in range(240):
+		m.step(1.0/60.0)
+		if hoer.work_left <= 0 and farm.boost_until > 0: break
+	check(farm.boost_until > 0 and farm.hp == 50+B.FARMER_HEAL,"a farmer cultivating a farm also repairs it")
+	finished["start_farms"] = true
