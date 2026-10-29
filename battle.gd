@@ -35,7 +35,11 @@ var recent_lanes: Array = [[],[]] # lanes of each side's last troop plays, for t
 var ai_start := 0.0
 var lord_active: Array = [true,true] # the tutorial keeps the blue lord idle
 
-func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = []) -> void:
+# Hand slots 0..3 rotate; FARM_SLOT is the permanent farmland slot (never rotates, own cooldown).
+const FARM_SLOT := 4
+var farm_cd: Array = [0.0,0.0]
+
+func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = [], lord_a: String = "", lord_b: String = "") -> void:
 	rng.seed = seed_value
 	for team: int in range(2):
 		var deck: Array = (deck_a if team == 0 else deck_b).duplicate()
@@ -45,13 +49,9 @@ func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = []) -> void:
 			var swap = deck[i]
 			deck[i] = deck[j]
 			deck[j] = swap
-		# The opening hand (first 4) always holds farmland: swap it into a random hand slot if needed.
-		var farm := deck.find("farm")
-		if farm >= 4:
-			var slot := rng.randi_range(0,3)
-			deck[farm] = deck[slot]
-			deck[slot] = "farm"
-		lords.append(Lord.create(team))
+		var lord_kind: String = lord_a if team == 0 else lord_b
+		if lord_kind.is_empty(): lord_kind = "lion" # neutral default when no lord is chosen
+		lords.append(Lord.create(team,lord_kind))
 		decks.append(deck)
 		gates.append([B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP])
 		stats.append({"produced":0.0,"wasted":0.0,"planted":0,"burned":0,"plays":0,"used":{},"damage":{},"spent":{},"cultivated":0,"drops":0})
@@ -99,6 +99,7 @@ func gain_ink(team: int, amount: float) -> void:
 
 func farm_speed(b: Dictionary) -> float:
 	var speed := 2.0 if maxf(b.boost_until,b.harvest_until) > elapsed else 1.0
+	if b.team < lords.size(): speed *= lords[b.team].get("farm_bonus",1.0) # the harvest lord
 	# One mill per lane counts; a second mill in the same lane does not stack (but any lane may have one,
 	# so the card is never stuck in hand).
 	for mill: Dictionary in buildings:
@@ -112,18 +113,24 @@ func farm_drop(b: Dictionary) -> void:
 	stats[b.team].drops += 1
 	event("ink",b.pos,b.team)
 
+func kind_at(team: int, slot: int) -> String:
+	return "farm" if slot == FARM_SLOT else decks[team][slot]
+
+func slot_cd(team: int, slot: int) -> float:
+	return farm_cd[team] if slot == FARM_SLOT else hand_cd[team][slot]
+
 func can_play(team: int, slot: int, pos: Vector2) -> bool:
-	return slot >= 0 and slot < 4 and play_error(team,slot,pos).is_empty()
+	return (slot >= 0 and slot < 4 or slot == FARM_SLOT) and play_error(team,slot,pos).is_empty()
 
 # Why a card cannot go here ("" = it can). The player sees this text when a placement is refused.
 func play_error(team: int, slot: int, pos: Vector2) -> String:
 	if ended: return "戰局已經結束。"
 	if paused: return "暫停中。"
-	if slot < 0 or slot >= 4: return "先選一張手牌。"
-	var kind: String = decks[team][slot]
+	if (slot < 0 or slot >= 4) and slot != FARM_SLOT: return "先選一張手牌。"
+	var kind: String = kind_at(team,slot)
 	var card: Dictionary = B.CARDS[kind]
-	if hand_cd[team][slot] > 0.00001: return "%s 剛到手上，還要冷卻 %.1f 秒。" % [card.name,hand_cd[team][slot]]
-	if ink[team] < card.cost: return "墨水不足：%s 要 %d，還差 %d。" % [card.name,card.cost,ceili(card.cost-ink[team])]
+	if slot_cd(team,slot) > 0.00001: return "%s 還要冷卻 %.1f 秒。" % [card.name,slot_cd(team,slot)]
+	if ink[team] < card.cost: return "金幣不足：%s 要 %d，還差 %d。" % [card.name,card.cost,ceili(card.cost-ink[team])]
 	var cell := cell_at(pos)
 	if cell.x < 0: return "要放在戰場的格子上。"
 	if card.type == "spell": return ""
@@ -138,14 +145,16 @@ func play_error(team: int, slot: int, pos: Vector2) -> String:
 
 func play(team: int, slot: int, pos: Vector2) -> bool:
 	if not can_play(team,slot,pos): return false
-	var kind: String = decks[team][slot]
+	var kind: String = kind_at(team,slot)
 	var card: Dictionary = B.CARDS[kind]
 	ink[team] -= card.cost
-	decks[team].remove_at(slot)
-	decks[team].append(kind)
-	# The hand shifts left; the card drawn into the last slot starts its own cooldown.
-	hand_cd[team].remove_at(slot)
-	hand_cd[team].append(B.CARDS[decks[team][3]].cooldown)
+	if slot == FARM_SLOT: farm_cd[team] = card.cooldown # the farmland slot never rotates
+	else:
+		decks[team].remove_at(slot)
+		decks[team].append(kind)
+		# The hand shifts left; the card drawn into the last slot starts its own cooldown.
+		hand_cd[team].remove_at(slot)
+		hand_cd[team].append(B.CARDS[decks[team][3]].cooldown)
 	stats[team].plays += 1
 	stats[team].used[kind] = stats[team].used.get(kind,0)+1
 	stats[team].spent[kind] = stats[team].spent.get(kind,0.0)+card.cost
@@ -293,7 +302,7 @@ func heal(u: Dictionary, dt: float) -> void:
 func attack_bonus(u: Dictionary) -> float:
 	var factor := 1.0
 	for lord: Dictionary in lords:
-		if lord.team == u.team and lord.hp > 0 and lord.pos.distance_to(u.pos) <= B.AURA_RANGE: factor *= B.AURA_BONUS
+		if lord.team == u.team and lord.hp > 0 and lord.pos.distance_to(u.pos) <= B.AURA_RANGE: factor *= lord.aura
 	return factor
 
 func cultivate(u: Dictionary, dt: float) -> bool:
@@ -328,6 +337,7 @@ func step(dt: float) -> void:
 	for team: int in range(2):
 		# Card cooldowns speed up together with ink (x1.5 after 3:00, x2 after 5:00).
 		for slot: int in range(4): hand_cd[team][slot] = maxf(0,hand_cd[team][slot]-dt*multiplier())
+		farm_cd[team] = maxf(0,farm_cd[team]-dt*multiplier())
 		base_clock[team] += dt*multiplier()
 		while base_clock[team] >= B.BASE_INTERVAL-0.000001:
 			base_clock[team] -= B.BASE_INTERVAL
@@ -435,12 +445,12 @@ func update_clock() -> void:
 
 func snapshot(team: int) -> Dictionary:
 	var candidates: Array = []
-	for slot: int in range(4):
+	for slot: int in [0,1,2,3,FARM_SLOT]:
 		for row: int in range(5):
 			for col: int in range(9):
 				var cell := Vector2i(col,row)
 				var pos := L.cell_center(cell)
-				if can_play(team,slot,pos): candidates.append({"slot":slot,"kind":decks[team][slot],"pos":pos,"cell":cell})
+				if can_play(team,slot,pos): candidates.append({"slot":slot,"kind":kind_at(team,slot),"pos":pos,"cell":cell})
 	return {"team":team,"ink":ink[team],"enemy_ink":ink[1-team],"difficulty":difficulty,"elapsed":elapsed,"wave_until":wave_until[team],"memory":memory[team].duplicate(),"recent":recent_lanes[team].duplicate(),"units":units.duplicate(true),"buildings":buildings.duplicate(true),"gates":gates.duplicate(true),"candidates":candidates}
 
 func update_ai(dt: float) -> void:
@@ -451,7 +461,7 @@ func update_ai(dt: float) -> void:
 			ai_delay[team] -= dt
 			if ai_delay[team] <= 0:
 				var c: Dictionary = ai_pending[team]
-				if c.kind == decks[team][c.slot] and play(team,c.slot,c.pos):
+				if c.kind == kind_at(team,c.slot) and play(team,c.slot,c.pos):
 					if c.get("wave",false) and elapsed >= wave_until[team]: wave_until[team] = elapsed+6.0
 				ai_pending[team] = {}
 			continue

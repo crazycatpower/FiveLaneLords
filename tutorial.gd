@@ -1,9 +1,9 @@
 extends RefCounted
 # T10 first-match tutorial. Each step waits for one battle event; the enemy AI stays idle until the
 # last step. The game makes sure the card a step needs is in the player's hand.
-const DECK := ["farm","farmer","militia","tower","fire","rain","knight","scarecrow"]
+const DECK := ["farmer","militia","tower","fire","rain","knight","scarecrow","hunter"]
 const STEPS := [
-	{"card":"farm","text":"把「農田」拖到我方左側三欄的空格，等它冒出第一滴墨水。","done":"ink"},
+	{"card":"farm","text":"把常駐的「農田」拖到我方左側三欄的空格，等它產出第一筆金幣。","done":"ink"},
 	{"card":"farmer","text":"在農田的「後方」（同一路更左邊）派出農民，看他停下來耕地。","done":"cultivate"},
 	{"card":"militia","text":"派出民兵隊：部隊只會往前走，一路打到敵方城門。","done":"play_militia"},
 	{"card":"tower","text":"在我方部署區蓋一座箭樓，守住城門。部隊不會回頭，防守靠建築和領主。","done":"play_tower"},

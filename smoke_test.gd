@@ -9,8 +9,8 @@ func _initialize() -> void:
 	create_timer(45).timeout.connect(func(): quit(2))
 	call_deferred("run")
 # A battle with the two starting farms removed, so each mechanic can be tested on its own.
-func bare(seed_value: int = 1, deck_a: Array = [], deck_b: Array = []) -> Battle:
-	var m := Battle.new(seed_value,deck_a,deck_b)
+func bare(seed_value: int = 1, deck_a: Array = [], deck_b: Array = [], lord_a: String = "", lord_b: String = "") -> Battle:
+	var m := Battle.new(seed_value,deck_a,deck_b,lord_a,lord_b)
 	m.buildings.clear()
 	return m
 func check(ok: bool, message: String) -> void:
@@ -267,12 +267,14 @@ func test_ai() -> void:
 	check(c.kind == "farm","AI invests in economy")
 	m.add_building(1,Vector2i(7,1),"farm")
 	m.decks[1] = ["farmer","militia","rain","tower","farm","militia","rain","tower"]
+	m.farm_cd[1] = 999.0 # this scenario is about farmers, not planting
 	m.hand_cd[1] = [0.0,0.0,0.0,0.0] # tests swap hands directly; skip the arrival cooldown
 	m.ink[1] = 10
 	c = m.AI.decide(m.snapshot(1))
 	check(c.kind == "farmer" and c.cell == Vector2i(8,1),"AI farmers start behind fields")
 	m.buildings.clear()
 	m.decks[1] = ["militia","militia","militia","militia","farm","farmer","tower","rain"]
+	m.farm_cd[1] = 999.0
 	m.hand_cd[1] = [0.0,0.0,0.0,0.0] # tests swap hands directly; skip the arrival cooldown
 	m.ink[1] = 24
 	check(m.AI.decide(m.snapshot(1)).is_empty(),"normal AI waits for 25 ink attack threshold")
@@ -388,6 +390,7 @@ func test_cards() -> void:
 	m = bare(2)
 	for lane: int in range(4): m.add_building(0,Vector2i(1,lane),"farm")
 	m.decks[1] = ["fire","militia","rain","tower","farm","farmer","ox","mob"]
+	m.farm_cd[1] = 999.0
 	m.hand_cd[1] = [0.0,0.0,0.0,0.0] # tests swap hands directly; skip the arrival cooldown
 	m.ink[1] = 12
 	var c: Dictionary = m.AI.decide(m.snapshot(1))
@@ -395,14 +398,16 @@ func test_cards() -> void:
 
 func test_decks() -> void:
 	var store = preload("res://deck_store.gd")
-	for deck: Array in B.PRESETS: check(store.valid(deck),"preset has eight unique cards and farmland")
-	check(not store.valid(["farm"]),"short deck rejected")
+	for deck: Array in B.PRESETS: check(store.valid(deck) and not "farm" in deck,"preset has eight unique rotating cards (farmland is separate)")
+	check(B.PRESET_LORDS.all(func(k: String) -> bool: return B.LORDS.has(k)) and B.LORDS.size() == 3,"three lords to choose from; every preset names one")
+	check(not store.valid(["militia"]),"short deck rejected")
 	var deck: Array = B.PRESETS[0].duplicate()
-	deck[0] = "knight"
-	check(not store.valid(deck),"deck without farm rejected")
+	deck[0] = "farm"
+	check(not store.valid(deck),"farmland is fixed, not one of the eight")
 	deck = B.PRESETS[0].duplicate()
-	check(store.save_deck(deck,"user://test-deck.json"),"deck saved")
-	check(store.load_deck("user://test-deck.json") == deck,"deck roundtrip")
+	check(store.save_deck(deck,"user://test-deck.json","iron"),"deck saved")
+	var loaded: Dictionary = store.load_full("user://test-deck.json")
+	check(loaded.cards == deck and loaded.lord == "iron","deck and lord roundtrip")
 	DirAccess.remove_absolute("user://test-deck.json")
 
 func test_screens() -> void:
@@ -415,11 +420,11 @@ func test_screens() -> void:
 	check("開始對戰" in labels and "觀戰模式" in labels and "牌組編成" in labels and "操作說明" in labels,"title offers battle, spectate, deck and help")
 	game.player_deck = B.PRESETS[1].duplicate()
 	game.show_deck()
-	game.toggle_deck_card("farm")
-	check(not "farm" in game.player_deck and game.start_button.disabled,"removing farmland disables the start button")
+	game.toggle_deck_card("rain")
+	check(not "rain" in game.player_deck and game.start_button.disabled,"a deck with seven cards cannot start")
 	game.start_battle()
 	check(game.screen == "deck","an invalid deck cannot start a battle")
-	game.toggle_deck_card("farm")
+	game.toggle_deck_card("rain")
 	check(game.player_deck.size() == 8 and not game.start_button.disabled,"adding it back re-enables start")
 	game.toggle_deck_card("mob")
 	check(game.player_deck.size() == 8 and not "mob" in game.player_deck,"a full deck refuses a ninth card")
@@ -481,7 +486,7 @@ func test_feel() -> void:
 	check(not game.try_play(0,L.cell_center(Vector2i(5,2))),"far cells are refused")
 	check("左側三欄" in game.notice and game.effects.size() == before+1 and game.effects.back().kind == "fail","refusal explains why and shows a red cross")
 	m.ink[0] = 0
-	check("墨水不足" in m.play_error(0,0,field),"short ink is explained")
+	check("金幣不足" in m.play_error(0,0,field),"short ink is explained")
 	check(m.decks[0][0] == kind,"a refused card stays in hand")
 	# Pause banner buttons.
 	game.toggle_pause()
@@ -521,17 +526,20 @@ func test_overlap() -> void:
 	finished["overlap"] = true
 
 func test_opening_hand() -> void:
-	var missing := 0
-	for seed_value: int in range(200):
-		for preset: Array in B.PRESETS:
-			var m := bare(seed_value,preset.duplicate(),preset.duplicate())
-			for team: int in range(2):
-				if not "farm" in m.decks[team].slice(0,4): missing += 1
-				if m.decks[team].size() != 8: missing += 1
-	check(missing == 0,"every opening hand holds farmland (200 seeds x 3 decks x 2 sides)")
+	var m := bare(5,B.PRESETS[1].duplicate(),B.PRESETS[2].duplicate(),"harvest","iron")
+	check(m.kind_at(0,m.FARM_SLOT) == "farm" and m.can_play(0,m.FARM_SLOT,L.cell_center(Vector2i(1,1))),"farmland is always playable from its own slot")
+	var before: Array = m.decks[0].duplicate()
+	m.play(0,m.FARM_SLOT,L.cell_center(Vector2i(1,1)))
+	check(m.decks[0] == before and is_equal_approx(m.farm_cd[0],B.CARDS.farm.cooldown) and not m.can_play(0,m.FARM_SLOT,L.cell_center(Vector2i(1,2))),"the farm slot only cools down; it never rotates")
+	check(m.decks[0].size() == 8 and not "farm" in m.decks[0],"the rotating deck holds the eight chosen cards")
+	check(m.lords[0].lord == "harvest" and m.lords[1].max_hp == B.LORDS.iron.hp,"each side fields its chosen lord")
+	var farm: Dictionary = m.buildings[0]
+	check(is_equal_approx(m.farm_speed(farm),B.LORDS.harvest.farm_bonus),"the harvest lord speeds up our farms")
+	tick(m,1.0)
+	check(m.farm_cd[0] < B.CARDS.farm.cooldown,"farm slot cooldown counts down")
 	var a := bare(31,B.PRESETS[1].duplicate())
 	var b := bare(31,B.PRESETS[1].duplicate())
-	check(a.decks == b.decks,"opening hand stays reproducible per seed")
+	check(a.decks == b.decks,"the shuffle stays reproducible per seed")
 	finished["opening"] = true
 
 func test_tutorial() -> void:
@@ -545,8 +553,8 @@ func test_tutorial() -> void:
 	var plan := [["farm",Vector2i(1,2)],["farmer",Vector2i(0,2)],["militia",Vector2i(2,1)],["tower",Vector2i(1,3)],["fire",Vector2i(7,2)],["knight",Vector2i(2,2)]]
 	for i: int in range(plan.size()):
 		var card: String = plan[i][0]
-		var slot: int = m.decks[0].find(card)
-		check(slot >= 0 and slot < 4 and m.ink[0] >= B.CARDS[card].cost,"tutorial step %d puts %s in hand with enough ink" % [i+1,card])
+		var slot: int = m.FARM_SLOT if card == "farm" else m.decks[0].find(card)
+		check((slot == m.FARM_SLOT or slot >= 0 and slot < 4) and m.ink[0] >= B.CARDS[card].cost,"tutorial step %d puts %s in hand with enough gold" % [i+1,card])
 		m.hand_cd[0] = [0.0,0.0,0.0,0.0]
 		check(game.try_play(slot,L.cell_center(plan[i][1])),"tutorial step %d card can be played" % [i+1])
 		var frames := 0

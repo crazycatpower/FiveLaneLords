@@ -64,12 +64,21 @@ const CARDS := {
 	"ram":{"name":"攻城槌","role":"終結·破門","type":"unit","cost":30,"cooldown":30.0,"members":[["ram",1,0.0],["militia",4,-40.0]],"art":["ram","militia"],"count":1,"hp":1600.0,"damage":160.0,"interval":2.0,"range":47.0,"speed":18.0}
 }
 
+# Deck = farmland (always, own hand slot) + a chosen lord + 8 rotating cards (producer 2026-10-29).
 const PRESET_NAMES := ["向日葵流","穩健農莊","劫掠隊"]
 const PRESETS := [
-	["farm","farmer","harvest","mill","spearbow","tower","militia","rain"],
-	["farm","farmer","militia","hunter","knight","scarecrow","tower","rain"],
-	["farm","farmer","mob","ox","ram","hunter","fire","scarecrow"]
+	["farmer","harvest","mill","spearbow","tower","militia","rain","scarecrow"],
+	["farmer","militia","hunter","knight","scarecrow","tower","rain","healer"],
+	["farmer","mob","ox","ram","hunter","fire","scarecrow","militia"]
 ]
+const PRESET_LORDS := ["harvest","iron","lion"]
+# Lords are chosen on the deck screen and never enter the hand.
+const LORDS := {
+	"lion":{"name":"紅獅領主","role":"攻擊型","desc":"普攻 75，光環讓附近部隊攻擊 +40%。","hp":900.0,"damage":75.0,"aura":1.4,"speed":160.0,"regen":1.0,"farm_bonus":1.0},
+	"harvest":{"name":"豐收領主","role":"經濟型","desc":"我方全部農田產量 +25%；普攻 45，光環 +20%。","hp":800.0,"damage":45.0,"aura":1.2,"speed":160.0,"regen":1.0,"farm_bonus":1.25},
+	"iron":{"name":"鐵壁領主","role":"防守型","desc":"1400 血、回血 ×2；普攻 55、光環 +20%，走得較慢。","hp":1400.0,"damage":55.0,"aura":1.2,"speed":130.0,"regen":2.0,"farm_bonus":1.0}
+}
+
 const MILL_BONUS := 2.0
 const HARVEST_TIME := 8.0
 const HEAL_RADIUS := 120.0

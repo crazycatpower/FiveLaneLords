@@ -38,12 +38,17 @@ func parse_deck(value: String) -> Array:
 	if value.is_valid_int(): return B.PRESETS[clampi(int(value),0,2)].duplicate()
 	return Array(value.split(","))
 
+# Presets bring their own lord; custom decks use the neutral one.
+func lord_for(deck: Array) -> String:
+	var index := B.PRESETS.find(deck)
+	return B.PRESET_LORDS[index] if index >= 0 else "lion"
+
 func deck_name(deck: Array) -> String:
 	var index := B.PRESETS.find(deck)
 	return B.PRESET_NAMES[index] if index >= 0 else ",".join(deck)
 
 func play_match(a: Array, b: Array, seed_value: int) -> Dictionary:
-	var m := Battle.new(seed_value,a.duplicate(),b.duplicate())
+	var m := Battle.new(seed_value,a.duplicate(),b.duplicate(),lord_for(a),lord_for(b))
 	m.difficulty = difficulty
 	m.ai_enabled = [true,true]
 	var first_breach := -1.0
@@ -69,7 +74,7 @@ func run() -> void:
 		var a := parse_deck(deck_a)
 		var b := parse_deck(deck_b)
 		if not DeckStore.valid(a) or not DeckStore.valid(b):
-			printerr("Invalid deck: use 0/1/2 or eight unique card ids including farm")
+			printerr("Invalid deck: use 0/1/2 or eight unique card ids (farmland is always in its own slot)")
 			quit(1)
 			return
 		pairs.append([a,b])

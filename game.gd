@@ -19,6 +19,7 @@ var selected := -1
 var notice := "1–4 選牌 · 點戰場放置 · 右鍵取消 · 空白鍵暫停"
 var screen := "title"
 var player_deck: Array = []
+var player_lord := "iron"
 var deck_path := "user://deck.json"
 var deck_tab := "unit"
 var difficulty := 1
@@ -41,7 +42,8 @@ var speed := 1
 var tutorial: RefCounted = null
 const RESULT_RECT := Rect2(380,170,840,380)
 const SPEEDS := [1,2,4,8]
-const SPEED_RECTS := [Rect2(1360,826,46,36),Rect2(1412,826,46,36),Rect2(1464,826,46,36),Rect2(1516,826,46,36)]
+const SPEED_RECTS := [Rect2(1360,736,46,32),Rect2(1412,736,46,32),Rect2(1464,736,46,32),Rect2(1516,736,46,32)]
+const NEXT_RECT := Rect2(1102,748,96,128)
 
 func _ready() -> void:
 	var sf := SystemFont.new()
@@ -73,20 +75,22 @@ func _ready() -> void:
 	sound = preload("res://sound_bank.gd").new()
 	add_child(sound)
 	sound.enabled = sound_enabled
-	player_deck = DeckStore.load_deck(deck_path)
-	model = Battle.new(seed_value,player_deck)
+	var saved: Dictionary = DeckStore.load_full(deck_path)
+	player_deck = saved.cards
+	player_lord = saved.lord
+	model = Battle.new(seed_value,player_deck,[],player_lord)
 	show_title()
 
 func start_battle() -> void:
 	if not DeckStore.valid(player_deck):
 		show_deck()
 		return
-	DeckStore.save_deck(player_deck,deck_path)
-	model = Battle.new(seed_value,player_deck,B.PRESETS[difficulty])
+	DeckStore.save_deck(player_deck,deck_path,player_lord)
+	model = Battle.new(seed_value,player_deck,B.PRESETS[difficulty],player_lord,B.PRESET_LORDS[difficulty])
 	model.difficulty = difficulty
 	model.ai_enabled = [spectating,true]
 	tutorial = null
-	enter_battle("觀戰中：AI 操控雙方。1–4 或 + / − 調整速度，空白鍵暫停。" if spectating else "拖曳卡牌到戰場，或按 1–4 選牌再點格子 · 右鍵取消 · 空白鍵暫停")
+	enter_battle("觀戰中：AI 操控雙方。1–4 或 + / − 調整速度，空白鍵暫停。" if spectating else "拖曳卡牌到戰場，或按 1–4／F 選牌再點格子 · 右鍵取消 · 空白鍵暫停")
 
 # T10: scripted first match with a fixed deck; the blue side stays idle until the last step.
 func start_tutorial() -> void:
@@ -109,13 +113,15 @@ func prepare_tutorial_step() -> void:
 		notice = tutorial.caption()
 		return
 	var step: Dictionary = tutorial.current()
-	var deck: Array = model.decks[0]
-	var index := deck.find(step.card)
-	if index >= 4:
-		deck[index] = deck[0]
-		deck[0] = step.card
-		index = 0
-	model.hand_cd[0][index] = 0.0 # the tutorial never makes the player wait for the card it asks for
+	if step.card == "farm": model.farm_cd[0] = 0.0
+	else:
+		var deck: Array = model.decks[0]
+		var index := deck.find(step.card)
+		if index >= 4:
+			deck[index] = deck[0]
+			deck[0] = step.card
+			index = 0
+		model.hand_cd[0][index] = 0.0 # the tutorial never makes the player wait for the card it asks for
 	model.ink[0] = maxf(model.ink[0],B.CARDS[step.card].cost+2.0)
 	if step.done == "breach": model.gates[1][2] = minf(model.gates[1][2],40.0)
 	notice = tutorial.caption()
@@ -173,8 +179,8 @@ func _physics_process(dt: float) -> void:
 func consume_events() -> void:
 	for e: Dictionary in model.events:
 		if e.kind == "breach": notice = ("我方第 %d 路城門被攻破！敵兵走進來就輸了。" if e.team == 1 else "攻破藍旗第 %d 路城門！派兵走進去就贏。") % (e.lane+1)
-		if e.kind == "ramp": notice = "墨水產出與卡牌冷卻加快 ×%.1f" % e.multiplier
-		if e.kind == "overflow" and e.team == 0 and not spectating: notice = "墨水已滿 50，繼續產出的墨水會浪費。"
+		if e.kind == "ramp": notice = "金幣產出與卡牌冷卻加快 ×%.1f" % e.multiplier
+		if e.kind == "overflow" and e.team == 0 and not spectating: notice = "金幣已滿 50，繼續產出的金幣會浪費。"
 		if sound != null: sound.cue(e.kind)
 		if e.kind == "breach" and shake_enabled: shake_left = 0.25
 		if fx_enabled:
@@ -192,11 +198,13 @@ func _process(dt: float) -> void:
 	effects = effects.filter(func(e: Dictionary) -> bool: return e.life > 0)
 	queue_redraw()
 
+# Hand area: the permanent farmland slot, the four rotating cards, then the next-card preview.
 func card_rect(slot: int) -> Rect2:
-	return Rect2(410+slot*145,730,132,158)
+	if slot == Battle.FARM_SLOT: return Rect2(418,730,124,158)
+	return Rect2(560+slot*134,730,124,158)
 
 func card_at(pos: Vector2) -> int:
-	for i: int in range(4):
+	for i: int in [0,1,2,3,Battle.FARM_SLOT]:
 		if card_rect(i).has_point(pos): return i
 	return -1
 
@@ -233,6 +241,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			var index: int = event.keycode-KEY_1
 			if spectating: set_speed(SPEEDS[index])
 			else: selected = -1 if selected == index else index
+		if event.keycode == KEY_F and not spectating: selected = -1 if selected == Battle.FARM_SLOT else Battle.FARM_SLOT
 		if spectating and event.keycode in [KEY_EQUAL,KEY_KP_ADD,KEY_PLUS]: set_speed(SPEEDS[mini(SPEEDS.find(speed)+1,SPEEDS.size()-1)])
 		if spectating and event.keycode in [KEY_MINUS,KEY_KP_SUBTRACT]: set_speed(SPEEDS[maxi(SPEEDS.find(speed)-1,0)])
 		if event.keycode == KEY_ESCAPE:
@@ -375,12 +384,13 @@ func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 	draw_arc(badge,15,0,TAU,24,Color("cfaa60"),2)
 	draw_string(font,badge+Vector2(-15,6),str(data.cost),HORIZONTAL_ALIGNMENT_CENTER,30,16,Color("f3e6c4"))
 	if slot >= 0:
-		draw_rect(Rect2(rect.position+Vector2(7,7),Vector2(22,22)),Color("725138"))
-		draw_string(font,rect.position+Vector2(7,24),str(slot+1),HORIZONTAL_ALIGNMENT_CENTER,22,14,Color("efdfb9"))
+		var key := "F" if slot == Battle.FARM_SLOT else str(slot+1)
+		draw_rect(Rect2(rect.position+Vector2(7,7),Vector2(22,22)),Color("3f5a2c") if slot == Battle.FARM_SLOT else Color("725138"))
+		draw_string(font,rect.position+Vector2(7,24),key,HORIZONTAL_ALIGNMENT_CENTER,22,14,Color("efdfb9"))
 	if short and slot >= 0:
 		draw_string(font,rect.position+Vector2(0,s.y*0.42),"差 %d" % ceili(data.cost-model.ink[0]),HORIZONTAL_ALIGNMENT_CENTER,s.x,20,Color("f3e6c4"))
-	if slot >= 0 and screen == "battle" and model.hand_cd[0][slot] > 0:
-		var left: float = model.hand_cd[0][slot]
+	if slot >= 0 and screen == "battle" and model.slot_cd(0,slot) > 0:
+		var left: float = model.slot_cd(0,slot)
 		draw_rect(Rect2(rect.position+Vector2(6,6),Vector2(rect.size.x-12,(rect.size.y-12)*clampf(left/maxf(0.1,data.cooldown),0,1))),Color(0.12,0.08,0.04,0.45))
 		draw_string(font,rect.position+Vector2(0,s.y*0.45),"%.0f" % ceilf(left),HORIZONTAL_ALIGNMENT_CENTER,s.x,30,Color("fff3dc"))
 
@@ -481,7 +491,7 @@ func draw_result() -> void:
 	draw_string(font,r.position+Vector2(0,62),title,HORIZONTAL_ALIGNMENT_CENTER,r.size.x,32,RED if model.winner == 0 else BLUE)
 	var t := int(model.elapsed)
 	draw_string(font,r.position+Vector2(0,96),"戰鬥時間 %02d:%02d" % [t/60,t%60],HORIZONTAL_ALIGNMENT_CENTER,r.size.x,18,INK)
-	var rows: Array = [["打破的城門","breaches"],["產出墨水","produced"],["浪費的墨水","wasted"],["種下農田","planted"],["被燒掉的田","burned"],["出牌數","plays"]]
+	var rows: Array = [["打破的城門","breaches"],["產出金幣","produced"],["浪費的金幣","wasted"],["種下農田","planted"],["被燒掉的田","burned"],["出牌數","plays"]]
 	var left := r.position.x+170
 	draw_string(font,Vector2(left+210,r.position.y+135),"紅獅",HORIZONTAL_ALIGNMENT_CENTER,120,20,RED)
 	draw_string(font,Vector2(left+350,r.position.y+135),"藍旗",HORIZONTAL_ALIGNMENT_CENTER,120,20,BLUE)
@@ -523,7 +533,7 @@ func draw_lord(lord: Dictionary) -> void:
 	draw_set_transform(lord.pos,0,Vector2(1 if lord.team == 0 else -1,1))
 	draw_texture_rect(art("lord",lord.team),Rect2(Vector2(-39,-67),Vector2(78,94)),false)
 	draw_set_transform(Vector2.ZERO)
-	bar(Rect2(lord.pos-Vector2(30,72),Vector2(60,4)),lord.hp,B.LORD_HP,RED if lord.team == 0 else BLUE)
+	bar(Rect2(lord.pos-Vector2(30,72),Vector2(60,4)),lord.hp,lord.max_hp,RED if lord.team == 0 else BLUE)
 
 func layout_formations() -> void:
 	# Units may overlap (producer decision 2026-10-29). Each one keeps the small up/down offset it got
@@ -535,7 +545,7 @@ func draw_preview() -> void:
 	var pos := get_global_mouse_position()
 	var cell: Vector2i = model.cell_at(pos)
 	if cell.x < 0: return
-	var kind: String = model.decks[0][selected]
+	var kind: String = model.kind_at(0,selected)
 	var data: Dictionary = B.CARDS[kind]
 	var color := Color(0.2,0.7,0.3,0.35) if model.can_play(0,selected,pos) else Color(0.8,0.1,0.1,0.35)
 	if data.type == "spell": draw_circle(pos,data.radius,color)
@@ -555,7 +565,7 @@ func draw_effects() -> void:
 	for e: Dictionary in effects:
 		var progress: float = 1-e.life/e.duration
 		match e.kind:
-			"ink": draw_circle(e.pos.lerp(Vector2(100,790) if e.team == 0 else Vector2(1240,40),progress),6,Color("293b59"))
+			"ink": draw_circle(e.pos.lerp(Vector2(80,765) if e.team == 0 else Vector2(1322,35),progress),7,Color("d9a62e"))
 			"spell": draw_circle(e.pos,e.get("radius",50.0)*progress,Color(0.7,0.3,0.1,e.life*0.4))
 			"cultivate", "hoe":
 				for i: int in range(6): draw_circle(e.pos+Vector2((i-3)*8*progress,-sin(progress*PI)*28),3,Color("8a642c"))
@@ -586,7 +596,7 @@ func draw_hud() -> void:
 	for team: int in range(2):
 		var x := 95.0 if team == 0 else 1070.0
 		draw_texture_rect(art("crest",team),Rect2(x-58,21,48,50),false)
-		draw_texture_rect(art("inkpot",team),Rect2(x+238,22,28,26),false)
+		draw_texture_rect(ART.object_icon(0),Rect2(x+238,20,28,30),false)
 		var standing: int = model.gates[team].filter(func(hp: float) -> bool: return hp > 0).size()
 		label_at(Vector2(x,43),("紅獅" if team == 0 else "藍旗")+"  城門 %d / 5" % standing,23,RED if team == 0 else BLUE)
 		for lane: int in range(5): bar(Rect2(x+lane*70,53,62,10),model.gates[team][lane],B.GATE_HP,RED if team == 0 else BLUE)
@@ -594,40 +604,58 @@ func draw_hud() -> void:
 	panel(Rect2(712,24,140,58),Color("f2e3c0"))
 	var time := int(model.elapsed)
 	label_at(Vector2(725,58),"%02d:%02d" % [time/60,time%60],30,RED if model.multiplier() > 1 else INK)
-	if model.multiplier() > 1: label_at(Vector2(735,76),"墨水 ×%.1f" % model.multiplier(),13,RED)
+	if model.multiplier() > 1: label_at(Vector2(735,76),"金幣 ×%.1f" % model.multiplier(),13,RED)
 	panel(L.PAUSE_RECT)
 	label_at(L.PAUSE_RECT.position+Vector2(10,27),"Ⅱ",23)
 	panel(L.COMMAND_FRAME)
 	label_at(Vector2(50,723),notice,16)
-	draw_texture_rect(art("inkpot",0),Rect2(56,742,46,44),false)
-	label_at(Vector2(110,780),"墨水 %d / 50" % model.ink[0],29)
-	# Smooth ink bar; the selected (or hovered) card's cost is outlined: gold = affordable, red = not yet.
+	draw_texture_rect(ART.object_icon(0),Rect2(56,740,46,48),false)
+	label_at(Vector2(110,780),"金幣 %d / 50" % model.ink[0],29)
+	# Smooth gold bar; the selected (or hovered) card's cost is outlined: gold = affordable, red = not yet.
 	var focus := selected if selected >= 0 else hover_slot
-	var need: float = B.CARDS[model.decks[0][focus]].cost if focus >= 0 and not spectating else 0.0
+	var need: float = B.CARDS[model.kind_at(0,focus)].cost if focus >= 0 and not spectating else 0.0
 	for i: int in range(10):
 		var seg := Rect2(65+i*29,797,22,12)
 		panel(seg,Color("b9a57e"))
 		var fill: float = clampf((model.ink[0]-i*5)/5.0,0,1)
-		if fill > 0: draw_rect(Rect2(seg.position+Vector2(1,1),Vector2((seg.size.x-2)*fill,seg.size.y-2)),Color("304461"))
-		if need > i*5: draw_rect(seg.grow(2),Color("cfaa60") if model.ink[0] >= need else RED,false,2)
+		if fill > 0: draw_rect(Rect2(seg.position+Vector2(1,1),Vector2((seg.size.x-2)*fill,seg.size.y-2)),Color("c79a2e"))
+		if need > i*5: draw_rect(seg.grow(2),Color("6b4a14") if model.ink[0] >= need else RED,false,2)
 	label_at(Vector2(65,840),"每秒 +%.1f · 農田 %d" % [model.production_rate(0),model.count_buildings(0)],20)
+	# Permanent farmland slot: green-washed frame and a "常駐" tag so it reads apart from the hand.
+	var farm_rect := card_rect(Battle.FARM_SLOT)
+	panel(farm_rect.grow(6),Color("cfdcae"),Color("3f5a2c"))
+	var fr := farm_rect
+	if selected == Battle.FARM_SLOT: fr.position.y -= 16
+	elif hover_slot == Battle.FARM_SLOT: fr.position.y -= 8
+	draw_card("farm",fr,Battle.FARM_SLOT)
+	var tag := Rect2(farm_rect.position.x+farm_rect.size.x/2-24,farm_rect.end.y-6,48,18)
+	draw_rect(tag,Color("3f5a2c"))
+	draw_string(font,tag.position+Vector2(0,14),"常駐",HORIZONTAL_ALIGNMENT_CENTER,tag.size.x,13,Color("efdfb9"))
+	draw_line(Vector2(551,728),Vector2(551,888),Color(INK,0.35),2)
 	for i: int in range(4):
 		var r := card_rect(i)
 		if i == selected: r.position.y -= 16
 		elif i == hover_slot: r.position.y -= 8
 		draw_card(model.decks[0][i],r,i)
+	# Next card: smaller, faded, labelled.
+	draw_line(Vector2(1093,728),Vector2(1093,888),Color(INK,0.35),2)
+	draw_string(font,Vector2(NEXT_RECT.position.x,742),"下一張",HORIZONTAL_ALIGNMENT_CENTER,NEXT_RECT.size.x,14,Color("6f5a3e"))
+	draw_card(model.decks[0][4],NEXT_RECT)
+	draw_rect(NEXT_RECT.grow(-4),Color(0.93,0.87,0.72,0.35))
 	if spectating:
 		for i: int in range(SPEEDS.size()):
 			panel(SPEED_RECTS[i],Color("c9a96a") if speed == SPEEDS[i] else Color("e8d5ab"))
 			draw_string(font,SPEED_RECTS[i].position+Vector2(0,25),"×%d" % SPEEDS[i],HORIZONTAL_ALIGNMENT_CENTER,SPEED_RECTS[i].size.x,18,INK)
 	var mouse := get_global_mouse_position()
 	if dragging and selected >= 0 and card_at(mouse) < 0 and model.cell_at(mouse).x < 0:
-		draw_texture_rect(art(model.decks[0][selected]),Rect2(mouse-Vector2(30,36),Vector2(60,72)),false,Color(1,1,1,0.7))
-	draw_card(model.decks[0][4],Rect2(1000,730,120,158))
-	label_at(Vector2(1150,780),"雙方領主",22)
+		draw_texture_rect(art(model.kind_at(0,selected)),Rect2(mouse-Vector2(30,36),Vector2(60,72)),false,Color(1,1,1,0.7))
+	label_at(Vector2(1220,766),"雙方領主",20)
 	for lord: Dictionary in model.lords:
-		var y: float = 815+lord.team*42
-		label_at(Vector2(1150,y),"%s  %d / 900" % ["紅獅" if lord.team == 0 else "藍旗",maxi(0,int(lord.hp))],18)
+		var y: float = 800+lord.team*44
+		var info: Dictionary = B.LORDS[lord.lord]
+		label_at(Vector2(1220,y),"%s · %s" % ["紅" if lord.team == 0 else "藍",info.name],16,RED if lord.team == 0 else BLUE)
+		bar(Rect2(1220,y+8,170,6),lord.hp,lord.max_hp,RED if lord.team == 0 else BLUE)
+		label_at(Vector2(1400,y+14),"%d / %d" % [maxi(0,int(lord.hp)),int(lord.max_hp)],14)
 
 
 func show_title() -> void:
@@ -642,20 +670,27 @@ func draw_title() -> void:
 	draw_texture_rect(art("castle_blue",1),Rect2(1150,290,350,480),false)
 	draw_string(font,Vector2(0,190),"羊皮紙戰記",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,76,INK)
 	draw_string(font,Vector2(0,240),"種下村莊，寫下你的戰史。",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,28,INK)
-	draw_string(font,Vector2(0,808),"八張村莊牌 · 五路戰線 · 城門一破，敵兵進家就輸",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,23,INK)
+	draw_string(font,Vector2(0,808),"農田＋領主＋八張村莊牌 · 五路戰線 · 城門一破，敵兵進家就輸",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,23,INK)
 
 func show_deck() -> void:
 	screen = "deck"
 	clear_ui()
 	for i: int in range(3):
 		var index := i
-		button(Rect2(120+i*300,155,270,45),B.PRESET_NAMES[i],func(): player_deck = B.PRESETS[index].duplicate(); show_deck())
+		button(Rect2(120+i*300,155,270,45),B.PRESET_NAMES[i],func(): player_deck = B.PRESETS[index].duplicate(); player_lord = B.PRESET_LORDS[index]; save_choice(); show_deck())
 	for i: int in range(3):
 		var tab: String = ["unit","building","spell"][i]
 		button(Rect2(120+i*210,235,190,44),["部隊","建築","法術"][i],func(): deck_tab = tab; show_deck())
+	var lord_index := 0
+	for lord_kind: String in B.LORDS:
+		var choice := lord_kind
+		var b := button(lord_rect(lord_index),"",func(): player_lord = choice; save_choice(); show_deck())
+		b.tooltip_text = "%s（%s）\n%s" % [B.LORDS[lord_kind].name,B.LORDS[lord_kind].role,B.LORDS[lord_kind].desc]
+		b.modulate = Color(1,1,1,0.01)
+		lord_index += 1
 	var index := 0
 	for kind: String in B.CARDS:
-		if B.CARDS[kind].type != deck_tab: continue
+		if B.CARDS[kind].type != deck_tab or kind == "farm": continue
 		var card_kind := kind
 		var rect := pool_rect(index,tab_size())
 		var b := button(rect,"",func(): toggle_deck_card(card_kind))
@@ -668,7 +703,16 @@ func show_deck() -> void:
 	queue_redraw()
 
 func tab_size() -> int:
-	return B.CARDS.values().filter(func(c: Dictionary) -> bool: return c.type == deck_tab).size()
+	var n := 0
+	for kind: String in B.CARDS:
+		if B.CARDS[kind].type == deck_tab and kind != "farm": n += 1
+	return n
+
+func lord_rect(index: int) -> Rect2:
+	return Rect2(1010+index*190,150,180,90)
+
+func save_choice() -> void:
+	if DeckStore.valid(player_deck): DeckStore.save_deck(player_deck,deck_path,player_lord)
 
 # Card pool layout: up to eight full-size cards in a row, narrower when a tab holds more.
 func pool_rect(index: int, count: int) -> Rect2:
@@ -680,27 +724,42 @@ func toggle_deck_card(kind: String) -> void:
 	if kind in player_deck: player_deck.erase(kind)
 	elif player_deck.size() < 8: player_deck.append(kind)
 	else: menu_notice = "先取消一張已選卡牌，再加入新卡。"
-	if DeckStore.valid(player_deck): DeckStore.save_deck(player_deck,deck_path)
+	save_choice()
 	show_deck()
 
 func draw_deck() -> void:
 	label_at(Vector2(120,100),"村莊牌組",48)
-	label_at(Vector2(1060,100),"%d / 8 張 · 平均 %.1f 墨水" % [player_deck.size(),DeckStore.average(player_deck)],24)
+	label_at(Vector2(560,100),"農田＋領主固定，再選 8 張：%d / 8 · 平均 %.1f 金幣" % [player_deck.size(),DeckStore.average(player_deck)],22)
+	label_at(Vector2(1010,140),"選擇領主",18)
+	var lord_index := 0
+	for lord_kind: String in B.LORDS:
+		var r := lord_rect(lord_index)
+		var info: Dictionary = B.LORDS[lord_kind]
+		panel(r,Color("f2e3c0") if lord_kind == player_lord else Color("e3d2aa"),RED if lord_kind == player_lord else INK)
+		if lord_kind == player_lord: draw_rect(r.grow(2),RED,false,3)
+		draw_texture_rect(LORD_ART,Rect2(r.position+Vector2(6,6),Vector2(64,78)),false)
+		label_at(r.position+Vector2(76,32),info.name,18)
+		label_at(r.position+Vector2(76,56),info.role,14,Color("6f5a3e"))
+		label_at(r.position+Vector2(76,78),"%d 血 · 普攻 %d" % [int(info.hp),int(info.damage)],12,Color("6f5a3e"))
+		lord_index += 1
 	var index := 0
 	for kind: String in B.CARDS:
-		if B.CARDS[kind].type != deck_tab: continue
+		if B.CARDS[kind].type != deck_tab or kind == "farm": continue
 		var rect := pool_rect(index,tab_size())
 		draw_card(kind,rect)
 		if kind in player_deck: draw_rect(rect,Color("9b3d2c"),false,4)
 		index += 1
-	label_at(Vector2(120,555),"已選牌組（點上方卡牌加入或移除）",24)
-	for i: int in range(player_deck.size()): draw_card(player_deck[i],Rect2(120+i*170,585,150,190))
-	label_at(Vector2(400,840),"需選滿 8 張不同卡牌，並包含農田。" if not DeckStore.valid(player_deck) else menu_notice,20,RED)
+	label_at(Vector2(120,555),"牌組（農田固定在常駐格；點上方卡牌加入或移除）",22)
+	var fixed := Rect2(120,585,128,162)
+	panel(fixed.grow(4),Color("cfdcae"),Color("3f5a2c"))
+	draw_card("farm",fixed)
+	for i: int in range(player_deck.size()): draw_card(player_deck[i],Rect2(268+i*146,585,128,162))
+	label_at(Vector2(400,790),"需選滿 8 張不同卡牌（農田不用選）。" if not DeckStore.valid(player_deck) else menu_notice,20,RED)
 
 func card_description(kind: String) -> String:
 	var card: Dictionary = B.CARDS[kind]
-	var descriptions := {"farm":"種下三秒後開始，每二十秒產出四墨水。","farmer":"三名農民向前走，順路耕田 1.5 秒：那塊田回 100 血，十五秒內產量加倍。","mill":"同一路農田產量 ×2；同一路多座不疊加。","scarecrow":"吸引附近敵兵攻擊它，直到被打倒。","tower":"每 0.8 秒射箭，射程 200，直到被打倒。","harvest":"範圍內農田立刻各產一滴，八秒內產量加倍。","rain":"範圍內部隊 200 傷害，建築與城門 60。","fire":"部隊 420 傷害，建築 840，城門 140。","ox":"兩頭耕牛：第一下衝撞 150 並擊退，拆建築 ×1.5。","healer":"一名草藥婆，每秒治療附近友軍 15 血。","ram":"一輛攻城槌由四名民兵護送（民兵走在前面）。槌 1600 血，無視部隊，每兩秒對城門或建築 160 傷害；城門破了就直接走進去。","hunter":"射程 170 的遠程手，三名。","knight":"兩名 1000 血的重裝騎士。","mob":"選中的那一路和左右相鄰兩路，各出四名暴民（共十二名）。","spearbow":"四名民兵在前、兩名獵戶在後，同一路一起出發。","guard":"兩名騎士在前開路，兩名草藥婆跟在後面為他們療傷。","militia":"五名民兵，擋路與循環主力。"}
-	return "%s · %d 墨水 · 冷卻 %d 秒 · %s\n%s" % [card.name,card.cost,int(card.cooldown),card.role,descriptions.get(kind,"")]
+	var descriptions := {"farm":"常駐卡，不會輪轉。種下三秒後開始，每二十秒產出四金幣。","farmer":"三名農民向前走，順路耕田 1.5 秒：那塊田回 100 血，十五秒內產量加倍。","mill":"同一路農田產量 ×2；同一路多座不疊加。","scarecrow":"吸引附近敵兵攻擊它，直到被打倒。","tower":"每 0.8 秒射箭，射程 200，直到被打倒。","harvest":"範圍內農田立刻各產出一次，八秒內產量加倍。","rain":"範圍內部隊 200 傷害，建築與城門 60。","fire":"部隊 420 傷害，建築 840，城門 140。","ox":"兩頭耕牛：第一下衝撞 150 並擊退，拆建築 ×1.5。","healer":"一名草藥婆，每秒治療附近友軍 15 血。","ram":"一輛攻城槌由四名民兵護送（民兵走在前面）。槌 1600 血，無視部隊，每兩秒對城門或建築 160 傷害；城門破了就直接走進去。","hunter":"射程 170 的遠程手，三名。","knight":"兩名 1000 血的重裝騎士。","mob":"選中的那一路和左右相鄰兩路，各出四名暴民（共十二名）。","spearbow":"四名民兵在前、兩名獵戶在後，同一路一起出發。","guard":"兩名騎士在前開路，兩名草藥婆跟在後面為他們療傷。","militia":"五名民兵，擋路與循環主力。"}
+	return "%s · %d 金幣 · 冷卻 %d 秒 · %s\n%s" % [card.name,card.cost,int(card.cooldown),card.role,descriptions.get(kind,"")]
 
 func show_help() -> void:
 	screen = "help"
@@ -711,7 +770,7 @@ func show_help() -> void:
 func draw_help() -> void:
 	panel(Rect2(270,130,1060,600))
 	label_at(Vector2(350,215),"操作與勝負",44)
-	var lines := ["1–4 或點卡牌選牌，再點戰場放置；右鍵／Esc 取消。","空白鍵暫停；暫停時按 R 重玩，戰鬥中 R 不會重開。","農田自己產墨水；農民從田後方出發，順路耕田加速。同一種建築蓋在自己的舊建築上可以補滿血。","部隊只往前走，領主會自行回防；箭樓可守護後方。","打破對方城門後，該路部隊可部署到第六欄。","城門破了，任何一名敵兵走進家門就輸——沒有時間限制。","三分鐘後墨水與卡牌冷卻 ×1.5，五分鐘後 ×2；墨水上限 50。"]
+	var lines := ["1–4 選手牌、F 選常駐農田，或直接拖到戰場；右鍵／Esc 取消。","空白鍵暫停；暫停時按 R 重玩，戰鬥中 R 不會重開。","農田自己產金幣；農民從田後方出發，順路耕田加速。同一種建築蓋在自己的舊建築上可以補滿血。","部隊只往前走，領主會自行回防；箭樓可守護後方。","打破對方城門後，該路部隊可部署到第六欄。","城門破了，任何一名敵兵走進家門就輸——沒有時間限制。","三分鐘後金幣與卡牌冷卻 ×1.5，五分鐘後 ×2；金幣上限 50。"]
 	for i: int in range(lines.size()): label_at(Vector2(350,290+i*52),lines[i],23)
 
 func save_settings() -> void:

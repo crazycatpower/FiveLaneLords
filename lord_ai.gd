@@ -33,8 +33,8 @@ static func destination(lord: Dictionary, units: Array, gates: Array) -> Diction
 		if d < nearest_d[u.lane]:
 			nearest_d[u.lane] = d
 			nearest_x[u.lane] = u.pos.x
-	if lord.hp < B.LORD_HP*B.LORD_RETREAT_BELOW: lord.retreating = true
-	if lord.hp > B.LORD_HP*B.LORD_RETURN_ABOVE: lord.retreating = false
+	if lord.hp < lord.max_hp*B.LORD_RETREAT_BELOW: lord.retreating = true
+	if lord.hp > lord.max_hp*B.LORD_RETURN_ABOVE: lord.retreating = false
 	if urgent: lord.retreating = false
 	if lord.retreating and not urgent: return {"pos":L.spawn_position(team,2),"urgent":false}
 	var lane := scores.find(scores.max())
