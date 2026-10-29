@@ -52,7 +52,7 @@ const CARDS := {
 	"mob":{"name":"乾草叉暴民","role":"三路群攻","type":"unit","cost":10,"cooldown":6.0,"count":4,"spread":true,"hp":45.0,"damage":9.0,"interval":0.9,"range":47.0,"speed":62.0},
 	"hunter":{"name":"獵戶","role":"遠程輸出","type":"unit","cost":6,"cooldown":4.0,"count":3,"hp":55.0,"damage":10.0,"interval":1.2,"range":170.0,"speed":32.0},
 	"spearbow":{"name":"槍弓混編","role":"遠近軍團","type":"unit","cost":13,"cooldown":6.0,"members":[["militia",4,0.0],["hunter",2,45.0]],"art":["militia","hunter"]},
-	"farm":{"name":"農田","role":"經濟·基礎","type":"building","cost":6,"cooldown":6.0,"hp":250.0,"expires":-1.0},
+	"farm":{"name":"農田","role":"經濟·基礎","type":"building","cost":6,"cooldown":30.0,"hp":250.0,"expires":-1.0},
 	"rain":{"name":"箭雨","role":"清群法術","type":"spell","cost":6,"cooldown":6.0,"radius":110.0,"damage":200.0,"building_damage":60.0,"gate_damage":60.0},
 	"tower":{"name":"箭樓","role":"防守","type":"building","cost":12,"cooldown":8.0,"hp":500.0,"expires":-1.0,"range":200.0,"damage":12.0,"interval":0.8},
 	"healer":{"name":"草藥婆","role":"支援·治療","type":"unit","cost":7,"cooldown":8.0,"count":1,"hp":160.0,"damage":6.0,"interval":1.0,"range":120.0,"speed":30.0},
