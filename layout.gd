@@ -65,3 +65,10 @@ static func gate_stop(side: int) -> float:
 
 static func gate_icon_x(side: int) -> float:
 	return GRID_ORIGIN.x - 28 if side == 0 else GRID_ORIGIN.x + GRID_SIZE.x + 28
+
+# Help page: text wraps inside two bounded columns.
+const HELP_PANEL := Rect2(100,105,1400,640)
+const HELP_TITLE := Vector2(150,175)
+const HELP_TEXT_RECTS := [Rect2(150,210,610,495),Rect2(830,210,610,495)]
+const HELP_FONT_SIZE := 22
+const HELP_BACK := Rect2(650,780,300,55)

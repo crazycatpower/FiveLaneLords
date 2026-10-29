@@ -49,6 +49,8 @@ func run() -> void:
 	check(finished.has("overlap"),"overlap test ran to the end")
 	check(finished.has("feel"),"feel test ran to the end")
 	check(finished.has("screens"),"screen test ran to the end (a script error would stop it silently)")
+	await test_help_layout()
+	check(finished.has("help_layout"),"help layout test completed")
 	await preview()
 	check(finished.has("preview"),"preview ran to the end")
 	print("%s: %d checks, %d failures" % ["PASS" if failures == 0 else "FAIL",checks,failures])
@@ -139,8 +141,9 @@ func preview() -> void:
 	game.deck_path = "user://test-ui-deck.json"
 	game.player_deck = B.PRESETS[0].duplicate()
 	if DisplayServer.get_name() != "headless":
-		for screen: String in ["title","deck"]:
+		for screen: String in ["title","deck","help"]:
 			if screen == "deck": game.show_deck()
+			if screen == "help": game.show_help()
 			game.queue_redraw()
 			await process_frame
 			await RenderingServer.frame_post_draw
@@ -689,3 +692,22 @@ func test_descriptions() -> void:
 	var legion := B.card_description("spearbow",changed)
 	check(legion.contains("民兵隊 ×9") and legion.contains("生命 777.25") and legion.contains("傷害 88.75"),"mixed cards track member counts and member stat changes")
 	finished["descriptions"] = true
+
+func test_help_layout() -> void:
+	var game = load("res://main.tscn").instantiate()
+	root.add_child(game)
+	game.set_physics_process(false)
+	game.show_help()
+	await process_frame
+	await process_frame
+	for control: Control in game.ui:
+		if control is RichTextLabel:
+			check(control.get_content_height() <= control.size.y,"help text fits vertically: "+str(control.get_content_height()))
+			check(control.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART,"help wraps inside bounded column")
+			check(L.HELP_PANEL.encloses(Rect2(control.position,control.size)),"help column fits panel")
+	var words := "\n".join(game.help_columns())
+	for term: String in ["常駐農田","三選一","8 張","金幣","城門不反擊","沒有時間限制","第六欄","各自冷卻"]:
+		check(words.contains(term),"help covers current rule: "+term)
+	check(not words.contains("墨水") and not words.contains("皇冠"),"help omits obsolete rules")
+	game.free()
+	finished["help_layout"] = true

@@ -126,6 +126,6 @@ static func card_description(kind: String, cards: Dictionary = CARDS) -> String:
 		"fire": lines.append("敵方部隊擊退 %s。" % number(FIRE_KNOCKBACK))
 		"ox": lines.append("首擊傷害 %s，擊退 %s；建築與城門傷害 ×%s，衝鋒後移速 %s。" % [number(OX_CHARGE),number(OX_KNOCKBACK),number(OX_BUILDING_BONUS),number(OX_SLOW_SPEED)])
 		"healer", "guard": lines.append("草藥婆每 %s 秒為半徑 %s 內友軍部隊回復 %s 生命。" % [number(HEAL_INTERVAL),number(HEAL_RADIUS),number(HEAL_AMOUNT)])
-		"ram": lines.append("攻城槌只打建築與城門，民兵在前護送；破門後直接前進。")
+		"ram": lines.append("攻城槌只打建築與城門，民兵在前護送；破門後拆完殘垣再前進。")
 		"hunter", "spearbow": lines.append("獵戶箭矢飛行 %s 秒，命中才扣血。" % number(ARROW_TIME))
 	return "\n".join(lines)

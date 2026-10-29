@@ -762,17 +762,39 @@ func draw_deck() -> void:
 func card_description(kind: String) -> String:
 	return B.card_description(kind)
 
+func help_columns() -> Array[String]:
+	return [
+		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐農田；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 有選牌時取消，沒選牌時切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩，戰鬥中按 R 不重開。\n\n[b]牌組與領主[/b]\n農田固定＋領主三選一＋自選 8 張輪轉牌。農田不輪轉、不佔 8 張名額。領主由 AI 操作，只守自家領地。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2，等待時間會縮短。" % [B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
+		"[b]種田與防守[/b]\n農田自己產金幣；農民從田後方出發，順路耕田加速並回血。相同建築覆蓋自己的舊建築可補滿生命。\n部隊只往前走，不追身後範圍外的敵人；城門不反擊，靠領主、部隊與建築防守。\n\n[b]破門與勝負[/b]\n破門後該路部隊可部署到第六欄，建築仍限原始三欄。敵兵破門後需停下拆殘垣 %s 秒，再向家門前進。\n任何敵兵走進家門就輸，沒有時間限制。\n\n[b]觀戰模式[/b]\n雙方由 AI 出牌；1–4 切換 ×1／×2／×4／×8，＋／－ 逐級調速。空白鍵暫停。" % B.number(B.RUBBLE_TIME)
+	]
+
 func show_help() -> void:
 	screen = "help"
 	clear_ui()
-	button(Rect2(650,770,300,55),"回到標題",show_title)
+	var columns := help_columns()
+	for i: int in range(columns.size()):
+		var text := RichTextLabel.new()
+		text.name = "HelpColumn%d" % i
+		text.position = L.HELP_TEXT_RECTS[i].position
+		text.size = L.HELP_TEXT_RECTS[i].size
+		text.bbcode_enabled = true
+		text.text = columns[i]
+		text.scroll_active = false
+		text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		text.add_theme_font_override("normal_font",font)
+		text.add_theme_font_override("bold_font",font)
+		text.add_theme_font_size_override("normal_font_size",L.HELP_FONT_SIZE)
+		text.add_theme_font_size_override("bold_font_size",L.HELP_FONT_SIZE)
+		text.add_theme_color_override("default_color",INK)
+		add_child(text)
+		ui.append(text)
+	button(L.HELP_BACK,"回到標題",show_title)
 	queue_redraw()
 
 func draw_help() -> void:
-	panel(Rect2(270,130,1060,600))
-	label_at(Vector2(350,215),"操作與勝負",44)
-	var lines := ["1–4 選手牌、F 選常駐農田，或直接拖到戰場；右鍵／Esc 取消。","空白鍵暫停；暫停時按 R 重玩，戰鬥中 R 不會重開。","農田自己產金幣；農民從田後方出發，順路耕田加速。同一種建築蓋在自己的舊建築上可以補滿血。","部隊只往前走，領主會自行回防；箭樓可守護後方。","打破對方城門後，該路部隊可部署到第六欄。","城門破了，任何一名敵兵走進家門就輸——沒有時間限制。","三分鐘後金幣與卡牌冷卻 ×1.5，五分鐘後 ×2；金幣上限 50。"]
-	for i: int in range(lines.size()): label_at(Vector2(350,290+i*52),lines[i],23)
+	panel(L.HELP_PANEL)
+	label_at(L.HELP_TITLE,"操作與勝負",44)
 
 func save_settings() -> void:
 	var file := FileAccess.open("user://settings.json",FileAccess.WRITE)
