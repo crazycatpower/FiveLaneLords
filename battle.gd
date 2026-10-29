@@ -43,6 +43,12 @@ func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = []) -> void:
 			var swap = deck[i]
 			deck[i] = deck[j]
 			deck[j] = swap
+		# The opening hand (first 4) always holds farmland: swap it into a random hand slot if needed.
+		var farm := deck.find("farm")
+		if farm >= 4:
+			var slot := rng.randi_range(0,3)
+			deck[farm] = deck[slot]
+			deck[slot] = "farm"
 		lords.append(Lord.create(team))
 		decks.append(deck)
 		gates.append([B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP])

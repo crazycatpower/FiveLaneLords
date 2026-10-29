@@ -29,6 +29,8 @@ func run() -> void:
 	test_screens()
 	test_feel()
 	test_overlap()
+	test_opening_hand()
+	check(finished.has("opening"),"opening hand test ran to the end")
 	check(finished.has("overlap"),"overlap test ran to the end")
 	check(finished.has("feel"),"feel test ran to the end")
 	check(finished.has("screens"),"screen test ran to the end (a script error would stop it silently)")
@@ -432,3 +434,17 @@ func test_overlap() -> void:
 	check(offsets.all(func(d: float) -> bool: return absf(d) <= B.PLACE_JITTER) and offsets.max()-offsets.min() > 4,"placed units get a small up/down offset")
 	check(units.all(func(u: Dictionary) -> bool: return u.pos == Vector2(500,y)),"the offset never moves the unit itself")
 	finished["overlap"] = true
+
+func test_opening_hand() -> void:
+	var missing := 0
+	for seed_value: int in range(200):
+		for preset: Array in B.PRESETS:
+			var m := Battle.new(seed_value,preset.duplicate(),preset.duplicate())
+			for team: int in range(2):
+				if not "farm" in m.decks[team].slice(0,4): missing += 1
+				if m.decks[team].size() != 8: missing += 1
+	check(missing == 0,"every opening hand holds farmland (200 seeds x 3 decks x 2 sides)")
+	var a := Battle.new(31,B.PRESETS[1].duplicate())
+	var b := Battle.new(31,B.PRESETS[1].duplicate())
+	check(a.decks == b.decks,"opening hand stays reproducible per seed")
+	finished["opening"] = true
