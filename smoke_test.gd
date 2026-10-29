@@ -27,6 +27,8 @@ func run() -> void:
 	test_cards()
 	test_decks()
 	test_screens()
+	test_feel()
+	check(finished.has("feel"),"feel test ran to the end")
 	check(finished.has("screens"),"screen test ran to the end (a script error would stop it silently)")
 	await preview()
 	check(finished.has("preview"),"preview ran to the end")
@@ -346,3 +348,74 @@ func test_screens() -> void:
 	game.free()
 	DirAccess.remove_absolute("user://test-ui-deck.json")
 	finished["screens"] = true
+
+func mouse(game: Node, pos: Vector2, pressed: bool, button: MouseButton = MOUSE_BUTTON_LEFT) -> void:
+	var e := InputEventMouseButton.new()
+	e.position = pos
+	e.button_index = button
+	e.pressed = pressed
+	game._unhandled_input(e)
+
+func test_feel() -> void:
+	var bank = preload("res://sound_bank.gd")
+	for cue: String in bank.CUES: check(ResourceLoader.exists("res://assets/audio/"+bank.CUES[cue]+".ogg"),"sound asset for "+cue)
+	var game = load("res://main.tscn").instantiate()
+	root.add_child(game)
+	game.deck_path = "user://test-ui-deck.json"
+	game.set_physics_process(false)
+	game.player_deck = B.PRESETS[1].duplicate()
+	game.spectating = false
+	game.start_battle()
+	var m = game.model
+	m.ai_enabled = [false,false]
+	m.decks[0] = ["militia","farm","knight","rain","farmer","hunter","scarecrow","tower"]
+	m.ink[0] = 50.0
+	var field := L.cell_center(Vector2i(1,2))
+	# Drag a card from the hand onto the field.
+	mouse(game,game.card_rect(0).get_center(),true)
+	check(game.selected == 0 and game.dragging,"pressing a card picks it up")
+	mouse(game,field,false)
+	check(not game.dragging and game.selected == -1 and m.units.size() == 2,"dropping it on the field plays it")
+	# Click a card, then click the field.
+	m.cooldown[0] = 0
+	mouse(game,game.card_rect(0).get_center(),true)
+	mouse(game,game.card_rect(0).get_center(),false)
+	check(game.selected == 0,"a click selects a card")
+	mouse(game,game.card_rect(0).get_center(),true)
+	mouse(game,game.card_rect(0).get_center(),false)
+	check(game.selected == -1,"clicking the selected card again puts it back")
+	# A refused placement says why and marks the spot.
+	m.cooldown[0] = 0
+	var kind: String = m.decks[0][0]
+	game.selected = 0
+	var before: int = game.effects.size()
+	check(not game.try_play(0,L.cell_center(Vector2i(5,2))),"far cells are refused")
+	check("左側三欄" in game.notice and game.effects.size() == before+1 and game.effects.back().kind == "fail","refusal explains why and shows a red cross")
+	m.ink[0] = 0
+	check("墨水不足" in m.play_error(0,0,field),"short ink is explained")
+	check(m.decks[0][0] == kind,"a refused card stays in hand")
+	# Pause banner buttons.
+	game.toggle_pause()
+	var captions: Array = game.overlay_buttons().map(func(item: Array) -> String: return item[1])
+	check(captions == ["繼續","重新開始","回到標題"],"pause banner offers continue, restart and title")
+	mouse(game,game.overlay_buttons()[2][0].get_center(),true)
+	check(game.screen == "title","pause banner returns to the title")
+	# Spectate speed: same fixed steps, just more per frame.
+	game.player_deck = B.PRESETS[1].duplicate()
+	game.spectating = true
+	game.start_battle()
+	game.set_speed(4)
+	game._physics_process(1.0/60.0)
+	check(is_equal_approx(game.model.elapsed,4.0/60.0),"spectate x4 runs four steps per frame")
+	mouse(game,game.card_rect(0).get_center(),true)
+	check(game.selected == -1,"spectators cannot play cards")
+	mouse(game,game.SPEED_RECTS[3].get_center(),true)
+	check(game.speed == 8,"speed buttons work")
+	var k := InputEventKey.new()
+	k.keycode = KEY_MINUS
+	k.pressed = true
+	game._unhandled_input(k)
+	check(game.speed == 4,"minus key slows down")
+	game.free()
+	DirAccess.remove_absolute("user://test-ui-deck.json")
+	finished["feel"] = true

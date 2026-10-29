@@ -96,19 +96,28 @@ func farm_drop(b: Dictionary) -> void:
 	event("ink",b.pos,b.team)
 
 func can_play(team: int, slot: int, pos: Vector2) -> bool:
-	if ended or paused or slot < 0 or slot >= 4 or cooldown[team] > 0.00001: return false
-	var card: Dictionary = B.CARDS[decks[team][slot]]
-	if ink[team] < card.cost: return false
+	return slot >= 0 and slot < 4 and play_error(team,slot,pos).is_empty()
+
+# Why a card cannot go here ("" = it can). The player sees this text when a placement is refused.
+func play_error(team: int, slot: int, pos: Vector2) -> String:
+	if ended: return "戰局已經結束。"
+	if paused: return "暫停中。"
+	if slot < 0 or slot >= 4: return "先選一張手牌。"
+	if cooldown[team] > 0.00001: return "出牌冷卻中。"
+	var kind: String = decks[team][slot]
+	var card: Dictionary = B.CARDS[kind]
+	if ink[team] < card.cost: return "墨水不足：%s 要 %d，還差 %d。" % [card.name,card.cost,ceili(card.cost-ink[team])]
 	var cell := cell_at(pos)
-	if cell.x < 0: return false
-	if card.type == "spell": return true
+	if cell.x < 0: return "要放在戰場的格子上。"
+	if card.type == "spell": return ""
 	var col := cell.x if team == 0 else 8-cell.x
 	var limit := 6 if card.type == "unit" and gates[1-team][cell.y] <= 0 else 3
-	if col >= limit: return false
+	if col >= limit:
+		return "建築只能蓋在我方左側三欄。" if card.type == "building" else "部隊只能放在我方左側三欄（打破對方城門的那一路可到第六欄）。"
 	if card.type == "building":
-		if not building_at(cell).is_empty(): return false
-		if decks[team][slot] == "mill" and count_buildings(team,"mill") > 0: return false
-	return true
+		if not building_at(cell).is_empty(): return "這格已經有建築了。"
+		if kind == "mill" and count_buildings(team,"mill") > 0: return "每方只能有一座磨坊。"
+	return ""
 
 func play(team: int, slot: int, pos: Vector2) -> bool:
 	if not can_play(team,slot,pos): return false
@@ -129,7 +138,7 @@ func play(team: int, slot: int, pos: Vector2) -> bool:
 			u.spawn_delay = i*0.12
 	else: spells.append({"kind":kind,"team":team,"pos":pos,"delay":B.SPELL_DELAY})
 	memory[1-team] = {"card":kind,"lane":cell.y}
-	event("play",pos,team,{"card":kind})
+	event("play",pos,team,{"card":kind,"slot":slot})
 	return true
 
 func add_building(team: int, cell: Vector2i, kind: String) -> Dictionary:

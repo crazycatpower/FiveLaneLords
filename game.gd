@@ -28,6 +28,15 @@ var ui: Array[Control] = []
 var fx_enabled := true
 var shake_enabled := true
 var shake_left := 0.0
+var sound: Node
+var sound_enabled := true
+var hover_slot := -1
+var dragging := false
+var press_pos := Vector2.ZERO
+var press_was_selected := false
+var speed := 1
+const SPEEDS := [1,2,4,8]
+const SPEED_RECTS := [Rect2(935,30,46,36),Rect2(985,30,46,36),Rect2(1035,30,46,36),Rect2(1085,30,46,36)]
 
 func _ready() -> void:
 	var sf := SystemFont.new()
@@ -41,6 +50,10 @@ func _ready() -> void:
 	seed_value = int(Time.get_unix_time_from_system())
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--seed="): seed_value = int(arg.substr(7))
+	load_settings()
+	sound = preload("res://sound_bank.gd").new()
+	add_child(sound)
+	sound.enabled = sound_enabled
 	player_deck = DeckStore.load_deck(deck_path)
 	model = Battle.new(seed_value,player_deck)
 	show_title()
@@ -54,6 +67,10 @@ func start_battle() -> void:
 	model.difficulty = difficulty
 	model.ai_enabled = [spectating,true]
 	selected = -1
+	dragging = false
+	speed = 1
+	position = Vector2.ZERO
+	notice = "觀戰中：AI 操控雙方。1–4 或 + / − 調整速度，空白鍵暫停。" if spectating else "拖曳卡牌到戰場，或按 1–4 選牌再點格子 · 右鍵取消 · 空白鍵暫停"
 	screen = "battle"
 	effects.clear()
 	clear_ui()
@@ -87,21 +104,29 @@ func button(rect: Rect2, caption: String, action: Callable) -> Button:
 
 func _physics_process(dt: float) -> void:
 	if screen != "battle": return
-	model.step(dt)
-	consume_events()
+	# Spectate mode can fast-forward: several fixed steps per frame, so results match 1x exactly.
+	for i: int in range(speed if spectating else 1):
+		model.step(dt)
+		consume_events()
 
 func consume_events() -> void:
 	for e: Dictionary in model.events:
 		if e.kind == "breach": notice = ("我方第 %d 路城門被攻破！敵兵走進來就輸了。" if e.team == 1 else "攻破藍旗第 %d 路城門！派兵走進去就贏。") % (e.lane+1)
 		if e.kind == "ramp": notice = "墨水產出加快 ×%.1f" % e.multiplier
-		if e.kind == "overflow" and e.team == 0: notice = "墨水已滿 50，繼續產出的墨水會浪費。"
+		if e.kind == "overflow" and e.team == 0 and not spectating: notice = "墨水已滿 50，繼續產出的墨水會浪費。"
+		if sound != null: sound.cue(e.kind)
+		if e.kind == "breach" and shake_enabled: shake_left = 0.25
 		if fx_enabled:
 			var copy := e.duplicate()
-			copy.life = 0.7
+			copy.life = {"burn":5.0,"death":0.35,"play":0.45,"ink":0.6}.get(e.kind,0.7)
+			copy.duration = copy.life
 			effects.append(copy)
 	model.events.clear()
 
 func _process(dt: float) -> void:
+	if model != null and model.paused: dt = 0
+	shake_left = maxf(0,shake_left-dt)
+	position = Vector2(sin(shake_left*180),cos(shake_left*210))*shake_left*18 if shake_enabled and shake_left > 0 else Vector2.ZERO
 	for e: Dictionary in effects: e.life -= dt
 	effects = effects.filter(func(e: Dictionary) -> bool: return e.life > 0)
 	queue_redraw()
@@ -109,25 +134,90 @@ func _process(dt: float) -> void:
 func card_rect(slot: int) -> Rect2:
 	return Rect2(410+slot*145,730,132,158)
 
+func card_at(pos: Vector2) -> int:
+	for i: int in range(4):
+		if card_rect(i).has_point(pos): return i
+	return -1
+
+func toggle_pause() -> void:
+	if not model.ended: model.paused = not model.paused
+
+func set_speed(value: int) -> void:
+	speed = value
+	notice = "觀戰速度 ×%d" % speed
+
+# Buttons on the pause / result banner: [rect, caption, action].
+func overlay_buttons() -> Array:
+	var y := L.OVERLAY_RECT.position.y+95
+	var items: Array = []
+	if not model.ended: items.append([Rect2(490,y,190,40),"繼續",toggle_pause])
+	items.append([Rect2(700,y,190,40),"重新開始",start_battle])
+	items.append([Rect2(910,y,190,40),"回到標題",show_title])
+	return items
+
+func try_play(slot: int, pos: Vector2) -> bool:
+	var reason: String = model.play_error(0,slot,pos)
+	if reason.is_empty() and model.play(0,slot,pos):
+		selected = -1
+		return true
+	notice = reason
+	effects.append({"kind":"fail","pos":pos,"life":0.5,"duration":0.5})
+	if sound != null: sound.cue("fail")
+	return false
+
 func _unhandled_input(event: InputEvent) -> void:
 	if screen != "battle": return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode >= KEY_1 and event.keycode <= KEY_4: selected = event.keycode-KEY_1
-		if event.keycode == KEY_ESCAPE: selected = -1
-		if event.keycode == KEY_SPACE: model.paused = not model.paused
+		if event.keycode >= KEY_1 and event.keycode <= KEY_4:
+			var index: int = event.keycode-KEY_1
+			if spectating: set_speed(SPEEDS[index])
+			else: selected = -1 if selected == index else index
+		if spectating and event.keycode in [KEY_EQUAL,KEY_KP_ADD,KEY_PLUS]: set_speed(SPEEDS[mini(SPEEDS.find(speed)+1,SPEEDS.size()-1)])
+		if spectating and event.keycode in [KEY_MINUS,KEY_KP_SUBTRACT]: set_speed(SPEEDS[maxi(SPEEDS.find(speed)-1,0)])
+		if event.keycode == KEY_ESCAPE:
+			if selected >= 0: selected = -1
+			else: toggle_pause()
+		if event.keycode == KEY_SPACE: toggle_pause()
 		if event.keycode == KEY_R:
 			if model.paused or model.ended: start_battle()
 			else: notice = "戰鬥中 R 不重開；空白鍵暫停後可重玩。"
-	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_RIGHT: selected = -1
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			var pos := get_global_mouse_position()
-			if L.PAUSE_RECT.has_point(pos): model.paused = not model.paused
-			for i: int in range(4):
-				if card_rect(i).has_point(pos):
-					selected = i
-					return
-			if selected >= 0 and model.play(0,selected,pos): selected = -1
+	if event is InputEventMouseMotion:
+		hover_slot = -1 if spectating else card_at(event.position)
+	if event is InputEventMouseButton:
+		var pos: Vector2 = event.position
+		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			selected = -1
+			dragging = false
+		if event.button_index != MOUSE_BUTTON_LEFT: return
+		if event.pressed:
+			if model.paused or model.ended:
+				for item: Array in overlay_buttons():
+					if item[0].has_point(pos):
+						item[2].call()
+						return
+				if L.PAUSE_RECT.has_point(pos): toggle_pause()
+				return
+			if L.PAUSE_RECT.has_point(pos):
+				toggle_pause()
+				return
+			if spectating:
+				for i: int in range(SPEEDS.size()):
+					if SPEED_RECTS[i].has_point(pos): set_speed(SPEEDS[i])
+				return
+			var slot := card_at(pos)
+			if slot >= 0:
+				# Press on a card selects it and starts a drag; releasing over the field plays it.
+				press_was_selected = selected == slot
+				selected = slot
+				dragging = true
+				press_pos = pos
+				return
+			if selected >= 0: try_play(selected,pos)
+		elif dragging:
+			dragging = false
+			var slot := card_at(pos)
+			if slot < 0 and pos.distance_to(press_pos) > 12 and selected >= 0: try_play(selected,pos)
+			elif slot == selected and press_was_selected and pos.distance_to(press_pos) <= 12: selected = -1 # clicking the selected card again puts it back
 
 func label_at(pos: Vector2, text: String, size: int = 20, color: Color = INK) -> void:
 	draw_string(font,pos,text,HORIZONTAL_ALIGNMENT_LEFT,-1,size,color)
@@ -176,6 +266,7 @@ func _draw() -> void:
 	if screen == "battle": draw_battle()
 	elif screen == "deck": draw_deck()
 	elif screen == "help": draw_help()
+	elif screen == "settings": draw_string(font,Vector2(0,220),"畫面與音效設定",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,40,INK)
 	else: draw_title()
 
 func draw_battle() -> void:
@@ -215,7 +306,9 @@ func draw_battle() -> void:
 	if model.paused or model.ended:
 		panel(L.OVERLAY_RECT,Color("ead6aa"))
 		label_at(L.OVERLAY_TITLE,"戰局暫停" if not model.ended else ("紅獅勝利！我軍攻進藍旗主堡" if model.winner == 0 else "敗北：藍旗士兵攻進了我方主堡"),30)
-		label_at(L.OVERLAY_HELP,"空白鍵繼續 · R 重新開始",20)
+		for item: Array in overlay_buttons():
+			panel(item[0],Color("f2e3c0"))
+			draw_string(font,item[0].position+Vector2(0,27),item[1],HORIZONTAL_ALIGNMENT_CENTER,item[0].size.x,20,INK)
 
 # Both sides share one art set (producer decision); until recolored art exists, tint the blue side
 # and put a team-coloured shadow under every unit and building so sides read at a glance.
@@ -228,11 +321,11 @@ func team_shadow(center: Vector2, radius: float, color: Color) -> void:
 	draw_set_transform(Vector2.ZERO)
 
 func draw_unit(u: Dictionary) -> void:
-	var pos: Vector2 = u.draw
+	var pos: Vector2 = u.draw-Vector2(u.face*4,0) if fx_enabled and u.flash > 0 else u.draw # small knockback on hit
 	var bounce := sin(model.elapsed*8+u.phase)*2
 	team_shadow(pos+Vector2(0,15),22,RED if u.team == 0 else BLUE)
 	draw_set_transform(pos+Vector2(0,bounce),0,Vector2(u.face,1))
-	draw_texture_rect(art(u.kind,u.team),Rect2(-32,-54,64,70),false,Color(1.5,1.5,1.5) if u.flash > 0 else team_tint(u.team))
+	draw_texture_rect(art(u.kind,u.team),Rect2(-32,-54,64,70),false,Color(1.6,1.6,1.6) if fx_enabled and u.flash > 0 else team_tint(u.team))
 	draw_set_transform(Vector2.ZERO)
 	bar(Rect2(pos-Vector2(23,59),Vector2(46,4)),u.hp,u.max_hp,RED if u.team == 0 else BLUE)
 	var climb: float = u.get("climb",0.0)
@@ -274,9 +367,34 @@ func draw_preview() -> void:
 
 func draw_effects() -> void:
 	for e: Dictionary in effects:
-		if e.kind == "ink": draw_circle(e.pos.lerp(Vector2(150,790),1-e.life/0.7),6,Color("293b59"))
-		elif e.kind == "spell": draw_circle(e.pos,e.get("radius",50.0)*(1-e.life/0.7),Color(0.7,0.3,0.1,e.life*0.4))
-		elif e.kind == "cultivate": draw_arc(e.pos,30,0,TAU,16,Color.GOLD,3)
+		var progress: float = 1-e.life/e.duration
+		match e.kind:
+			"ink": draw_circle(e.pos.lerp(Vector2(100,790) if e.team == 0 else Vector2(1240,40),progress),6,Color("293b59"))
+			"spell": draw_circle(e.pos,e.get("radius",50.0)*progress,Color(0.7,0.3,0.1,e.life*0.4))
+			"cultivate", "hoe":
+				for i: int in range(6): draw_circle(e.pos+Vector2((i-3)*8*progress,-sin(progress*PI)*28),3,Color("8a642c"))
+			"play":
+				var source := card_rect(e.get("slot",0)).get_center() if e.team == 0 else Vector2(1240,40)
+				if progress < 0.6: draw_texture_rect(art(e.card),Rect2(source.lerp(e.pos,progress/0.6)-Vector2(25,30),Vector2(50,60)),false,Color(1,1,1,0.75))
+				else: draw_circle(e.pos,(progress-0.6)*90,Color(0.2,0.15,0.1,(1-progress)*0.3))
+			"death":
+				draw_texture_rect(art(e.card,e.team),Rect2(e.pos-Vector2(32,54),Vector2(64,70)),false,Color(team_tint(e.team),1-progress))
+				for i: int in range(5): draw_circle(e.pos+Vector2(cos(i*2),sin(i*2))*progress*24,3*(1-progress),INK)
+			"burn":
+				draw_circle(e.pos,35,Color(0.15,0.07,0.02,0.35*(1-progress)))
+				if progress < 0.3:
+					for i: int in range(5): draw_circle(e.pos+Vector2((i-2)*10,-15-10*sin(e.life*12+i)),8,Color(0.9,0.4,0.05,0.6))
+			"breach":
+				for i: int in range(8): draw_line(e.pos+Vector2(cos(i),sin(i))*progress*55,e.pos+Vector2(cos(i),sin(i))*progress*65,Color("6e4825"),3)
+			"spin", "command": draw_arc(e.pos,(B.SPIN_RANGE if e.kind == "spin" else B.COMMAND_RANGE)*progress,0,TAU,32,Color(0.8,0.6,0.2,1-progress),3)
+			"heal": label_at(e.pos+Vector2(-10,-30-progress*20),"+",20,Color(0.2,0.5,0.25,1-progress))
+			"fail":
+				var c := Color(0.75,0.12,0.1,1-progress)
+				draw_line(e.pos+Vector2(-14,-14),e.pos+Vector2(14,14),c,4)
+				draw_line(e.pos+Vector2(-14,14),e.pos+Vector2(14,-14),c,4)
+	for spell: Dictionary in model.spells:
+		var height: float = spell.delay/B.SPELL_DELAY*160
+		draw_texture_rect(art(spell.kind),Rect2(spell.pos-Vector2(22,30+height),Vector2(44,60)),false)
 
 func draw_hud() -> void:
 	panel(L.HUD_FRAME)
@@ -294,10 +412,28 @@ func draw_hud() -> void:
 	panel(L.COMMAND_FRAME)
 	label_at(Vector2(50,723),notice,16)
 	label_at(Vector2(65,780),"墨水 %d / 50" % model.ink[0],29)
+	# Smooth ink bar; the selected (or hovered) card's cost is outlined: gold = affordable, red = not yet.
+	var focus := selected if selected >= 0 else hover_slot
+	var need: float = B.CARDS[model.decks[0][focus]].cost if focus >= 0 and not spectating else 0.0
 	for i: int in range(10):
-		panel(Rect2(65+i*29,797,22,12),Color("304461") if model.ink[0] >= (i+1)*5 else Color("b9a57e"))
+		var seg := Rect2(65+i*29,797,22,12)
+		panel(seg,Color("b9a57e"))
+		var fill: float = clampf((model.ink[0]-i*5)/5.0,0,1)
+		if fill > 0: draw_rect(Rect2(seg.position+Vector2(1,1),Vector2((seg.size.x-2)*fill,seg.size.y-2)),Color("304461"))
+		if need > i*5: draw_rect(seg.grow(2),Color("cfaa60") if model.ink[0] >= need else RED,false,2)
 	label_at(Vector2(65,840),"每秒 +%.1f · 農田 %d" % [model.production_rate(0),model.count_buildings(0)],20)
-	for i: int in range(4): draw_card(model.decks[0][i],card_rect(i),i)
+	for i: int in range(4):
+		var r := card_rect(i)
+		if i == selected: r.position.y -= 16
+		elif i == hover_slot: r.position.y -= 8
+		draw_card(model.decks[0][i],r,i)
+	if spectating:
+		for i: int in range(SPEEDS.size()):
+			panel(SPEED_RECTS[i],Color("c9a96a") if speed == SPEEDS[i] else Color("e8d5ab"))
+			draw_string(font,SPEED_RECTS[i].position+Vector2(0,25),"×%d" % SPEEDS[i],HORIZONTAL_ALIGNMENT_CENTER,SPEED_RECTS[i].size.x,18,INK)
+	var mouse := get_global_mouse_position()
+	if dragging and selected >= 0 and card_at(mouse) < 0 and model.cell_at(mouse).x < 0:
+		draw_texture_rect(art(model.decks[0][selected]),Rect2(mouse-Vector2(30,36),Vector2(60,72)),false,Color(1,1,1,0.7))
 	draw_card(model.decks[0][4],Rect2(1000,730,120,158))
 	label_at(Vector2(1150,780),"雙方領主",22)
 	for lord: Dictionary in model.lords:
@@ -312,7 +448,8 @@ func show_title() -> void:
 	button(Rect2(650,398,300,55),"觀戰模式",func(): spectating = true; start_battle())
 	button(Rect2(650,466,300,55),"牌組編成",show_deck)
 	button(Rect2(650,534,300,55),"操作說明",show_help)
-	button(Rect2(650,670,300,50),"離開",func(): get_tree().quit())
+	button(Rect2(650,670,300,55),"設定",show_settings)
+	button(Rect2(650,738,300,50),"離開",func(): get_tree().quit())
 	button(Rect2(650,602,300,55),"難度："+["簡單","普通","困難"][difficulty],func(): difficulty = (difficulty+1)%3; show_title())
 	queue_redraw()
 
@@ -383,3 +520,24 @@ func draw_help() -> void:
 	label_at(Vector2(350,215),"操作與勝負",44)
 	var lines := ["1–4 或點卡牌選牌，再點戰場放置；右鍵／Esc 取消。","空白鍵暫停；暫停時按 R 重玩，戰鬥中 R 不會重開。","農田自己產墨水；農民從田後方出發，順路耕田加速。","部隊只往前走，領主會自行回防；箭樓可守護後方。","打破對方城門後，該路部隊可部署到第六欄。","城門破了，任何一名敵兵走進家門就輸——沒有時間限制。","三分鐘後墨水產出 ×1.5，五分鐘後 ×2；上限 50。"]
 	for i: int in range(lines.size()): label_at(Vector2(350,290+i*52),lines[i],23)
+
+func save_settings() -> void:
+	var file := FileAccess.open("user://settings.json",FileAccess.WRITE)
+	if file != null: file.store_string(JSON.stringify({"effects":fx_enabled,"shake":shake_enabled,"sound":sound_enabled}))
+
+func load_settings() -> void:
+	if not FileAccess.file_exists("user://settings.json"): return
+	var data = JSON.parse_string(FileAccess.get_file_as_string("user://settings.json"))
+	if data is Dictionary:
+		fx_enabled = bool(data.get("effects",true))
+		shake_enabled = bool(data.get("shake",true))
+		sound_enabled = bool(data.get("sound",true))
+
+func show_settings() -> void:
+	screen = "settings"
+	clear_ui()
+	button(Rect2(600,300,400,55),"特效："+("開" if fx_enabled else "關"),func(): fx_enabled = not fx_enabled; effects.clear(); save_settings(); show_settings())
+	button(Rect2(600,380,400,55),"震動："+("開" if shake_enabled else "關"),func(): shake_enabled = not shake_enabled; save_settings(); show_settings())
+	button(Rect2(600,460,400,55),"音效："+("開" if sound_enabled else "關"),func(): sound_enabled = not sound_enabled; sound.enabled = sound_enabled; save_settings(); show_settings())
+	button(Rect2(600,600,400,55),"回到標題",show_title)
+	queue_redraw()
