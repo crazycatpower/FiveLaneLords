@@ -66,6 +66,32 @@ def play_round(index, matches, workers, cap, seed_base):
     return results
 
 
+def card_details(results, cards):
+    totals = {k: dict(samples=0, plays=0, first=[], damage=0.0, spent=0.0,
+                      damage_available=True) for k in cards}
+    for result in results:
+        for side in result.get("card_stats", []):
+            for kind, value in side.items():
+                if kind not in totals:
+                    continue
+                row = totals[kind]
+                row["samples"] += 1
+                row["plays"] += value["plays"]
+                if value["first_play"] is not None:
+                    row["first"].append(value["first_play"])
+                if value["damage"] is None:
+                    row["damage_available"] = False
+                else:
+                    row["damage"] += value["damage"]
+                row["spent"] += value["spent"]
+    return {kind: {
+        "samples": v["samples"],
+        "plays_per_match": v["plays"] / v["samples"] if v["samples"] else None,
+        "first_play": sum(v["first"]) / len(v["first"]) if v["first"] else None,
+        "damage_per_gold": v["damage"] / v["spent"] if v["damage_available"] and v["spent"] else None,
+    } for kind, v in totals.items()}
+
+
 def analyse(results, cards):
     stat = {k: [0.0, 0] for k in cards if k != "farm"}  # kind -> [wins, games]
     lords = {}
@@ -105,6 +131,7 @@ def analyse(results, cards):
         "draws": draws,
         "median": lengths[len(lengths) // 2] if lengths else 0,
         "matches": len(results),
+        "card_details": card_details(results, cards),
     }
 
 
@@ -123,15 +150,26 @@ def adjust(analysis, cards, threshold, step):
 
 
 def table(analysis, cards, changes):
-    rows = ["| 卡牌 | 費用 | 勝率 | 場次 | 調整 |", "|---|---|---|---|---|"]
+    rows = ["| 卡牌 | 費用 | 勝率 | 場次 | 平均出牌次數 | 每金幣傷害 | 平均第一次出牌時間 | 調整 |", "|---|---|---|---|---|---|---|---|"]
     for kind, (rate, games) in sorted(analysis["cards"].items(), key=lambda kv: -kv[1][0]):
         change = f"{cards[kind][1]} → {changes[kind]}" if kind in changes else ""
-        rows.append(f"| {cards[kind][0]} | {cards[kind][1]} | {rate:.1%} | {games} | {change} |")
+        detail = analysis.get("card_details", {}).get(kind, {})
+        def metric(key, suffix=""):
+            value = detail.get(key)
+            return "—" if value is None else f"{value:.2f}{suffix}"
+        rows.append(f"| {cards[kind][0]} | {cards[kind][1]} | {rate:.1%} | {games} | "
+                    f"{metric('plays_per_match')} | {metric('damage_per_gold')} | "
+                    f"{metric('first_play', ' 秒')} | {change} |")
     lords = ", ".join(f"{k} {v[0]:.1%}（{v[1]}）" for k, v in sorted(analysis["lords"].items(), key=lambda kv: -kv[1][0]))
     head = (f"{analysis['matches']} 場；平手 {analysis['draws']}；決勝局中位數 {analysis['median']:.0f} 秒；"
             f"紅方勝率 {analysis['red_rate']:.1%}\n\n"
             f"前 3 分鐘每方平均被拆農田 {analysis['farms_lost']:.2f} 塊；第一次破門中位數 {analysis['breach']:.0f} 秒；每方平均發動領主技能 {analysis['skills']:.2f} 次\n\n領主勝率（雙方領主不同時）：{lords}\n")
-    return head + "\n" + "\n".join(rows)
+    notes = ("\n\n統計口徑：出牌次數以持有該牌的每方每場計算（含鏡像對局）；首次出牌時間只平均實際出過牌的樣本。"
+             "每金幣傷害＝同兵種傷害總和／實際花費總和，包含部隊、建築、城門傷害。"
+             "現有傷害桶按兵種歸類，可能包含軍團成員及領主召喚兵；不能當成單一卡牌的精確投資報酬。"
+             "軍團牌無法還原來源傷害，顯示 —；未出牌或舊資料缺少欄位也顯示 —，不是 0。"
+             "此欄不可單獨用來調整軍團或召喚相關牌的平衡。\n")
+    return head + "\n" + "\n".join(rows) + notes
 
 
 def main():

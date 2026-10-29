@@ -61,8 +61,29 @@ func play(seed_value: int, decks: Array, picks: Array, params: Array, cap: float
 	m.difficulty = 1
 	m.record_events = false
 	m.ai_enabled = [true,true]
+	var first_play: Array = [{},{}]
+	var observed_plays: Array[int] = [0,0]
 	m.ai_params = [params[0],params[1]]
 	while not m.ended and m.elapsed < cap:
 		m.step(1.0/60.0)
+		# Read counters only. Do not enable events or consume random values.
+		for team: int in range(2):
+			if m.stats[team].plays == observed_plays[team]: continue
+			observed_plays[team] = m.stats[team].plays
+			for kind: String in m.stats[team].used:
+				if not first_play[team].has(kind): first_play[team][kind] = m.elapsed
 		m.events.clear()
-	return {"seed":seed_value,"decks":decks,"lords":picks,"winner":m.winner if m.ended else -1,"t":snappedf(m.elapsed,0.1),"breach":snappedf(m.first_breach,0.1),"farms_lost_early":[m.stats[0].farms_lost_early,m.stats[1].farms_lost_early],"skills":[m.stats[0].get("skills",0),m.stats[1].get("skills",0)],"used":[m.stats[0].used,m.stats[1].used]}
+	return {"seed":seed_value,"decks":decks,"lords":picks,"winner":m.winner if m.ended else -1,"t":snappedf(m.elapsed,0.1),"breach":snappedf(m.first_breach,0.1),"farms_lost_early":[m.stats[0].farms_lost_early,m.stats[1].farms_lost_early],"skills":[m.stats[0].get("skills",0),m.stats[1].get("skills",0)],"used":[m.stats[0].used,m.stats[1].used],"card_stats":[card_stats(m,0,decks[0],first_play[0]),card_stats(m,1,decks[1],first_play[1])],"damage_by_kind":[m.stats[0].damage,m.stats[1].damage]}
+
+func card_stats(m: RefCounted, team: int, deck: Array, first: Dictionary) -> Dictionary:
+	var result := {}
+	for kind: String in ["farm"]+deck:
+		result[kind] = {
+			"plays":m.stats[team].used.get(kind,0),
+			"first_play":first.get(kind,null),
+			"spent":m.stats[team].spent.get(kind,0.0),
+			# Combat buckets are unit kinds, not originating cards. Legion damage cannot be
+			# recovered from them; null means unavailable, not zero damage.
+			"damage":null if B.CARDS[kind].has("members") else m.stats[team].damage.get(kind,0.0)
+		}
+	return result
