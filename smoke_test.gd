@@ -147,12 +147,16 @@ func test_lords() -> void:
 	lord.last_hit = m.elapsed
 	tick(m,0.6)
 	check(lord.retreating and lord.target == L.spawn_position(0,2),"low health retreats")
-	lord.hp = 500
+	lord.hp = B.LORD_HP*0.35
 	tick(m,0.6)
-	check(lord.retreating,"retreat hysteresis persists below seventy percent")
-	lord.hp = 700
+	check(lord.retreating,"retreat persists until the lord is back above the return threshold")
+	lord.hp = B.LORD_HP*0.5
 	tick(m,0.6)
-	check(not lord.retreating,"healthy lord resumes")
+	check(not lord.retreating,"recovered lord resumes")
+	lord.hp = 100
+	lord.last_hit = m.elapsed
+	tick(m,B.LORD_REGEN_DELAY+1.0)
+	check(lord.hp > 100 and lord.hp <= 100+B.LORD_REGEN*1.1,"slow regeneration starts after the delay")
 	m = Battle.new(8)
 	m.spawn_unit(1,0,"militia",L.cell_center(Vector2i(1,0)))
 	var reached := false
@@ -160,6 +164,22 @@ func test_lords() -> void:
 		m.step(1.0/60.0)
 		reached = reached or absf(m.lords[0].pos.y-L.cell_center(Vector2i(0,0)).y) < 58
 	check(reached,"lord reaches threatened lane within three seconds, even if threat is killed")
+	# Repro of "the lord does not really defend": a knight battering our lane-4 gate must get hit.
+	var d := Battle.new(8)
+	d.lords[1].pos = Vector2(5000,0) # keep the blue lord out of it
+	var raider := d.spawn_unit(1,3,"knight",Vector2(L.gate_stop(0),L.cell_center(Vector2i(0,3)).y))
+	tick(d,5.0)
+	check(raider.hp < B.CARDS.knight.hp,"lord walks up to a gate raider and hits it")
+	# A raider clearing rubble is urgent: the lord switches lanes at once, even when hurt.
+	d = Battle.new(8)
+	d.lords[1].pos = Vector2(5000,0)
+	d.lords[0].hp = B.LORD_HP*0.2
+	d.lords[0].last_hit = d.elapsed
+	d.gates[0][4] = 0
+	var climber := d.spawn_unit(1,4,"militia",Vector2(L.gate_stop(0),L.cell_center(Vector2i(0,4)).y))
+	climber.climb = 0.1
+	tick(d,0.6)
+	check(not d.lords[0].retreating and d.lords[0].target.y > L.cell_center(Vector2i(0,3)).y,"rubble raider beats retreat and lane-change delay")
 	m.lords[0].pos.x = 2000
 	m.lords[1].pos.x = 0
 	tick(m,0.1)

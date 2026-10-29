@@ -17,8 +17,9 @@ static func step(m: RefCounted, lord: Dictionary, dt: float) -> void:
 	lord.think -= dt
 	if lord.think <= 0:
 		lord.think = B.AI_TICK
-		var target := AI.destination(lord,m.units)
-		if lord.retreating or m.elapsed-lord.changed >= B.LORD_HYSTERESIS:
+		var plan: Dictionary = AI.destination(lord,m.units,m.gates)
+		var target: Vector2 = plan.pos
+		if plan.urgent or lord.retreating or m.elapsed-lord.changed >= B.LORD_HYSTERESIS:
 			if target != lord.target: lord.changed = m.elapsed
 			lord.target = target
 	# Lords never leave their own territory: the three home deploy columns (producer decision 2026-10-29).
