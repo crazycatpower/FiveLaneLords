@@ -148,6 +148,7 @@ def main():
     p.add_argument("--round", type=int, default=1, help="round number; rounds after 1 append to the report")
     p.add_argument("--seed-base", type=int, default=100_000)
     p.add_argument("--validate-seed", type=int, default=900_000)
+    p.add_argument("--validate-only", action="store_true", help="skip the generations: check --start against --base and append to the report")
     args = p.parse_args()
     global PROJECT
     PROJECT = os.path.abspath(args.project)
@@ -157,6 +158,12 @@ def main():
     parent = clean(json.load(open(start, encoding="utf-8"))) if start else clean(defaults())
     first = dict(parent)
     opponent = f"第 {args.round - 1} 輪演化出的 AI（`{os.path.basename(args.base)}`）" if args.base else "現有的手寫 AI"
+    if args.validate_only:
+        reference = clean(json.load(open(args.base, encoding="utf-8"))) if args.base else clean(defaults())
+        earlier = open(REPORT, encoding="utf-8").read() if os.path.exists(REPORT) else "# AI 演化報告\n"
+        note = f"\n第 {args.round} 輪依製作人指示提前結束，直接驗證 `{os.path.basename(start)}`。\n"
+        validate(args, parent, reference, opponent, base_path, [earlier, note], time.time())
+        return
     header = (f"\n## 第 {args.round} 輪（{time.strftime('%Y-%m-%d %H:%M')}）\n\n對手：{opponent}。每代 1 個親代＋{args.children} 個突變，"
               f"各打 {args.seeds} 組種子 × 紅藍各一場；雙方同牌組、同領主，只比打法。下一代親代＝前三名的平均。\n\n"
               "| 代 | 親代勝率 | 最佳子代勝率 | 前三名平均 | 秒 |\n|---|---|---|---|---|\n")
@@ -177,8 +184,12 @@ def main():
         log.append(line)
         json.dump(parent, open(args.out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
         open(REPORT, "w", encoding="utf-8").write("".join(log))
-    # Final checks on seeds no generation has seen: against this round's opponent, and (after
-    # round 1) against the hand-written AI too, so progress across rounds is visible.
+    validate(args, parent, first, opponent, base_path, log, t_all)
+
+
+def validate(args, parent, reference, opponent, base_path, log, t_all):
+    """Final checks on seeds no generation has seen: against this round's opponent, and (after
+    round 1) against the hand-written AI too, so progress across rounds is visible."""
     summary = f"\n### 第 {args.round} 輪驗證（沒用過的 {args.validate} 組種子 × 紅藍各一場）\n\n"
     final = evaluate([parent], args.validate_seed, args.validate, args.workers, f"r{args.round}v", base_path)[0]
     summary += f"- 對 {opponent}：{rate_text(final)}；每場平均放技能 {final[2] / final[1]:.2f} 次。\n"
@@ -186,7 +197,7 @@ def main():
         plain = evaluate([parent], args.validate_seed + 50_000, args.validate, args.workers, f"r{args.round}v0", "")[0]
         summary += f"- 對現有的手寫 AI：{rate_text(plain)}。\n"
     summary += f"- 總耗時 {(time.time() - t_all) / 60:.0f} 分鐘。\n\n### 第 {args.round} 輪改變最多的參數\n\n| 參數 | 本輪起點 | 演化後 | 意思 |\n|---|---|---|---|\n"
-    for _, k, r, v, desc in changed(parent, first)[:15]:
+    for _, k, r, v, desc in changed(parent, reference)[:15]:
         summary += f"| {k} | {r:g} | {v:g} | {desc} |\n"
     log.append(summary)
     open(REPORT, "w", encoding="utf-8").write("".join(log))
