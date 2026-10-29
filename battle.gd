@@ -33,6 +33,7 @@ var wave_until: Array = [0.0,0.0]
 var memory: Array = [{},{}]
 var recent_lanes: Array = [[],[]] # lanes of each side's last troop plays, for the AI to spread its attacks
 var ai_start := 0.0
+var lord_active: Array = [true,true] # the tutorial keeps the blue lord idle
 
 func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = []) -> void:
 	rng.seed = seed_value
@@ -309,7 +310,8 @@ func step(dt: float) -> void:
 		if spell.delay <= 0: cast_spell(spell)
 	spells = spells.filter(func(s: Dictionary) -> bool: return s.delay > 0)
 	update_projectiles(dt)
-	for lord: Dictionary in lords: Lord.step(self,lord,dt)
+	for lord: Dictionary in lords:
+		if lord_active[lord.team]: Lord.step(self,lord,dt)
 	for u: Dictionary in units:
 		u.flash = maxf(0,u.flash-dt)
 		if u.hp <= 0: continue

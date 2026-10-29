@@ -30,6 +30,8 @@ func run() -> void:
 	test_feel()
 	test_overlap()
 	test_opening_hand()
+	test_tutorial()
+	check(finished.has("tutorial"),"tutorial test ran to the end")
 	check(finished.has("opening"),"opening hand test ran to the end")
 	check(finished.has("overlap"),"overlap test ran to the end")
 	check(finished.has("feel"),"feel test ran to the end")
@@ -478,3 +480,34 @@ func test_opening_hand() -> void:
 	var b := Battle.new(31,B.PRESETS[1].duplicate())
 	check(a.decks == b.decks,"opening hand stays reproducible per seed")
 	finished["opening"] = true
+
+func test_tutorial() -> void:
+	var game = load("res://main.tscn").instantiate()
+	root.add_child(game)
+	game.deck_path = "user://test-ui-deck.json"
+	game.set_physics_process(false)
+	game.start_tutorial()
+	var m = game.model
+	check(m.decks[0] == game.Tutorial.DECK or m.decks[0].size() == 8,"tutorial uses its own deck")
+	var plan := [["farm",Vector2i(1,2)],["farmer",Vector2i(0,2)],["militia",Vector2i(2,1)],["tower",Vector2i(1,3)],["fire",Vector2i(7,2)],["knight",Vector2i(2,2)]]
+	for i: int in range(plan.size()):
+		var card: String = plan[i][0]
+		var slot: int = m.decks[0].find(card)
+		check(slot >= 0 and slot < 4 and m.ink[0] >= B.CARDS[card].cost,"tutorial step %d puts %s in hand with enough ink" % [i+1,card])
+		m.cooldown[0] = 0
+		check(game.try_play(slot,L.cell_center(plan[i][1])),"tutorial step %d card can be played" % [i+1])
+		var frames := 0
+		while game.tutorial.stage == i and frames < 60*60:
+			game._physics_process(1.0/60.0)
+			frames += 1
+		check(game.tutorial.stage == i+1,"tutorial step %d completes (%s)" % [i+1,card])
+	check(game.tutorial.complete and m.lord_active[1] and m.ai_start < 1e8,"after the tutorial the blue side wakes up")
+	var frames := 0
+	while not m.ended and frames < 60*30:
+		game._physics_process(1.0/60.0)
+		frames += 1
+	check(m.ended and m.winner == 0,"the tutorial knight walks through the broken gate and wins")
+	check(game.result_value(0,"breaches") == m.gates[1].filter(func(hp: float) -> bool: return hp <= 0).size() and game.result_value(0,"breaches") >= 1 and game.result_value(0,"plays") == m.stats[0].plays and game.result_value(0,"planted") == 1,"result screen numbers match the match statistics")
+	game.free()
+	DirAccess.remove_absolute("user://test-ui-deck.json")
+	finished["tutorial"] = true

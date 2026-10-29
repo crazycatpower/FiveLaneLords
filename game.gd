@@ -3,6 +3,7 @@ const B = preload("res://balance.gd")
 const L = preload("res://layout.gd")
 const DeckStore = preload("res://deck_store.gd")
 const Battle = preload("res://battle.gd")
+const Tutorial = preload("res://tutorial.gd")
 const ART = preload("res://manuscript_art.gd")
 const PAPER = preload("res://assets/parchment-background.png")
 const LORD_ART = preload("res://assets/manuscript-v1/lord-simple-v2.png")
@@ -37,6 +38,8 @@ var dragging := false
 var press_pos := Vector2.ZERO
 var press_was_selected := false
 var speed := 1
+var tutorial: RefCounted = null
+const RESULT_RECT := Rect2(380,170,840,380)
 const SPEEDS := [1,2,4,8]
 const SPEED_RECTS := [Rect2(1360,826,46,36),Rect2(1412,826,46,36),Rect2(1464,826,46,36),Rect2(1516,826,46,36)]
 
@@ -82,11 +85,49 @@ func start_battle() -> void:
 	model = Battle.new(seed_value,player_deck,B.PRESETS[difficulty])
 	model.difficulty = difficulty
 	model.ai_enabled = [spectating,true]
+	tutorial = null
+	enter_battle("觀戰中：AI 操控雙方。1–4 或 + / − 調整速度，空白鍵暫停。" if spectating else "拖曳卡牌到戰場，或按 1–4 選牌再點格子 · 右鍵取消 · 空白鍵暫停")
+
+# T10: scripted first match with a fixed deck; the blue side stays idle until the last step.
+func start_tutorial() -> void:
+	spectating = false
+	model = Battle.new(seed_value,Tutorial.DECK.duplicate(),B.PRESETS[0].duplicate())
+	model.difficulty = 0
+	model.ai_enabled = [false,true]
+	model.ai_start = 1e9
+	model.lord_active[1] = false
+	model.add_building(1,Vector2i(7,2),"farm") # practice target for the fire step
+	tutorial = Tutorial.new()
+	enter_battle(tutorial.caption())
+	prepare_tutorial_step()
+
+func prepare_tutorial_step() -> void:
+	if tutorial == null: return
+	if tutorial.complete:
+		model.ai_start = model.elapsed+5.0
+		model.lord_active[1] = true
+		notice = tutorial.caption()
+		return
+	var step: Dictionary = tutorial.current()
+	var deck: Array = model.decks[0]
+	var index := deck.find(step.card)
+	if index >= 4:
+		deck[index] = deck[0]
+		deck[0] = step.card
+	model.ink[0] = maxf(model.ink[0],B.CARDS[step.card].cost+2.0)
+	if step.done == "breach": model.gates[1][2] = minf(model.gates[1][2],40.0)
+	notice = tutorial.caption()
+
+func restart() -> void:
+	if tutorial != null: start_tutorial()
+	else: start_battle()
+
+func enter_battle(message: String) -> void:
 	selected = -1
 	dragging = false
 	speed = 1
 	position = Vector2.ZERO
-	notice = "觀戰中：AI 操控雙方。1–4 或 + / − 調整速度，空白鍵暫停。" if spectating else "拖曳卡牌到戰場，或按 1–4 選牌再點格子 · 右鍵取消 · 空白鍵暫停"
+	notice = message
 	screen = "battle"
 	effects.clear()
 	clear_ui()
@@ -123,7 +164,9 @@ func _physics_process(dt: float) -> void:
 	# Spectate mode can fast-forward: several fixed steps per frame, so results match 1x exactly.
 	for i: int in range(speed if spectating else 1):
 		model.step(dt)
+		var advanced: bool = tutorial != null and tutorial.observe(model.events)
 		consume_events()
+		if advanced: prepare_tutorial_step()
 
 func consume_events() -> void:
 	for e: Dictionary in model.events:
@@ -164,10 +207,10 @@ func set_speed(value: int) -> void:
 
 # Buttons on the pause / result banner: [rect, caption, action].
 func overlay_buttons() -> Array:
-	var y := L.OVERLAY_RECT.position.y+95
+	var y := RESULT_RECT.end.y-60 if model.ended else L.OVERLAY_RECT.position.y+95
 	var items: Array = []
 	if not model.ended: items.append([Rect2(490,y,190,40),"繼續",toggle_pause])
-	items.append([Rect2(700,y,190,40),"重新開始",start_battle])
+	items.append([Rect2(700,y,190,40),"重新開始",restart])
 	items.append([Rect2(910,y,190,40),"回到標題",show_title])
 	return items
 
@@ -195,7 +238,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			else: toggle_pause()
 		if event.keycode == KEY_SPACE: toggle_pause()
 		if event.keycode == KEY_R:
-			if model.paused or model.ended: start_battle()
+			if model.paused or model.ended: restart()
 			else: notice = "戰鬥中 R 不重開；空白鍵暫停後可重玩。"
 	if event is InputEventMouseMotion:
 		hover_slot = -1 if spectating else card_at(event.position)
@@ -404,12 +447,43 @@ func draw_battle() -> void:
 	draw_preview()
 	draw_effects()
 	draw_hud()
-	if model.paused or model.ended:
+	if tutorial != null and not model.ended:
+		panel(Rect2(290,98,1020,34),Color("f6ead0"))
+		draw_string(font,Vector2(290,121),tutorial.caption(),HORIZONTAL_ALIGNMENT_CENTER,1020,18,INK)
+	if model.ended: draw_result()
+	elif model.paused:
 		panel(L.OVERLAY_RECT,Color("efe0bd"))
 		draw_string(font,L.OVERLAY_RECT.position+Vector2(0,58),"戰局暫停" if not model.ended else ("紅獅勝利！我軍攻進藍旗主堡" if model.winner == 0 else "敗北：藍旗士兵攻進了我方主堡"),HORIZONTAL_ALIGNMENT_CENTER,L.OVERLAY_RECT.size.x,30,INK)
 		for item: Array in overlay_buttons():
 			panel(item[0],Color("f6ead0"))
 			draw_string(font,item[0].position+Vector2(0,27),item[1],HORIZONTAL_ALIGNMENT_CENTER,item[0].size.x,20,INK)
+
+# T10 result screen: who won and how, with both sides' match statistics.
+func draw_result() -> void:
+	var r := RESULT_RECT
+	panel(r,Color("efe0bd"))
+	ink_frame(r.grow(-8))
+	var title := "紅獅勝利！我軍攻進藍旗主堡" if model.winner == 0 else "敗北：藍旗士兵攻進了我方主堡"
+	draw_string(font,r.position+Vector2(0,62),title,HORIZONTAL_ALIGNMENT_CENTER,r.size.x,32,RED if model.winner == 0 else BLUE)
+	var t := int(model.elapsed)
+	draw_string(font,r.position+Vector2(0,96),"戰鬥時間 %02d:%02d" % [t/60,t%60],HORIZONTAL_ALIGNMENT_CENTER,r.size.x,18,INK)
+	var rows: Array = [["打破的城門","breaches"],["產出墨水","produced"],["浪費的墨水","wasted"],["種下農田","planted"],["被燒掉的田","burned"],["出牌數","plays"]]
+	var left := r.position.x+170
+	draw_string(font,Vector2(left+210,r.position.y+135),"紅獅",HORIZONTAL_ALIGNMENT_CENTER,120,20,RED)
+	draw_string(font,Vector2(left+350,r.position.y+135),"藍旗",HORIZONTAL_ALIGNMENT_CENTER,120,20,BLUE)
+	for i: int in range(rows.size()):
+		var y := r.position.y+168+i*26
+		draw_string(font,Vector2(left,y),rows[i][0],HORIZONTAL_ALIGNMENT_LEFT,-1,18,INK)
+		for team: int in range(2):
+			var value: float = result_value(team,rows[i][1])
+			draw_string(font,Vector2(left+210+team*140,y),str(int(value)),HORIZONTAL_ALIGNMENT_CENTER,120,18,INK)
+	for item: Array in overlay_buttons():
+		panel(item[0],Color("f6ead0"))
+		draw_string(font,item[0].position+Vector2(0,27),item[1],HORIZONTAL_ALIGNMENT_CENTER,item[0].size.x,20,INK)
+
+func result_value(team: int, key: String) -> float:
+	if key == "breaches": return model.gates[1-team].filter(func(hp: float) -> bool: return hp <= 0).size()
+	return float(model.stats[team].get(key,0))
 
 func team_shadow(center: Vector2, radius: float, color: Color) -> void:
 	draw_set_transform(center,0,Vector2(1,0.32))
@@ -502,7 +576,7 @@ func draw_hud() -> void:
 	panel(Rect2(712,24,140,58),Color("f2e3c0"))
 	var time := int(model.elapsed)
 	label_at(Vector2(725,58),"%02d:%02d" % [time/60,time%60],30,RED if model.multiplier() > 1 else INK)
-	if model.multiplier() > 1: label_at(Vector2(722,79),"墨水 ×%.1f" % model.multiplier(),14,RED)
+	if model.multiplier() > 1: label_at(Vector2(735,76),"墨水 ×%.1f" % model.multiplier(),13,RED)
 	panel(L.PAUSE_RECT)
 	label_at(L.PAUSE_RECT.position+Vector2(10,27),"Ⅱ",23)
 	panel(L.COMMAND_FRAME)
@@ -541,21 +615,16 @@ func draw_hud() -> void:
 func show_title() -> void:
 	screen = "title"
 	clear_ui()
-	button(Rect2(650,330,300,55),"開始對戰",func(): spectating = false; start_battle())
-	button(Rect2(650,398,300,55),"觀戰模式",func(): spectating = true; start_battle())
-	button(Rect2(650,466,300,55),"牌組編成",show_deck)
-	button(Rect2(650,534,300,55),"操作說明",show_help)
-	button(Rect2(650,670,300,55),"設定",show_settings)
-	button(Rect2(650,738,300,50),"離開",func(): get_tree().quit())
-	button(Rect2(650,602,300,55),"難度："+["簡單","普通","困難"][difficulty],func(): difficulty = (difficulty+1)%3; show_title())
+	var items: Array = [["開始對戰",func(): spectating = false; start_battle()],["新手教學",start_tutorial],["觀戰模式",func(): spectating = true; start_battle()],["牌組編成",show_deck],["操作說明",show_help],["難度："+["簡單","普通","困難"][difficulty],func(): difficulty = (difficulty+1)%3; show_title()],["設定",show_settings],["離開",func(): get_tree().quit()]]
+	for i: int in range(items.size()): button(Rect2(650,292+i*56,300,48),items[i][0],items[i][1])
 	queue_redraw()
 
 func draw_title() -> void:
 	draw_texture_rect(textures.castle_red,Rect2(100,290,350,480),false)
-	draw_texture_rect(textures.castle_blue,Rect2(1150,290,350,480),false)
+	draw_texture_rect(art("castle_blue",1),Rect2(1150,290,350,480),false)
 	draw_string(font,Vector2(0,190),"羊皮紙戰記",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,76,INK)
-	draw_string(font,Vector2(0,245),"種下村莊，寫下你的戰史。",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,28,INK)
-	draw_string(font,Vector2(0,800),"八張村莊牌 · 五路戰線 · 城門一破，敵兵進家就輸",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,23,INK)
+	draw_string(font,Vector2(0,240),"種下村莊，寫下你的戰史。",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,28,INK)
+	draw_string(font,Vector2(0,808),"八張村莊牌 · 五路戰線 · 城門一破，敵兵進家就輸",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,23,INK)
 
 func show_deck() -> void:
 	screen = "deck"
