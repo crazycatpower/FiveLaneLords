@@ -418,7 +418,7 @@ func draw_battle() -> void:
 	draw_texture_rect(ART.ornament(2),Rect2(Vector2(field.position.x+8,field.end.y-8-corner.y),corner),false,Color(1,1,1,0.85))
 	draw_texture_rect(ART.ornament(3),Rect2(field.end-Vector2(8,8)-corner,corner),false,Color(1,1,1,0.85))
 	draw_texture_rect(art("castle_red",0),L.CASTLE_RECTS[0],false)
-	draw_texture_rect(art("castle_blue",1),L.CASTLE_RECTS[1],false)
+	draw_mirrored(art("castle_blue",1),L.CASTLE_RECTS[1])
 	var grid := Rect2(L.GRID_ORIGIN,L.GRID_SIZE)
 	var zone := Vector2(3*L.CELL_SIZE.x,L.GRID_SIZE.y)
 	# Deploy zones are hatched in each side's ink; a breached lane's extra columns get a lighter hatch.
@@ -668,9 +668,15 @@ func show_title() -> void:
 	for i: int in range(items.size()): button(Rect2(650,292+i*56,300,48),items[i][0],items[i][1])
 	queue_redraw()
 
+# The blue castle faces the red one: draw it flipped left-right inside the same rect.
+func draw_mirrored(tex: Texture2D, r: Rect2) -> void:
+	draw_set_transform(Vector2(2*r.position.x+r.size.x,0),0,Vector2(-1,1))
+	draw_texture_rect(tex,r,false)
+	draw_set_transform(Vector2.ZERO)
+
 func draw_title() -> void:
 	draw_texture_rect(textures.castle_red,Rect2(100,290,350,480),false)
-	draw_texture_rect(art("castle_blue",1),Rect2(1150,290,350,480),false)
+	draw_mirrored(art("castle_blue",1),Rect2(1150,290,350,480))
 	draw_string(font,Vector2(0,190),"羊皮紙戰記",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,76,INK)
 	draw_string(font,Vector2(0,240),"種下村莊，寫下你的戰史。",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,28,INK)
 	draw_string(font,Vector2(0,808),"農田＋領主＋八張村莊牌 · 五路戰線 · 城門一破，敵兵進家就輸",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,23,INK)
