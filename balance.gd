@@ -14,9 +14,7 @@ const GATE_HP := 600.0
 # Ink speeds up over time so matches still end.
 const RAMP_1 := 180.0 # ink x1.5 from 3:00
 const RAMP_2 := 300.0 # ink x2 from 5:00
-const GATE_RANGE := 160.0
-const GATE_DAMAGE := 30.0
-const GATE_INTERVAL := 1.0
+# Gates never shoot back (producer decision 2026-10-29): defence is the lord, troops, buildings and spells.
 const ARROW_TIME := 0.35
 const SPELL_DELAY := 0.4
 const LORD_HP := 900.0

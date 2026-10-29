@@ -208,7 +208,7 @@ func test_match() -> void:
 	m.lords.clear()
 	var u := m.spawn_unit(1,0,"militia",Vector2(L.gate_stop(0)+100,L.cell_center(Vector2i(0,0)).y))
 	m.step(0.01)
-	check(u.hp == 55,"gate counters enemies within 160 px")
+	check(u.hp == u.max_hp,"gates never shoot back")
 
 func test_ai() -> void:
 	var m := Battle.new(3)

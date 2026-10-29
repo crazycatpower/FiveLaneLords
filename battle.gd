@@ -14,7 +14,6 @@ var projectiles: Array[Dictionary] = []
 var spells: Array[Dictionary] = []
 var lords: Array = []
 var gates: Array = []
-var gate_cd: Array = []
 var alarm: Array = [0.0,0.0,0.0,0.0,0.0]
 var building_alarm: Array = [0.0,0.0,0.0,0.0,0.0]
 var stats: Array = []
@@ -47,7 +46,6 @@ func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = []) -> void:
 		lords.append(Lord.create(team))
 		decks.append(deck)
 		gates.append([B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP])
-		gate_cd.append([0.0,0.0,0.0,0.0,0.0])
 		stats.append({"produced":0.0,"wasted":0.0,"planted":0,"burned":0,"plays":0,"used":{},"damage":{},"spent":{},"cultivated":0,"drops":0})
 
 func event(kind: String, pos: Vector2, team: int = 0, extra: Dictionary = {}) -> void:
@@ -292,7 +290,6 @@ func step(dt: float) -> void:
 		if spell.delay <= 0: cast_spell(spell)
 	spells = spells.filter(func(s: Dictionary) -> bool: return s.delay > 0)
 	update_projectiles(dt)
-	update_gates(dt)
 	for lord: Dictionary in lords: Lord.step(self,lord,dt)
 	for u: Dictionary in units:
 		u.flash = maxf(0,u.flash-dt)
@@ -356,18 +353,6 @@ func cast_spell(s: Dictionary) -> void:
 	for lane: int in range(5):
 		var gate_pos := Vector2(L.gate_stop(1-s.team),L.cell_center(Vector2i(0,lane)).y)
 		if gate_pos.distance_to(s.pos) <= data.radius: hit_gate(1-s.team,lane,data.gate_damage,s.kind)
-
-func update_gates(dt: float) -> void:
-	for team: int in range(2):
-		for lane: int in range(5):
-			gate_cd[team][lane] -= dt
-			if gates[team][lane] <= 0 or gate_cd[team][lane] > 0: continue
-			var pos := Vector2(L.gate_stop(team),L.cell_center(Vector2i(0,lane)).y)
-			var target := nearest(pos,team,B.GATE_RANGE,units,lane)
-			if not target.is_empty():
-				damage(target,B.GATE_DAMAGE,team,"gate")
-				gate_cd[team][lane] = B.GATE_INTERVAL
-				event("gate_shot",pos,team)
 
 func update_clock() -> void:
 	if ended: return
