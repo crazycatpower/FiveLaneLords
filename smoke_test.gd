@@ -563,7 +563,10 @@ func test_repair() -> void:
 	tower.hp = 100
 	m.elapsed = 30.0
 	offer(m,"tower")
-	check(m.play(0,0,tower.pos) and tower.hp == B.CARDS.tower.hp and is_equal_approx(tower.expires,30.0+B.CARDS.tower.expires),"re-placing a tower restores health and lifetime")
+	check(m.play(0,0,tower.pos) and tower.hp == B.CARDS.tower.hp,"re-placing a tower restores its health")
+	check(B.CARDS.values().all(func(c: Dictionary) -> bool: return c.type != "building" or c.expires < 0),"no building expires on its own")
+	tick(m,120)
+	check(tower.hp > 0 and m.buildings.has(tower),"a tower is still standing two minutes later")
 	check(m.stats[0].planted == 0 and m.stats[0].repairs == 1,"a repair is not counted as a new building")
 	var enemy := m.add_building(1,Vector2i(6,1),"farm")
 	offer(m,"farm")
