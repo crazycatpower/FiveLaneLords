@@ -25,8 +25,11 @@ func _ready() -> void:
 	var sf := SystemFont.new()
 	sf.font_names = PackedStringArray(["Noto Serif TC","PMingLiU","Microsoft JhengHei"])
 	font = sf
-	for pair: Array in [["militia","manuscript-v1/militia-red.png"],["militia_blue","manuscript-v1/militia-blue.png"],["farmer","farmer.png"],["farm","farmland.png"],["castle_red","manuscript-v1/castle-red.png"],["castle_blue","manuscript-v1/castle-blue.png"]]:
+	for pair: Array in [["militia","manuscript-v1/militia-red.png"],["farmer","farmer.png"],["farm","farmland.png"],["castle_red","manuscript-v1/castle-red.png"],["castle_blue","manuscript-v1/castle-red.png"]]:
 		textures[pair[0]] = load("res://assets/"+pair[1])
+	for kind: String in B.CARDS:
+		var file := "res://assets/manuscript-v1/"+kind+".png"
+		if ResourceLoader.exists(file): textures[kind] = load(file)
 	seed_value = int(Time.get_unix_time_from_system())
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--seed="): seed_value = int(arg.substr(7))
@@ -125,8 +128,7 @@ func bar(rect: Rect2, value: float, maximum: float, color: Color) -> void:
 	draw_rect(rect,Color("69543c"))
 	draw_rect(Rect2(rect.position,Vector2(rect.size.x*clampf(value/maximum,0,1),rect.size.y)),color)
 
-func art(kind: String, team: int = 0) -> Texture2D:
-	if team == 1 and textures.has(kind+"_blue"): return textures[kind+"_blue"]
+func art(kind: String, _team: int = 0) -> Texture2D:
 	return textures.get(kind,textures.militia)
 
 func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
@@ -175,6 +177,8 @@ func draw_battle() -> void:
 			bar(Rect2(x-22,y+28,44,4),model.gates[team][lane],B.GATE_HP,RED if team == 0 else BLUE)
 		if model.alarm[lane] > 0: draw_circle(Vector2(235,y-34),8,RED)
 		elif model.building_alarm[lane] > 0: draw_circle(Vector2(235,y-34),8,Color.GOLD)
+	for arrow: Dictionary in model.projectiles:
+		draw_line(arrow.pos-Vector2(12,0),arrow.pos,INK,2)
 	draw_preview()
 	draw_effects()
 	draw_hud()
@@ -255,4 +259,3 @@ func draw_hud() -> void:
 	for lord: Dictionary in model.lords:
 		var y: float = 815+lord.team*42
 		label_at(Vector2(1150,y),"%s  %d / 900" % ["紅獅" if lord.team == 0 else "藍旗",maxi(0,int(lord.hp))],18)
-

@@ -12,6 +12,36 @@
     {
       "name": "lord-simple",
       "prompt": "Production 2D sprite for a medieval illuminated manuscript strategy game. One single full body character facing RIGHT in three quarter side view, entire weapon and feet visible. Genuine transparent background. Simplified medieval manuscript drawing, bold clean dark brown ink contour, large FLAT matte gouache color shapes, very minimal hatching, NO noisy texture, NO realistic anatomy, NO metal reflections, NO dense armor details. Charming slightly large head and short sturdy proportions, readable silhouette when rendered 70 pixels tall. Warm ivory, muted vermilion, indigo, ochre palette. No scenery, base, shadows, text, borders, extra poses. Ample padding. A red faction LORD with a small gold crown, neatly shaped dark brown beard, simple red tunic, short flowing red cape, ochre belt, blue leggings and brown boots, holding a simple steel sword diagonally forward. Confident dignified humorous face. Only a few simple armor shapes."
+    },
+    {
+      "name": "hunter",
+      "prompt": "Production 2D sprite for a medieval illuminated manuscript strategy game. Genuine transparent background. Single isolated subject fully visible, generous padding. Bold clean dark brown ink contours, large flat matte gouache shapes, minimal hatching, charming sturdy proportions readable at 70 pixels. Muted vermilion, indigo, ochre, ivory palette. No text, border, scenery, base, shadow, glow, vignette or photorealism. Character faces RIGHT in three-quarter side view. Medieval hunter in RED hood and tunic drawing a wooden bow.",
+      "usage": "single shared sprite for both teams; no separate blue variant"
+    },
+    {
+      "name": "healer",
+      "prompt": "Production 2D sprite for a medieval illuminated manuscript strategy game. Genuine transparent background. Single isolated subject fully visible, generous padding. Bold clean dark brown ink contours, large flat matte gouache shapes, minimal hatching, charming sturdy proportions readable at 70 pixels. Muted vermilion, indigo, ochre, ivory palette. No text, border, scenery, base, shadow, glow, vignette or photorealism. Character faces RIGHT in three-quarter side view. Elderly herbalist woman in RED shawl carrying basket of herbs and wooden staff.",
+      "usage": "single shared sprite for both teams; no separate blue variant"
+    },
+    {
+      "name": "ox",
+      "prompt": "Production 2D sprite for a medieval illuminated manuscript strategy game. Genuine transparent background. Single isolated subject fully visible, generous padding. Bold clean dark brown ink contours, large flat matte gouache shapes, minimal hatching, charming sturdy proportions readable at 70 pixels. Muted vermilion, indigo, ochre, ivory palette. No text, border, scenery, base, shadow, glow, vignette or photorealism. Character faces RIGHT in three-quarter side view. Sturdy brown plough ox, curved horns, wooden yoke, RED cloth saddle blanket.",
+      "usage": "single shared sprite for both teams; no separate blue variant"
+    },
+    {
+      "name": "knight",
+      "prompt": "Production 2D sprite for a medieval illuminated manuscript strategy game. Genuine transparent background. Single isolated subject fully visible, generous padding. Bold clean dark brown ink contours, large flat matte gouache shapes, minimal hatching, charming sturdy proportions readable at 70 pixels. Muted vermilion, indigo, ochre, ivory palette. No text, border, scenery, base, shadow, glow, vignette or photorealism. Character faces RIGHT in three-quarter side view. Heavy armored medieval knight in RED surcoat carrying sword and shield.",
+      "usage": "single shared sprite for both teams; no separate blue variant"
+    },
+    {
+      "name": "ram",
+      "prompt": "Production 2D sprite for a medieval illuminated manuscript strategy game. Genuine transparent background. Single isolated subject fully visible, generous padding. Bold clean dark brown ink contours, large flat matte gouache shapes, minimal hatching, charming sturdy proportions readable at 70 pixels. Muted vermilion, indigo, ochre, ivory palette. No text, border, scenery, base, shadow, glow, vignette or photorealism. Character faces RIGHT in three-quarter side view. Medieval wooden wheeled battering ram with RED cloth canopy.",
+      "usage": "single shared sprite for both teams; no separate blue variant"
+    },
+    {
+      "name": "mob",
+      "prompt": "Production 2D sprite for a medieval illuminated manuscript strategy game. One single full-body pitchfork peasant facing RIGHT in three-quarter side view, entire pitchfork and feet visible. Genuine transparent background. Simplified medieval manuscript drawing, bold clean dark brown ink contour, large FLAT matte gouache color shapes, very minimal hatching, NO noisy texture, NO realistic anatomy, NO metal reflections, NO dense armor details. Charming slightly large head and short sturdy proportions, readable silhouette at 70 pixels tall. Warm ivory, muted vermilion, indigo, ochre palette. No scenery, base, shadows, text, borders, extra poses. Ample padding. A scruffy angry medieval peasant with RED tunic and a hay pitchfork held forward.",
+      "usage": "single shared sprite"
     }
   ]
 }

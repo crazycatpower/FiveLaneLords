@@ -1,0 +1,41 @@
+{
+  "generator": "built-in image_gen",
+  "assets": [
+    {
+      "name": "mill",
+      "prompt": "Production 2D game sprite, medieval illuminated manuscript. One isolated subject, complete silhouette, generous padding. Genuine transparent background, NO shadow or glow. Bold dark brown ink contour, flat matte gouache shapes, minimal hatching, ivory ochre brown muted red palette. Readable at 70px. No lettering, frame, scenery or realism. Small timber windmill with four cloth sails and thatched roof."
+    },
+    {
+      "name": "scarecrow",
+      "prompt": "Production 2D game sprite, medieval illuminated manuscript. One isolated subject, complete silhouette, generous padding. Genuine transparent background, NO shadow or glow. Bold dark brown ink contour, flat matte gouache shapes, minimal hatching, ivory ochre brown muted red palette. Readable at 70px. No lettering, frame, scenery or realism. Straw scarecrow on a wooden cross, straw hat, ragged tunic."
+    },
+    {
+      "name": "tower",
+      "prompt": "Production 2D game sprite, medieval illuminated manuscript. One isolated subject, complete silhouette, generous padding. Genuine transparent background, NO shadow or glow. Bold dark brown ink contour, flat matte gouache shapes, minimal hatching, ivory ochre brown muted red palette. Readable at 70px. No lettering, frame, scenery or realism. Medieval timber archer watchtower, small archer at top."
+    },
+    {
+      "name": "harvest",
+      "prompt": "Production 2D game sprite, medieval illuminated manuscript. One isolated subject, complete silhouette, generous padding. Genuine transparent background, NO shadow or glow. Bold dark brown ink contour, flat matte gouache shapes, minimal hatching, ivory ochre brown muted red palette. Readable at 70px. No lettering, frame, scenery or realism. Golden wheat bundle with small sickle and ribbon, harvest emblem."
+    },
+    {
+      "name": "rain",
+      "prompt": "Production 2D game sprite, medieval illuminated manuscript. One isolated subject, complete silhouette, generous padding. Genuine transparent background, NO shadow or glow. Bold dark brown ink contour, flat matte gouache shapes, minimal hatching, ivory ochre brown muted red palette. Readable at 70px. No lettering, frame, scenery or realism. Fan of seven arrows raining diagonally downward, spell emblem."
+    },
+    {
+      "name": "fire",
+      "prompt": "Production 2D game sprite, medieval illuminated manuscript. One isolated subject, complete silhouette, generous padding. Genuine transparent background, NO shadow or glow. Bold dark brown ink contour, flat matte gouache shapes, minimal hatching, ivory ochre brown muted red palette. Readable at 70px. No lettering, frame, scenery or realism. Clay jar with burning rag and orange flames, firepot emblem."
+    },
+    {
+      "name": "gate",
+      "prompt": "Production 2D game sprite, medieval illuminated manuscript. One isolated subject, complete silhouette, generous padding. Genuine transparent background, NO shadow or glow. Bold dark brown ink contour, flat matte gouache shapes, minimal hatching, ivory ochre brown muted red palette. Readable at 70px. No lettering, frame, scenery or realism. Single stout wooden gate and stone posts, one pennant. No castle."
+    },
+    {
+      "name": "crown",
+      "prompt": "Production 2D game sprite, medieval illuminated manuscript. One isolated subject, complete silhouette, generous padding. Genuine transparent background, NO shadow or glow. Bold dark brown ink contour, flat matte gouache shapes, minimal hatching, ivory ochre brown muted red palette. Readable at 70px. No lettering, frame, scenery or realism. Small golden crown with five points, heraldic emblem."
+    },
+    {
+      "name": "ink",
+      "prompt": "Production 2D game sprite, medieval illuminated manuscript. One isolated subject, complete silhouette, generous padding. Genuine transparent background, NO shadow or glow. Bold dark brown ink contour, flat matte gouache shapes, minimal hatching, ivory ochre brown muted red palette. Readable at 70px. No lettering, frame, scenery or realism. Squat indigo ink bottle with brass rim and white quill."
+    }
+  ]
+}

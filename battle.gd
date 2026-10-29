@@ -89,7 +89,10 @@ func gain_ink(team: int, amount: float) -> void:
 	if waste > 0: event("overflow",L.GOLD_TEXT,team)
 
 func farm_speed(b: Dictionary) -> float:
-	return 2.0 if b.boost_until > elapsed else 1.0
+	var speed := 2.0 if maxf(b.boost_until,b.harvest_until) > elapsed else 1.0
+	for mill: Dictionary in buildings:
+		if mill.kind == "mill" and mill.hp > 0 and mill.team == b.team and mill.cell.y == b.cell.y: speed *= B.MILL_BONUS
+	return speed
 
 func farm_drop(b: Dictionary) -> void:
 	gain_ink(b.team,B.FARM_DROP)
@@ -201,8 +204,38 @@ func nearest(pos: Vector2, team: int, radius: float, candidates: Array, lane: in
 
 func attack(u: Dictionary, target: Dictionary) -> void:
 	var data: Dictionary = B.CARDS[u.kind]
-	damage(target,data.damage*attack_bonus(u),u.team,u.kind)
+	var amount: float = data.damage
+	if u.kind == "ox":
+		if not u.charged:
+			amount = B.OX_CHARGE
+			u.charged = true
+			if not target.has("cell"): target.pos.x += u.face*B.OX_KNOCKBACK
+		if target.has("cell"): amount *= B.OX_BUILDING_BONUS
+	amount *= attack_bonus(u)
+	if u.kind == "hunter": shoot(u,target,amount)
+	else: damage(target,amount,u.team,u.kind)
 	u.cd = data.interval
+
+func shoot(source: Dictionary, target: Dictionary, amount: float) -> void:
+	projectiles.append({"pos":source.pos,"start":source.pos,"target":target,"remaining":B.ARROW_TIME,"amount":amount,"team":source.team,"kind":source.kind})
+	event("arrow",source.pos,source.team)
+
+func update_projectiles(dt: float) -> void:
+	for arrow: Dictionary in projectiles:
+		arrow.remaining -= dt
+		arrow.pos = arrow.start.lerp(arrow.target.pos,clampf(1-arrow.remaining/B.ARROW_TIME,0,1))
+		if arrow.remaining <= 0 and arrow.target.hp > 0: damage(arrow.target,arrow.amount,arrow.team,arrow.kind)
+	projectiles = projectiles.filter(func(a: Dictionary) -> bool: return a.remaining > 0)
+
+func heal(u: Dictionary, dt: float) -> void:
+	if u.kind != "healer": return
+	u.heal_cd -= dt
+	if u.heal_cd > 0: return
+	u.heal_cd = B.HEAL_INTERVAL
+	for ally: Dictionary in units:
+		if ally.team == u.team and ally.hp > 0 and u.pos.distance_to(ally.pos) <= B.HEAL_RADIUS:
+			ally.hp = minf(ally.max_hp,ally.hp+B.HEAL_AMOUNT)
+			event("heal",ally.pos,u.team)
 
 func attack_bonus(u: Dictionary) -> float:
 	var factor := B.COMMAND_BONUS if u.buff_until > elapsed else 1.0
@@ -263,12 +296,13 @@ func step(dt: float) -> void:
 			b.cd -= dt
 			var target := nearest(b.pos,b.team,B.CARDS.tower.range,units)
 			if not target.is_empty() and b.cd <= 0:
-				damage(target,B.CARDS.tower.damage,b.team,"tower")
+				shoot(b,target,B.CARDS.tower.damage)
 				b.cd = B.CARDS.tower.interval
 	for spell: Dictionary in spells:
 		spell.delay -= dt
 		if spell.delay <= 0: cast_spell(spell)
 	spells = spells.filter(func(s: Dictionary) -> bool: return s.delay > 0)
+	update_projectiles(dt)
 	update_gates(dt)
 	for lord: Dictionary in lords: Lord.step(self,lord,dt)
 	for u: Dictionary in units:
@@ -279,10 +313,15 @@ func step(dt: float) -> void:
 			continue
 		u.cd = maxf(0,u.cd-dt)
 		var data: Dictionary = B.CARDS[u.kind]
-		var target := nearest(u.pos,u.team,data.range,units,u.lane)
+		heal(u,dt)
+		var target: Dictionary = {} if u.kind == "ram" else nearest(u.pos,u.team,data.range,units,u.lane)
 		var building := nearest(u.pos,u.team,data.range,buildings,u.lane)
 		if not building.is_empty() and (target.is_empty() or u.pos.distance_to(building.pos) < u.pos.distance_to(target.pos)): target = building
-		if target.is_empty(): target = nearest(u.pos,u.team,54.0,lords)
+		if u.kind != "ram":
+			var taunts: Array = buildings.filter(func(b: Dictionary) -> bool: return b.kind == "scarecrow")
+			var taunt := nearest(u.pos,u.team,minf(data.range,B.TAUNT_RADIUS),taunts,u.lane)
+			if not taunt.is_empty(): target = taunt
+			if target.is_empty(): target = nearest(u.pos,u.team,54.0,lords)
 		if not target.is_empty():
 			if u.cd <= 0: attack(u,target)
 		elif cultivate(u,dt): pass
@@ -290,10 +329,14 @@ func step(dt: float) -> void:
 			var stop := L.gate_stop(1-u.team)
 			if (stop-u.pos.x)*u.face <= 0.001:
 				if u.cd <= 0:
-					hit_gate(1-u.team,u.lane,data.damage*attack_bonus(u),u.kind)
+					var amount: float = data.damage
+					if u.kind == "ox":
+						amount = (B.OX_CHARGE if not u.charged else data.damage)*B.OX_BUILDING_BONUS
+						u.charged = true
+					hit_gate(1-u.team,u.lane,amount*attack_bonus(u),u.kind)
 					u.cd = data.interval
 			else:
-				u.pos.x = move_toward(u.pos.x,stop,data.speed*dt*(B.COMMAND_BONUS if u.buff_until > elapsed else 1.0))
+				u.pos.x = move_toward(u.pos.x,stop,(B.OX_SLOW_SPEED if u.kind == "ox" and u.charged else data.speed)*dt*(B.COMMAND_BONUS if u.buff_until > elapsed else 1.0))
 	units = units.filter(func(u: Dictionary) -> bool: return u.hp > 0)
 	buildings = buildings.filter(func(b: Dictionary) -> bool: return b.hp > 0)
 	update_clock()
@@ -301,8 +344,16 @@ func step(dt: float) -> void:
 func cast_spell(s: Dictionary) -> void:
 	var data: Dictionary = B.CARDS[s.kind]
 	event("spell",s.pos,s.team,{"card":s.kind,"radius":data.radius})
+	if s.kind == "harvest":
+		for b: Dictionary in buildings:
+			if b.team == s.team and b.hp > 0 and b.kind == "farm" and b.pos.distance_to(s.pos) <= data.radius:
+				farm_drop(b)
+				b.harvest_until = elapsed+B.HARVEST_TIME
+		return
 	for u: Dictionary in units:
-		if u.team != s.team and u.pos.distance_to(s.pos) <= data.radius: damage(u,data.damage,s.team,s.kind)
+		if u.team != s.team and u.pos.distance_to(s.pos) <= data.radius:
+			damage(u,data.damage,s.team,s.kind)
+			if s.kind == "fire": u.pos.x += B.FIRE_KNOCKBACK*(1 if s.team == 0 else -1)
 	for b: Dictionary in buildings:
 		if b.team != s.team and b.pos.distance_to(s.pos) <= data.radius: damage(b,data.building_damage,s.team,s.kind)
 	for lane: int in range(5):
