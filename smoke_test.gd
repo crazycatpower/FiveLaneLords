@@ -21,6 +21,7 @@ func offer(m: RefCounted, kind: String, team: int = 0) -> void:
 func run() -> void:
 	test_core()
 	test_lords()
+	test_match()
 	await preview()
 	print("%s: %d checks, %d failures" % ["PASS" if failures == 0 else "FAIL",checks,failures])
 	quit(0 if failures == 0 else 1)
@@ -141,3 +142,38 @@ func test_lords() -> void:
 	m.damage(m.lords[0],9999,1,"militia")
 	tick(m,12.1)
 	check(m.lords[0].hp == B.LORD_HP,"lord revives after twelve seconds")
+
+func test_match() -> void:
+	var m := Battle.new(1)
+	m.elapsed = 180
+	check(m.multiplier() == 1.5,"last minute multiplier")
+	m.elapsed = 240
+	m.update_clock()
+	check(m.overtime and not m.ended and m.multiplier() == 2,"tied game enters overtime")
+	m.hit_gate(1,0,600)
+	check(m.ended and m.winner == 0 and m.crowns[0] == 1,"next overtime crown wins")
+	m = Battle.new(1)
+	m.hit_gate(1,2,600)
+	offer(m,"militia")
+	check(m.can_play(0,0,L.cell_center(Vector2i(5,2))),"breach expands unit deployment to column six")
+	check(not m.can_play(0,0,L.cell_center(Vector2i(5,1))),"other lanes remain closed")
+	offer(m,"farm")
+	check(not m.can_play(0,0,L.cell_center(Vector2i(5,2))),"buildings remain in original deployment zone")
+	m.hit_gate(0,3,600)
+	offer(m,"militia",1)
+	check(m.can_play(1,0,L.cell_center(Vector2i(3,3))),"blue breach mirrors deployment")
+	m.elapsed = 360
+	m.overtime = true
+	m.castle[0] = 2300
+	m.update_clock()
+	check(m.winner == 1,"overtime health tiebreak")
+	m = Battle.new(1)
+	m.lords.clear()
+	var u := m.spawn_unit(1,0,"militia",Vector2(L.gate_stop(0)+100,L.cell_center(Vector2i(0,0)).y))
+	m.step(0.01)
+	check(u.hp == 55,"gate counters enemies within 160 px")
+	m = Battle.new(1)
+	m.elapsed = 360
+	m.overtime = true
+	m.update_clock()
+	check(m.ended and m.winner == -1,"equal health yields draw")

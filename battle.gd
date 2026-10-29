@@ -65,7 +65,7 @@ func building_at(cell: Vector2i) -> Dictionary:
 	return {}
 
 func multiplier() -> float:
-	return 1.0
+	return 2.0 if overtime else (1.5 if elapsed >= B.MATCH_TIME-60 else 1.0)
 
 func production_rate(team: int) -> float:
 	var rate := 1.0/B.BASE_INTERVAL
@@ -96,7 +96,7 @@ func can_play(team: int, slot: int, pos: Vector2) -> bool:
 	if cell.x < 0: return false
 	if card.type == "spell": return true
 	var col := cell.x if team == 0 else 8-cell.x
-	var limit := 3
+	var limit := 6 if card.type == "unit" and gates[1-team][cell.y] <= 0 else 3
 	if col >= limit: return false
 	if card.type == "building":
 		if not building_at(cell).is_empty(): return false
@@ -163,6 +163,7 @@ func hit_gate(side: int, lane: int, amount: float, kind: String = "militia") -> 
 		gates[side][lane] = maxf(0,gates[side][lane]-amount)
 		if gates[side][lane] == 0:
 			crowns[1-side] += 1
+			if overtime: finish(1-side)
 			event("breach",Vector2(L.gate_icon_x(side),L.cell_center(Vector2i(0,lane)).y),1-side)
 	else:
 		dealt = minf(castle[side],amount)
@@ -258,6 +259,7 @@ func step(dt: float) -> void:
 		spell.delay -= dt
 		if spell.delay <= 0: cast_spell(spell)
 	spells = spells.filter(func(s: Dictionary) -> bool: return s.delay > 0)
+	update_gates(dt)
 	for lord: Dictionary in lords: Lord.step(self,lord,dt)
 	for u: Dictionary in units:
 		u.flash = maxf(0,u.flash-dt)
@@ -284,6 +286,7 @@ func step(dt: float) -> void:
 				u.pos.x = move_toward(u.pos.x,stop,data.speed*dt*(B.COMMAND_BONUS if u.buff_until > elapsed else 1.0))
 	units = units.filter(func(u: Dictionary) -> bool: return u.hp > 0)
 	buildings = buildings.filter(func(b: Dictionary) -> bool: return b.hp > 0)
+	update_clock()
 
 func cast_spell(s: Dictionary) -> void:
 	var data: Dictionary = B.CARDS[s.kind]
@@ -295,3 +298,25 @@ func cast_spell(s: Dictionary) -> void:
 	for lane: int in range(5):
 		var gate_pos := Vector2(L.gate_stop(1-s.team),L.cell_center(Vector2i(0,lane)).y)
 		if gate_pos.distance_to(s.pos) <= data.radius: hit_gate(1-s.team,lane,data.gate_damage,s.kind)
+
+func update_gates(dt: float) -> void:
+	for team: int in range(2):
+		for lane: int in range(5):
+			gate_cd[team][lane] -= dt
+			if gates[team][lane] <= 0 or gate_cd[team][lane] > 0: continue
+			var pos := Vector2(L.gate_stop(team),L.cell_center(Vector2i(0,lane)).y)
+			var target := nearest(pos,team,B.GATE_RANGE,units,lane)
+			if not target.is_empty():
+				damage(target,B.GATE_DAMAGE,team,"gate")
+				gate_cd[team][lane] = B.GATE_INTERVAL
+				event("gate_shot",pos,team)
+
+func update_clock() -> void:
+	if ended: return
+	if not overtime and elapsed >= B.MATCH_TIME:
+		if crowns[0] != crowns[1]: finish(0 if crowns[0] > crowns[1] else 1)
+		else:
+			overtime = true
+			event("overtime",Vector2(800,50))
+	if overtime and elapsed >= B.MATCH_TIME+B.OVERTIME:
+		finish(-1 if is_equal_approx(castle[0],castle[1]) else (0 if castle[0] > castle[1] else 1))

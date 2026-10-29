@@ -179,7 +179,7 @@ func draw_battle() -> void:
 	draw_hud()
 	if model.paused or model.ended:
 		panel(L.OVERLAY_RECT,Color("ead6aa"))
-		label_at(L.OVERLAY_TITLE,"戰局暫停" if not model.ended else ("紅獅勝利" if model.winner == 0 else "藍旗勝利"),30)
+		label_at(L.OVERLAY_TITLE,"戰局暫停" if not model.ended else ("和局" if model.winner == -1 else ("紅獅勝利" if model.winner == 0 else "藍旗勝利")),30)
 		label_at(L.OVERLAY_HELP,"空白鍵繼續 · R 重新開始",20)
 
 func draw_unit(u: Dictionary) -> void:
@@ -237,8 +237,9 @@ func draw_hud() -> void:
 		label_at(Vector2(x,43),("紅獅" if team == 0 else "藍旗")+"  ♛ %d" % model.crowns[team],23,RED if team == 0 else BLUE)
 		bar(Rect2(x,53,350,10),model.castle[team],B.CASTLE_HP,RED if team == 0 else BLUE)
 		label_at(Vector2(x+170,43),"墨水 %d / 50" % model.ink[team],18)
-	var time := maxi(0,int(B.MATCH_TIME-model.elapsed))
-	label_at(Vector2(725,58),"%02d:%02d" % [time/60,time%60],30)
+	var time := maxi(0,ceili((B.MATCH_TIME+B.OVERTIME if model.overtime else B.MATCH_TIME)-model.elapsed))
+	label_at(Vector2(725,58),"%02d:%02d" % [time/60,time%60],30,RED if model.multiplier() > 1 else INK)
+	if model.multiplier() > 1: label_at(Vector2(715,79),"%s ×%.1f" % ["加時" if model.overtime else "墨水",model.multiplier()],14,RED)
 	panel(L.PAUSE_RECT)
 	label_at(L.PAUSE_RECT.position+Vector2(10,27),"Ⅱ",23)
 	panel(L.COMMAND_FRAME)
