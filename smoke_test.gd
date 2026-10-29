@@ -419,6 +419,13 @@ func test_screens() -> void:
 	var labels: Array = game.ui.map(func(b: Button) -> String: return b.text)
 	check("開始對戰" in labels and "觀戰模式" in labels and "牌組編成" in labels and "操作說明" in labels,"title offers battle, spectate, deck and help")
 	game.player_deck = B.PRESETS[1].duplicate()
+	var lord_paths: Array[String] = []
+	for kind: String in B.LORDS:
+		var sprite: Texture2D = game.lord_art(kind)
+		check(sprite != null and sprite.resource_path.ends_with("lord-"+kind+".png"),"chosen lord uses its own art: "+kind)
+		check(not sprite.resource_path in lord_paths,"each lord has distinct source art")
+		lord_paths.append(sprite.resource_path)
+		check(game.lord_art(kind,1) == game.blue_art["lord_"+kind],"blue lord uses derived palette of same source")
 	game.show_deck()
 	game.toggle_deck_card("rain")
 	check(not "rain" in game.player_deck and game.start_button.disabled,"a deck with seven cards cannot start")

@@ -6,7 +6,6 @@ const Battle = preload("res://battle.gd")
 const Tutorial = preload("res://tutorial.gd")
 const ART = preload("res://manuscript_art.gd")
 const PAPER = preload("res://assets/parchment-background.png")
-const LORD_ART = preload("res://assets/manuscript-v1/lord-simple-v2.png")
 const INK := Color("463529")
 const RED := Color("9c3d30")
 const BLUE := Color("355b78")
@@ -61,7 +60,8 @@ func _ready() -> void:
 		if ResourceLoader.exists(file): textures[kind] = load(file)
 	for pair: Array in [["gate","gate"],["inkpot","ink"],["crest","crown"]]:
 		textures[pair[0]] = load("res://assets/manuscript-v1/"+pair[1]+".png")
-	textures["lord"] = LORD_ART
+	for lord_kind: String in B.LORDS:
+		textures["lord_"+lord_kind] = load("res://assets/manuscript-v1/lord-"+lord_kind+".png")
 	# One shared art set (producer decision): the blue side is made by swapping red cloth to blue,
 	# not by tinting the whole picture (that turned red into purple and darkened the fields).
 	for kind: String in textures:
@@ -342,6 +342,9 @@ func art(kind: String, team: int = 0) -> Texture2D:
 	if team == 1 and blue_art.has(kind): return blue_art[kind]
 	return textures.get(kind,textures.militia)
 
+func lord_art(kind: String, team: int = 0) -> Texture2D:
+	return art("lord_"+kind,team)
+
 # Copy of a texture with saturated reds turned to the blue banner colour; other colours untouched.
 static func recolor_blue(source: Texture2D, max_size: int) -> Texture2D:
 	var img := source.get_image()
@@ -531,7 +534,7 @@ func draw_lord(lord: Dictionary) -> void:
 	draw_arc(lord.pos+Vector2(0,24),30,0,TAU,32,Color(0.8,0.6,0.15,0.8),2) # gold ring marks the lords
 	# The art faces right; the blue lord is mirrored so both lords face the enemy.
 	draw_set_transform(lord.pos,0,Vector2(1 if lord.team == 0 else -1,1))
-	draw_texture_rect(art("lord",lord.team),Rect2(Vector2(-39,-67),Vector2(78,94)),false)
+	draw_texture_rect(lord_art(lord.lord,lord.team),Rect2(Vector2(-39,-67),Vector2(78,94)),false)
 	draw_set_transform(Vector2.ZERO)
 	bar(Rect2(lord.pos-Vector2(30,72),Vector2(60,4)),lord.hp,lord.max_hp,RED if lord.team == 0 else BLUE)
 
@@ -737,7 +740,7 @@ func draw_deck() -> void:
 		var info: Dictionary = B.LORDS[lord_kind]
 		panel(r,Color("f2e3c0") if lord_kind == player_lord else Color("e3d2aa"),RED if lord_kind == player_lord else INK)
 		if lord_kind == player_lord: draw_rect(r.grow(2),RED,false,3)
-		draw_texture_rect(LORD_ART,Rect2(r.position+Vector2(6,6),Vector2(64,78)),false)
+		draw_texture_rect(lord_art(lord_kind),Rect2(r.position+Vector2(6,6),Vector2(64,78)),false)
 		label_at(r.position+Vector2(76,32),info.name,18)
 		label_at(r.position+Vector2(76,56),info.role,14,Color("6f5a3e"))
 		label_at(r.position+Vector2(76,78),"%d 血 · 普攻 %d" % [int(info.hp),int(info.damage)],12,Color("6f5a3e"))
