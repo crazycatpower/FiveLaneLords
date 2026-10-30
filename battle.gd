@@ -36,6 +36,7 @@ var recent_lanes: Array = [[],[]] # lanes of each side's last troop plays, for t
 var ai_start := 0.0
 var lord_active: Array = [true,true] # the tutorial keeps the blue lord idle
 var first_breach := -1.0 # seconds into the match when the first gate fell (-1 = never)
+var serials_in_use: Dictionary = {} # 序號 currently held by a living unit or building
 var record_events := true # batch simulators turn this off; no game logic reads events
 # Per-step lookup lists, rebuilt after the AI plays (same order as units/buildings, so every
 # "nearest" search sees the candidates in the same order as a scan of the full list would).
@@ -265,7 +266,7 @@ func add_building(team: int, cell: Vector2i, kind: String) -> Dictionary:
 	claim_around(team,cell)
 	next_id += 1
 	var data: Dictionary = B.CARDS[kind]
-	var b := {"id":next_id,"kind":kind,"team":team,"cell":cell,"pos":L.cell_center(cell),"hp":data.hp,"max_hp":data.hp,"expires":elapsed+data.expires if data.expires > 0 else -1.0,"boost_until":0.0,"harvest_until":0.0,"ready_at":elapsed+B.FARM_START,"production":0.0,"cd":0.0,"flash":0.0}
+	var b := {"id":next_id,"serial":take_serial(),"kind":kind,"team":team,"cell":cell,"pos":L.cell_center(cell),"hp":data.hp,"max_hp":data.hp,"expires":elapsed+data.expires if data.expires > 0 else -1.0,"boost_until":0.0,"harvest_until":0.0,"ready_at":elapsed+B.FARM_START,"production":0.0,"cd":0.0,"flash":0.0}
 	buildings.append(b)
 	if kind == "farm": stats[team].planted += 1
 	return b
@@ -317,7 +318,7 @@ func deploy(team: int, kind: String, cell: Vector2i) -> void:
 func spawn_unit(team: int, lane: int, kind: String, pos: Vector2) -> Dictionary:
 	next_id += 1
 	var data: Dictionary = B.CARDS[kind]
-	var u := {"id":next_id,"kind":kind,"team":team,"lane":lane,"pos":pos,"hp":data.hp,"max_hp":data.hp,"cd":0.0,"phase":rng.randf()*TAU,"face":1.0 if team == 0 else -1.0,"worked":[],"work_id":-1,"work_left":0.0,"spawn_delay":0.0,"charged":false,"flash":0.0,"heal_cd":0.0,"dy":rng.randf_range(-B.PLACE_JITTER,B.PLACE_JITTER)}
+	var u := {"id":next_id,"serial":take_serial(),"kind":kind,"team":team,"lane":lane,"pos":pos,"hp":data.hp,"max_hp":data.hp,"cd":0.0,"phase":rng.randf()*TAU,"face":1.0 if team == 0 else -1.0,"worked":[],"work_id":-1,"work_left":0.0,"spawn_delay":0.0,"charged":false,"flash":0.0,"heal_cd":0.0,"dy":rng.randf_range(-B.PLACE_JITTER,B.PLACE_JITTER)}
 	units.append(u)
 	return u
 
@@ -410,15 +411,43 @@ func finish(side: int) -> void:
 	winner = side
 	event("finish",Vector2(800,450),side)
 
+# Serial numbers (序號, producer 2026-10-30), like Plants vs. Zombies: every unit and building gets
+# the lowest serial no living thing holds (one pool for both sides); when it dies its serial is free
+# again for the next one. "id" stays unique for the whole match and is only for bookkeeping.
+# At the same distance (within SERIAL_TIE px) the higher serial is attacked first.
+const SERIAL_TIE := 0.5
+
+func take_serial() -> int:
+	var n := 1
+	while serials_in_use.has(n): n += 1
+	serials_in_use[n] = true
+	return n
+
 func nearest(pos: Vector2, team: int, radius: float, candidates: Array, lane: int = -1) -> Dictionary:
 	var found: Dictionary = {}
+	var best := radius
 	for other: Dictionary in candidates:
 		if other.team == team or other.hp <= 0: continue
 		if lane >= 0 and other.get("lane",other.get("cell",Vector2i(-1,-1)).y) != lane: continue
 		var d := pos.distance_to(other.pos)
-		if d <= radius:
-			radius = d
+		if d > radius: continue
+		if found.is_empty() or d < best-SERIAL_TIE or (d <= best+SERIAL_TIE and other.get("serial",-1) > found.get("serial",-1)):
 			found = other
+			best = minf(best,d) if absf(d-best) <= SERIAL_TIE else d
+	return found
+
+# A lord hits the enemy in reach that has pushed furthest toward its gate; level ones go by the
+# higher serial.
+func lord_target(lord: Dictionary) -> Dictionary:
+	var found: Dictionary = {}
+	var toward_gate := -1.0 if lord.team == 0 else 1.0 # enemies of red walk left
+	for u: Dictionary in foe_units[lord.team]:
+		if u.hp <= 0 or lord.pos.distance_to(u.pos) > B.LORD_RANGE: continue
+		if found.is_empty():
+			found = u
+			continue
+		var ahead: float = (u.pos.x-found.pos.x)*toward_gate
+		if ahead > SERIAL_TIE or (ahead >= -SERIAL_TIE and u.serial > found.serial): found = u
 	return found
 
 func attack(u: Dictionary, target: Dictionary) -> void:
@@ -567,6 +596,8 @@ func step(dt: float) -> void:
 					u.cd = data.interval
 			else:
 				u.pos.x = move_toward(u.pos.x,stop,(B.OX_SLOW_SPEED if u.kind == "ox" and u.charged else u.get("march",data.speed))*dt)
+	for gone: Dictionary in units+buildings:
+		if gone.hp <= 0: serials_in_use.erase(gone.serial)
 	units = units.filter(func(u: Dictionary) -> bool: return u.hp > 0)
 	buildings = buildings.filter(func(b: Dictionary) -> bool: return b.hp > 0)
 	update_clock()

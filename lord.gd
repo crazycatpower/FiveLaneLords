@@ -36,7 +36,7 @@ static func step(m: RefCounted, lord: Dictionary, dt: float) -> void:
 	lord.pos = lord.pos.move_toward(lord.target,lord.speed*dt)
 	lord.pos.x = clampf(lord.pos.x,min_x,max_x)
 	lord.cd -= dt
-	var foe: Dictionary = m.nearest(lord.pos,lord.team,B.LORD_RANGE,m.foe_units[lord.team])
+	var foe: Dictionary = m.lord_target(lord)
 	if not foe.is_empty() and lord.cd <= 0:
 		m.damage(foe,lord.damage,lord.team,"lord")
 		lord.cd = B.LORD_INTERVAL

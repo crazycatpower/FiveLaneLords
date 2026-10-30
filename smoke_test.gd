@@ -13,6 +13,7 @@ func _initialize() -> void:
 func bare(seed_value: int = 1, deck_a: Array = [], deck_b: Array = [], lord_a: String = "", lord_b: String = "") -> Battle:
 	var m := Battle.new(seed_value,deck_a,deck_b,lord_a,lord_b)
 	m.buildings.clear()
+	m.serials_in_use.clear() # the cleared start farms give their serials back
 	# Legacy mechanic fixtures use three claimed columns; territory tests use Battle.new().
 	for team: int in range(2):
 		for lane: int in range(5): m.claim_around(team,Vector2i(1 if team == 0 else 7,lane))
@@ -54,6 +55,8 @@ func run() -> void:
 	test_start_farms()
 	check(finished.has("start_farms"),"start farm test ran to the end")
 	test_fast_rules()
+	test_serials()
+	check(finished.has("serials"),"serial test ran to the end")
 	check(finished.has("fast_rules"),"fast rule test ran to the end")
 	test_ai_cards()
 	test_lord_skills()
@@ -186,6 +189,39 @@ func test_lord_skills() -> void:
 	m.ink[1] = 40.0
 	check(m.AI.skill_plan(m.skill_state(1)).save,"鐵壁 AI saves for the wall once a gate falls")
 	finished["lord_skills"] = true
+
+# 序號: lowest free serial on arrival, freed on death; the higher serial is hit first at the same
+# distance; lords hit the most advanced enemy first.
+func test_serials() -> void:
+	var m := bare(3)
+	m.lords.clear()
+	var y: float = L.cell_center(Vector2i(0,2)).y
+	var first := m.spawn_unit(1,2,"militia",Vector2(700,y))
+	var second := m.spawn_unit(1,2,"militia",Vector2(700,y))
+	check(first.serial == 1 and second.serial == 2,"serials count up from 1 on an empty field")
+	m.units.reverse() # the order in the list must not matter
+	check(m.nearest(Vector2(660,y),0,200.0,m.units) == second,"at the same distance the higher serial is attacked first")
+	var closer := m.spawn_unit(1,2,"militia",Vector2(690,y))
+	check(m.nearest(Vector2(660,y),0,200.0,m.units) == closer,"a closer enemy still comes first")
+	var tower := m.add_building(1,Vector2i(6,1),"tower")
+	check(tower.serial == 4,"buildings draw from the same serial pool")
+	first.hp = 0
+	m.step(1.0/60.0)
+	var late := m.spawn_unit(0,4,"militia",Vector2(400,L.cell_center(Vector2i(0,4)).y))
+	check(late.serial == 1 and late.id > tower.id,"a dead unit frees its serial for the next arrival (ids stay unique)")
+	check(m.nearest(Vector2(660,y),0,200.0,[second,late]) == second,"a reused low serial ranks low again")
+	m = bare(3)
+	var lord: Dictionary = m.lords[0]
+	lord.pos = Vector2(m.Lord.zone(0).y,y)
+	var behind := m.spawn_unit(1,2,"militia",lord.pos+Vector2(60,0))
+	var front := m.spawn_unit(1,2,"militia",lord.pos+Vector2(30,0))
+	var newest := m.spawn_unit(1,2,"militia",lord.pos+Vector2(60,0))
+	m.build_lookups()
+	check(m.lord_target(lord) == front,"the lord hits the enemy that has pushed furthest toward its gate")
+	front.hp = 0
+	m.build_lookups()
+	check(m.lord_target(lord) == newest and newest.serial > behind.serial,"level enemies: the lord hits the higher serial")
+	finished["serials"] = true
 
 func test_core() -> void:
 	var m := bare(42)
