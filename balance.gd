@@ -44,26 +44,26 @@ const LORD_HYSTERESIS := 1.5
 # "cooldown": seconds a card must wait after it enters the hand before it can be played (0..30).
 const CARDS := {
 	"grave":{"name":"墓碑","role":"死亡·經濟","faction":"dark","series":"dark","type":"building","cost":5,"cooldown":30.0,"hp":400.0,"expires":-1.0,"period":60.0,"income":6.0,"death_advance":5.0},
-	"skeleton":{"name":"骷髏兵","role":"復活·纏鬥","faction":"dark","series":"dark","type":"unit","cost":6,"cooldown":2.0,"count":4,"hp":50.0,"damage":12.0,"interval":0.85,"range":47.0,"speed":45.0,"revive_delay":3.0,"revive_share":0.5},
+	"skeleton":{"name":"骷髏兵","role":"廉價·纏鬥","faction":"dark","series":"dark","type":"unit","cost":6,"cooldown":2.0,"count":4,"hp":50.0,"damage":12.0,"interval":0.85,"range":47.0,"speed":45.0},
 	"ghoul":{"name":"食屍鬼","role":"吞噬·成長","faction":"dark","series":"dark","type":"unit","cost":9,"cooldown":6.0,"count":2,"hp":200.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":70.0,"radius":110.0,"devour_heal":50.0,"max_damage_tier":1},
 	"necromancer":{"name":"死靈法師","role":"三路·招魂","faction":"dark","series":"dark","type":"unit","projectile":true,"cost":14,"cooldown":12.0,"count":1,"hp":200.0,"damage":12.0,"interval":1.2,"range":145.0,"speed":30.0,"summon_interval":15.0},
 	"reaper":{"name":"收割者","role":"收割·老兵","series":"dark","type":"unit","target_rule":"lowest_serial","cost":12,"cooldown":10.0,"count":1,"hp":400.0,"damage":90.0,"interval":1.7,"range":100.0,"speed":45.0},
 	"raven":{"name":"烏鴉群","role":"飛行·拆田","series":"dark","type":"unit","hits":"buildings","prefers":"farm","cost":8,"cooldown":6.0,"count":6,"hp":50.0,"damage":6.0,"interval":0.6,"range":47.0,"speed":105.0,"flying":true},
-	"plague":{"name":"瘟疫","role":"毒霧·擴散","series":"dark","type":"spell","ai":["defend_spell"],"cost":7,"cooldown":10.0,"radius":110.0,"tick_damage":12.0,"tick_interval":1.0,"duration":6.0,"spread_duration":3.0,"spread_radius":60.0},
+	"plague":{"name":"瘟疫","role":"毒霧·擴散","series":"dark","type":"spell","ai":["defend_spell"],"cost":7,"cooldown":10.0,"radius":110.0,"tick_damage":20.0,"tick_interval":1.0,"duration":6.0,"spread_duration":3.0,"spread_radius":68.0},
 	"bonewall":{"name":"骨牆","role":"阻擋·反擊","series":"dark","type":"building","ai":["defend_building"],"cost":6,"cooldown":8.0,"hp":750.0,"expires":-1.0,"explosion_damage":150.0,"radius":110.0},
 	"farmer":{"name":"農民","role":"經濟·耕田","faction":"normal","type":"unit","ai":["no_defend"],"cost":3,"cooldown":0.0,"count":3,"hp":50.0,"damage":6.0,"interval":1.2,"range":47.0,"speed":45.0},
 	"militia":{"name":"民兵隊","role":"循環·擋路","type":"unit","cost":10,"cooldown":2.0,"count":5,"hp":100.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":45.0},
-	"harvest":{"name":"豐收","role":"經濟·爆發","faction":"normal","type":"spell","cost":3,"cooldown":8.0,"radius":120.0},
+	"harvest":{"name":"豐收","role":"經濟·爆發","faction":"normal","type":"spell","cost":3,"cooldown":8.0,"radius":110.0},
 	"scarecrow":{"name":"稻草人","role":"誘敵·護田","type":"building","ai":["guard","defend_building","obstacle"],"cost":2,"cooldown":3.0,"hp":400.0,"expires":-1.0},
 	"mob":{"name":"乾草叉暴民","role":"三路群攻","type":"unit","ai":["raid"],"cost":11,"cooldown":6.0,"count":4,"spread":true,"hp":50.0,"damage":12.0,"interval":0.85,"range":47.0,"speed":70.0},
 	"hunter":{"name":"獵戶","role":"遠程輸出","type":"unit","projectile":true,"cost":4,"cooldown":4.0,"count":3,"hp":50.0,"damage":12.0,"interval":1.7,"range":210.0,"speed":30.0},
 	"spearbow":{"name":"槍弓混編","role":"遠近軍團","type":"unit","cost":12,"cooldown":6.0,"members":[["militia",4,0.0],["hunter",2,45.0]],"art":["militia","hunter"]},
 	"farm":{"name":"農田","role":"經濟·基礎","faction":"normal","type":"building","cost":6,"cooldown":30.0,"hp":250.0,"expires":-1.0},
-	"rain":{"name":"箭雨","role":"清群法術","type":"spell","ai":["defend_spell","wave_spell"],"cost":6,"cooldown":6.0,"radius":110.0,"damage":200.0,"building_damage":60.0,"gate_damage":60.0},
+	"rain":{"name":"箭雨","role":"清群法術","type":"spell","ai":["defend_spell","wave_spell"],"cost":6,"cooldown":6.0,"radius":110.0,"damage":150.0,"building_damage":80.0,"gate_damage":80.0},
 	"tower":{"name":"箭樓","role":"防守","type":"building","ai":["guard","defend_building","obstacle"],"cost":10,"cooldown":8.0,"hp":400.0,"expires":-1.0,"range":300.0,"damage":24.0,"interval":0.6},
 	"healer":{"name":"草藥婆","role":"支援·治療","type":"unit","ai":["no_defend","hold"],"cost":5,"cooldown":8.0,"count":1,"hp":200.0,"damage":6.0,"interval":1.2,"range":145.0,"speed":30.0},
 	"ox":{"name":"耕牛","role":"衝鋒·拆建","type":"unit","ai":["raid"],"cost":12,"cooldown":10.0,"count":2,"hp":400.0,"damage":24.0,"interval":1.7,"range":47.0,"speed":105.0},
-	"fire":{"name":"火罐","role":"燒田法術","type":"spell","ai":["defend_spell","wave_spell","raid"],"cost":10,"cooldown":15.0,"radius":95.0,"damage":420.0,"building_damage":840.0,"gate_damage":140.0},
+	"fire":{"name":"火罐","role":"燒田法術","type":"spell","ai":["defend_spell","wave_spell","raid"],"cost":10,"cooldown":15.0,"radius":110.0,"damage":300.0,"building_damage":600.0,"gate_damage":150.0},
 	"knight":{"name":"騎士","role":"主坦","type":"unit","ai":["big"],"cost":22,"cooldown":15.0,"count":2,"hp":750.0,"damage":90.0,"interval":1.7,"range":47.0,"speed":20.0},
 	"guard":{"name":"聖堂護衛","role":"重裝軍團","type":"unit","cost":30,"cooldown":18.0,"members":[["knight",2,0.0],["healer",2,50.0]],"art":["knight","healer"]},
 	"mill":{"name":"磨坊","role":"大型經濟","faction":"normal","type":"building","ai":["obstacle"],"cost":18,"cooldown":20.0,"hp":900.0,"expires":-1.0},
@@ -112,6 +112,8 @@ static func has_tag(kind: String, tag: String) -> bool:
 	return tag in CARDS[kind].get("ai",[])
 
 const CARD_TYPES := ["unit","building","spell"]
+# Area effects use the "area_damage" tiers (a spell's "damage" too); troops use "damage".
+const AREA_DAMAGE_KEYS := ["damage","building_damage","gate_damage","tick_damage","explosion_damage"]
 const BEHAVIOUR_VALUES := {"hits":["buildings"],"prefers":["farm"],"target_rule":["lowest_serial"]}
 const AI_TAGS := ["defend_spell","wave_spell","raid","guard","defend_building","obstacle","no_defend","hold","big"]
 const NEEDS := {"unit":["count","hp","damage","interval","range","speed"],"building":["hp","expires"],"spell":["radius"]}
@@ -140,6 +142,10 @@ static func validate() -> Array[String]:
 				if not c.has(key): problems.append("%s: a %s needs %s" % [kind,type,key])
 		for stat: String in TIERS:
 			if c.has(stat) and (type == "unit" or c.has("range")) and tier(stat,c[stat]).is_empty(): problems.append("%s: %s %s is not an S-E tier value" % [kind,stat,str(c[stat])])
+		for key: String in ["radius","spread_radius"]:
+			if c.has(key) and tier("radius",c[key]).is_empty(): problems.append("%s: %s %s is not a radius tier value" % [kind,key,str(c[key])])
+		for key: String in AREA_DAMAGE_KEYS:
+			if c.has(key) and (key != "damage" or type == "spell") and tier("area_damage",c[key]).is_empty(): problems.append("%s: %s %s is not an area damage tier value" % [kind,key,str(c[key])])
 		for key: String in BEHAVIOUR_VALUES:
 			if c.has(key) and not c[key] in BEHAVIOUR_VALUES[key]: problems.append("%s: %s must be one of %s" % [kind,key,str(BEHAVIOUR_VALUES[key])])
 		if not c.get("faction","") in FACTIONS: problems.append("%s: faction must be normal, dark or absent (neutral)" % kind)
@@ -147,6 +153,8 @@ static func validate() -> Array[String]:
 			if not tag in AI_TAGS: problems.append("%s: unknown AI tag %s" % [kind,str(tag)])
 		# The description reads the fields above, so only build it once they are all present.
 		if problems.size() == before and card_description(kind).is_empty(): problems.append("%s: no description" % kind)
+	for pair: Array in [["HEAL_RADIUS",HEAL_RADIUS],["TAUNT_RADIUS",TAUNT_RADIUS]]:
+		if tier("radius",pair[1]).is_empty(): problems.append("%s %s is not a radius tier value" % pair)
 	for kind: String in LORDS:
 		for key: String in LORD_NEEDS:
 			if not LORDS[kind].has(key): problems.append("lord %s: missing %s" % [kind,key])
@@ -195,7 +203,8 @@ static func skill_text(kind: String) -> String:
 # values, so the same tier always means the same number. Interval is seconds per hit (lower = faster).
 const TIER_NAMES := ["S","A","B","C","D","E"]
 const TIERS := {
-	"radius":[200.0,150.0,110.0,80.0,60.0,45.0],
+	"radius":[290.0,180.0,110.0,68.0,42.0,26.0], # S spans 5 x 5 cells; each tier ~x1.62
+	"area_damage":[600.0,300.0,150.0,80.0,40.0,20.0], # spells and explosions; 30x like damage, B 150
 	"damage":[180.0,90.0,45.0,24.0,12.0,6.0],
 	"hp":[1500.0,750.0,400.0,200.0,100.0,50.0],
 	"range":[300.0,210.0,145.0,100.0,70.0,47.0],
@@ -211,7 +220,7 @@ static func tier(stat: String, value: float) -> String:
 
 const MILL_BONUS := 2.0
 const HARVEST_TIME := 15.0 # 豐收 doubles farms this long; no instant payout since 2026-10-30
-const HEAL_RADIUS := 120.0
+const HEAL_RADIUS := 110.0 # radius tier B
 const HEAL_AMOUNT := 15.0
 const HEAL_INTERVAL := 1.0
 const OX_CHARGE := 150.0
@@ -219,7 +228,7 @@ const OX_KNOCKBACK := 30.0
 const OX_BUILDING_BONUS := 1.5
 const OX_SLOW_SPEED := 30.0
 const FIRE_KNOCKBACK := 20.0
-const TAUNT_RADIUS := 150.0
+const TAUNT_RADIUS := 180.0 # radius tier A
 
 # Text shares the data used by combat; optional tables let tests exercise future balance edits.
 static func number(value: float) -> String:
@@ -249,7 +258,6 @@ static func card_description(kind: String, cards: Dictionary = CARDS) -> String:
 		if d.has("damage"): lines.append("部隊傷害 %s、建築傷害 %s、城門傷害 %s。" % [number(d.damage),number(d.building_damage),number(d.gate_damage)])
 	match kind:
 		"grave": lines.append("每 %s 秒產出 %s 金幣；本路每名敵我部隊死亡，提前 %s 秒，超出的時間不保留。" % [number(d.period),number(d.income),number(d.death_advance)])
-		"skeleton": lines.append("首次死亡後 %s 秒原地復活一次，恢復 %s%% 生命並取得新序號。" % [number(d.revive_delay),number(d.revive_share*100)])
 		"ghoul": lines.append("半徑 %s 內每名部隊死亡，回復 %s 生命，攻擊升一檔，最高 A 檔 %s。" % [number(d.radius),number(d.devour_heal),number(TIERS.damage[d.max_damage_tier])])
 		"necromancer": lines.append("每 %s 秒，在本路與相鄰路同一欄各召喚一名骷髏兵。" % number(d.summon_interval))
 		"reaper": lines.append("優先攻擊射程內序號最低的敵人；序號釋放後會被重新使用。")

@@ -43,11 +43,6 @@ func run() -> void:
 	game.model.cast_spell({"kind":"plague","team":0,"pos":L.cell_center(Vector2i(4,1))})
 	game.consume_events()
 	await shot(game,"battle-fixture")
-	var sk: Dictionary = game.model.units.filter(func(u: Dictionary) -> bool: return u.kind == "skeleton")[0]
-	game.model.damage(sk,sk.hp,1,"rain")
-	game.model.step(0.1)
-	game.consume_events()
-	await shot(game,"revive-wait")
 	game.model = Battle.new(17,DECK,B.PRESETS[1],"underworld","iron")
 	game.model.record_events = false
 	game.model.ai_enabled = [true,true]

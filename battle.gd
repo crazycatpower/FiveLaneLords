@@ -359,9 +359,6 @@ func damage(target: Dictionary, amount: float, team: int, kind: String) -> void:
 			target.serial = 0
 			if not target.has("cell"):
 				death_queue.append({"lane":target.lane,"pos":target.pos,"team":target.team,"kind":target.kind,"serial":old_serial,"poison_team":team if kind == "plague" else -1})
-				if target.kind == "skeleton" and not target.get("revived",false):
-					target.revived = true
-					target.revive_at = elapsed+B.CARDS.skeleton.revive_delay
 			elif target.kind == "bonewall":
 				death_queue.append({"explosion":true,"pos":target.pos,"team":target.team})
 		if target.has("cell"): refresh_territory()
@@ -607,14 +604,13 @@ func cultivate(u: Dictionary, dt: float) -> bool:
 	return false
 
 # One fixed simulation step. The phase order is part of the rules (tools/golden_matches.json
-# fails if it changes): deaths and revivals, AI plays, clocks and income, buildings, spells and
+# fails if it changes): deaths, AI plays, clocks and income, buildings, spells and
 # clouds, arrows, lords, troops, then deaths again and cleanup.
 func step(dt: float) -> void:
 	if paused or ended: return
 	elapsed += dt
 	last_dt = dt
 	resolve_deaths()
-	revive_skeletons()
 	update_ai(dt)
 	tick_clocks(dt)
 	build_lookups()
@@ -628,15 +624,6 @@ func step(dt: float) -> void:
 	resolve_deaths()
 	remove_dead()
 	update_clock()
-
-func revive_skeletons() -> void:
-	for u: Dictionary in units:
-		if u.hp <= 0 and u.has("revive_at") and elapsed >= u.revive_at:
-			u.hp = u.max_hp*B.CARDS.skeleton.revive_share
-			u.serial = take_serial()
-			u.erase("revive_at")
-			u.cd = B.CARDS.skeleton.interval
-			event("revive",u.pos,u.team)
 
 # Card and skill cooldowns, base income, lane alarms.
 func tick_clocks(dt: float) -> void:
@@ -716,7 +703,7 @@ func summon_skeletons(u: Dictionary, data: Dictionary, dt: float) -> void:
 	for lane: int in range(maxi(0,u.lane-1),mini(5,u.lane+2)):
 		var child := spawn_unit(u.team,lane,"skeleton",L.cell_center(Vector2i(col,lane)))
 		child.card = u.get("card",u.kind)
-		event("revive",child.pos,u.team)
+		event("summoned",child.pos,u.team)
 		link(u.pos,child.pos,u.team,"summon")
 
 # Whom this troop attacks right now ({} = nobody in reach).
@@ -761,13 +748,13 @@ func march(u: Dictionary, data: Dictionary, dt: float) -> bool:
 		u.cd = data.interval
 	return false
 
-# Free the serials of the dead and drop them (waiting skeletons stay until they rise).
+# Free the serials of the dead and drop them.
 func remove_dead() -> void:
 	for gone: Dictionary in units+buildings:
 		if gone.hp <= 0 and gone.serial > 0:
 			serials_in_use.erase(gone.serial)
 			gone.serial = 0
-	units = units.filter(func(u: Dictionary) -> bool: return u.hp > 0 or u.has("revive_at"))
+	units = units.filter(func(u: Dictionary) -> bool: return u.hp > 0)
 	buildings = buildings.filter(func(b: Dictionary) -> bool: return b.hp > 0)
 
 func cast_spell(s: Dictionary) -> void:

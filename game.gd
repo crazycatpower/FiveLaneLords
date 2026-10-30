@@ -721,11 +721,7 @@ func team_shadow(center: Vector2, radius: float, color: Color) -> void:
 	draw_set_transform(Vector2.ZERO)
 
 func draw_unit(u: Dictionary) -> void:
-	if u.hp <= 0:
-		if u.has("revive_at"):
-			draw_actor(u.kind,u.team,u.draw+Vector2(0,14),u.face,Color(1,1,1,0.20))
-			bar(Rect2(u.draw+Vector2(-20,22),Vector2(40,4)),B.CARDS.skeleton.revive_delay-(u.revive_at-model.elapsed),B.CARDS.skeleton.revive_delay,Color("9b78a9"))
-		return
+	if u.hp <= 0: return
 	var pos: Vector2 = u.draw-Vector2(u.face*4,0) if fx_enabled and u.flash > 0 else u.draw # small knockback on hit
 	var bounce := sin(model.elapsed*8+u.phase)*2
 	if u.get("flying",false): bounce = -20+sin(model.elapsed*10+u.phase)*5
@@ -815,7 +811,7 @@ func draw_effects() -> void:
 	for e: Dictionary in effects:
 		var progress: float = 1-e.life/e.duration
 		match e.kind:
-			"revive", "boneburst": draw_arc(e.pos,12+progress*36,0,TAU,24,Color(0.55,0.38,0.60,1-progress),2,true)
+			"summoned", "boneburst": draw_arc(e.pos,12+progress*36,0,TAU,24,Color(0.55,0.38,0.60,1-progress),2,true)
 			"skill": draw_skill_effect(e,progress)
 			"link": draw_link(e.pos,e.to,LINK_COLORS.get(e.style,INK),progress)
 			"ink": draw_circle(e.pos.lerp(Vector2(80,765) if e.team == 0 else Vector2(1322,35),progress),7,Color("d9a62e"))
