@@ -608,7 +608,6 @@ func cast_spell(s: Dictionary) -> void:
 	if s.kind == "harvest":
 		for b: Dictionary in buildings:
 			if b.team == s.team and b.hp > 0 and b.kind == "farm" and b.pos.distance_to(s.pos) <= data.radius:
-				farm_drop(b)
 				b.harvest_until = elapsed+B.HARVEST_TIME
 		return
 	for u: Dictionary in units:

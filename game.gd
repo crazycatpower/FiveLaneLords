@@ -594,6 +594,10 @@ func draw_battle() -> void:
 		team_shadow(b.pos+Vector2(0,30),40,Color(0.25,0.17,0.08))
 		draw_actor(b.kind,b.team,b.pos,1.0)
 		if b.hp < b.max_hp: bar(Rect2(b.pos-Vector2(30,43),Vector2(60,5)),b.hp,b.max_hp,RED if b.team == 0 else BLUE)
+		# Farm progress toward the next gold drop; brighter while doubled (farmer or 豐收).
+		if b.kind == "farm":
+			var doubled: bool = maxf(b.boost_until,b.harvest_until) > model.elapsed
+			bar(Rect2(b.pos+Vector2(-30,36),Vector2(60,5)),b.production,B.FARM_INTERVAL,Color("f2c230") if doubled else Color("c8962c"))
 		if b.boost_until > model.elapsed: draw_arc(b.pos,37,0,TAU,20,Color.GOLD,2)
 	layout_formations()
 	var ordered: Array = model.units.duplicate()

@@ -44,15 +44,15 @@ const LORD_HYSTERESIS := 1.5
 # "cooldown": seconds a card must wait after it enters the hand before it can be played (0..30).
 const CARDS := {
 	"farmer":{"name":"農民","role":"經濟·耕田","type":"unit","cost":3,"cooldown":0.0,"count":3,"hp":50.0,"damage":6.0,"interval":1.2,"range":47.0,"speed":45.0},
-	"militia":{"name":"民兵隊","role":"循環·擋路","type":"unit","cost":9,"cooldown":2.0,"count":5,"hp":100.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":45.0},
-	"harvest":{"name":"豐收","role":"經濟·爆發","type":"spell","cost":6,"cooldown":8.0,"radius":120.0},
-	"scarecrow":{"name":"稻草人","role":"誘敵·護田","type":"building","cost":3,"cooldown":3.0,"hp":400.0,"expires":-1.0},
+	"militia":{"name":"民兵隊","role":"循環·擋路","type":"unit","cost":10,"cooldown":2.0,"count":5,"hp":100.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":45.0},
+	"harvest":{"name":"豐收","role":"經濟·爆發","type":"spell","cost":3,"cooldown":8.0,"radius":120.0},
+	"scarecrow":{"name":"稻草人","role":"誘敵·護田","type":"building","cost":2,"cooldown":3.0,"hp":400.0,"expires":-1.0},
 	"mob":{"name":"乾草叉暴民","role":"三路群攻","type":"unit","cost":11,"cooldown":6.0,"count":4,"spread":true,"hp":50.0,"damage":12.0,"interval":0.85,"range":47.0,"speed":70.0},
 	"hunter":{"name":"獵戶","role":"遠程輸出","type":"unit","cost":4,"cooldown":4.0,"count":3,"hp":50.0,"damage":12.0,"interval":1.7,"range":210.0,"speed":30.0},
 	"spearbow":{"name":"槍弓混編","role":"遠近軍團","type":"unit","cost":12,"cooldown":6.0,"members":[["militia",4,0.0],["hunter",2,45.0]],"art":["militia","hunter"]},
 	"farm":{"name":"農田","role":"經濟·基礎","type":"building","cost":6,"cooldown":30.0,"hp":250.0,"expires":-1.0},
 	"rain":{"name":"箭雨","role":"清群法術","type":"spell","cost":6,"cooldown":6.0,"radius":110.0,"damage":200.0,"building_damage":60.0,"gate_damage":60.0},
-	"tower":{"name":"箭樓","role":"防守","type":"building","cost":9,"cooldown":8.0,"hp":400.0,"expires":-1.0,"range":300.0,"damage":24.0,"interval":0.6},
+	"tower":{"name":"箭樓","role":"防守","type":"building","cost":10,"cooldown":8.0,"hp":400.0,"expires":-1.0,"range":300.0,"damage":24.0,"interval":0.6},
 	"healer":{"name":"草藥婆","role":"支援·治療","type":"unit","cost":5,"cooldown":8.0,"count":1,"hp":200.0,"damage":6.0,"interval":1.2,"range":145.0,"speed":30.0},
 	"ox":{"name":"耕牛","role":"衝鋒·拆建","type":"unit","cost":12,"cooldown":10.0,"count":2,"hp":400.0,"damage":24.0,"interval":1.7,"range":47.0,"speed":105.0},
 	"fire":{"name":"火罐","role":"燒田法術","type":"spell","cost":10,"cooldown":15.0,"radius":95.0,"damage":420.0,"building_damage":840.0,"gate_damage":140.0},
@@ -109,7 +109,7 @@ static func tier(stat: String, value: float) -> String:
 	return ""
 
 const MILL_BONUS := 2.0
-const HARVEST_TIME := 8.0
+const HARVEST_TIME := 15.0 # 豐收 doubles farms this long; no instant payout since 2026-10-30
 const HEAL_RADIUS := 120.0
 const HEAL_AMOUNT := 15.0
 const HEAL_INTERVAL := 1.0
@@ -151,7 +151,7 @@ static func card_description(kind: String, cards: Dictionary = CARDS) -> String:
 		"farmer": lines.append("順路耕田 %s 秒，農田回復 %s 生命，%s 秒內產出加倍。" % [number(CULTIVATE_TIME),number(FARMER_HEAL),number(BOOST_TIME)])
 		"mill": lines.append("同一路農田產出 ×%s；多座磨坊不疊加。" % number(MILL_BONUS))
 		"scarecrow": lines.append("嘲諷半徑 %s；攻擊範圍內的敵兵優先攻擊它。" % number(TAUNT_RADIUS))
-		"harvest": lines.append("範圍內農田各立刻產出一次，持續 %s 秒產出加倍；不與耕田加倍疊乘。" % number(HARVEST_TIME))
+		"harvest": lines.append("範圍內農田持續 %s 秒產出加倍（不會立刻產出）；不與耕田加倍疊乘。" % number(HARVEST_TIME))
 		"fire": lines.append("敵方部隊擊退 %s。" % number(FIRE_KNOCKBACK))
 		"ox": lines.append("首擊傷害 %s，擊退 %s；建築與城門傷害 ×%s，衝鋒後移速 %s。" % [number(OX_CHARGE),number(OX_KNOCKBACK),number(OX_BUILDING_BONUS),number(OX_SLOW_SPEED)])
 		"healer", "guard": lines.append("草藥婆每 %s 秒為半徑 %s 內友軍部隊回復 %s 生命。" % [number(HEAL_INTERVAL),number(HEAL_RADIUS),number(HEAL_AMOUNT)])

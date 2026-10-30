@@ -499,8 +499,9 @@ func test_cards() -> void:
 	m.add_building(0,Vector2i(0,0),"mill")
 	check(m.farm_speed(farm) == B.MILL_BONUS,"two mills in one lane do not stack")
 	var before: float = m.ink[0]
+	var drops_before: int = m.stats[0].drops
 	m.cast_spell({"kind":"harvest","team":0,"pos":farm.pos})
-	check(m.stats[0].drops == 2 and farm.harvest_until == 8,"harvest produces immediately on nearby farms")
+	check(m.stats[0].drops == drops_before and is_equal_approx(farm.harvest_until,m.elapsed+B.HARVEST_TIME),"harvest doubles nearby farms for a while with no instant payout")
 	check(m.farm_speed(farm) == 2*B.MILL_BONUS,"harvest and mill stack multiplicatively")
 	m = bare(2)
 	m.lords.clear()
