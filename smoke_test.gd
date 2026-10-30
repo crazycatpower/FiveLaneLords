@@ -30,6 +30,8 @@ func offer(m: RefCounted, kind: String, team: int = 0) -> void:
 	m.ink[team] = 50.0
 	m.hand_cd[team] = [0.0,0.0,0.0,0.0]
 func run() -> void:
+	preload("res://tools/test_dark_age.gd").run(self)
+	check(finished.has("dark_age"),"dark age tests completed")
 	test_art_regressions()
 	check(finished.has("art_regressions"),"art regression test completed")
 	test_descriptions()
@@ -473,7 +475,7 @@ func test_ai() -> void:
 
 
 func test_cards() -> void:
-	check(B.CARDS.size() == 17,"seventeen card pool")
+	check(B.CARDS.size() == 25,"twenty-five card pool including eight dark age cards")
 	var off_tier: Array = []
 	for kind: String in B.CARDS:
 		var c: Dictionary = B.CARDS[kind]
@@ -586,7 +588,7 @@ func test_cards() -> void:
 func test_decks() -> void:
 	var store = preload("res://deck_store.gd")
 	for deck: Array in B.PRESETS: check(store.valid(deck) and not "farm" in deck,"preset has eight unique rotating cards (farmland is separate)")
-	check(B.PRESET_LORDS.all(func(k: String) -> bool: return B.LORDS.has(k)) and B.LORDS.size() == 3,"three lords to choose from; every preset names one")
+	check(B.PRESET_LORDS.all(func(k: String) -> bool: return B.LORDS.has(k)) and B.LORDS.size() == 4,"four lords to choose from; every preset names one")
 	check(not store.valid(["militia"]),"short deck rejected")
 	var deck: Array = B.PRESETS[0].duplicate()
 	deck[0] = "farm"
@@ -926,7 +928,7 @@ func test_help_layout() -> void:
 			check(control.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART,"help wraps inside bounded column")
 			check(L.HELP_PANEL.encloses(Rect2(control.position,control.size)),"help column fits panel")
 	var words := "\n".join(game.help_columns())
-	for term: String in ["常駐農田","三選一","8 張","金幣","城門不反擊","沒有時間限制","先佔先得","各自冷卻"]:
+	for term: String in ["常駐農田","四選一","8 張","金幣","城門不反擊","沒有時間限制","先佔先得","各自冷卻"]:
 		check(words.contains(term),"help covers current rule: "+term)
 	check(not words.contains("墨水") and not words.contains("皇冠"),"help omits obsolete rules")
 	game.free()
@@ -986,6 +988,7 @@ func test_skill_visuals() -> void:
 	for kind: String in B.LORDS:
 		for team: int in range(2):
 			game.model = Battle.new(5,[],[],kind,kind)
+			if kind == "underworld": game.model.add_building(team,Vector2i(1 if team == 0 else 7,2),"grave")
 			game.model.ink[team] = B.SKILL_COST
 			game.effects.clear()
 			check(game.model.cast_skill(team),"visual fixture casts "+kind+str(team))
@@ -994,6 +997,7 @@ func test_skill_visuals() -> void:
 			var cue: Dictionary = game.effects.filter(func(e: Dictionary) -> bool: return e.kind == "skill").back()
 			check(cue.duration == 1.0 and cue.lord == kind and cue.team == team,"skill visual identity and duration")
 			var count: int = game.model.buildings.filter(func(b: Dictionary) -> bool: return b.team == team and b.kind == "farm").size() if kind == "harvest" else 5
+			if kind == "underworld": count = 1
 			check(cue.targets.size() == count,"all affected lanes or farms get a visual cue")
 			game._process(1.1)
 			check(game.effects.is_empty() and game.model.ink[team] == gold,"skill visuals expire without changing gold")

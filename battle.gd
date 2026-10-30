@@ -13,6 +13,8 @@ var buildings: Array[Dictionary] = []
 var territory := PackedInt32Array() # -1 neutral; first owner keeps a tile while supported
 var projectiles: Array[Dictionary] = []
 var spells: Array[Dictionary] = []
+var death_queue: Array[Dictionary] = [] # gameplay queue, independent of visual event recording
+var zones: Array[Dictionary] = []
 var lords: Array = []
 var gates: Array = []
 var alarm: Array = [0.0,0.0,0.0,0.0,0.0]
@@ -320,6 +322,8 @@ func spawn_unit(team: int, lane: int, kind: String, pos: Vector2) -> Dictionary:
 	var data: Dictionary = B.CARDS[kind]
 	var u := {"id":next_id,"serial":take_serial(),"kind":kind,"team":team,"lane":lane,"pos":pos,"hp":data.hp,"max_hp":data.hp,"cd":0.0,"phase":rng.randf()*TAU,"face":1.0 if team == 0 else -1.0,"worked":[],"work_id":-1,"work_left":0.0,"spawn_delay":0.0,"charged":false,"flash":0.0,"heal_cd":0.0,"dy":rng.randf_range(-B.PLACE_JITTER,B.PLACE_JITTER)}
 	units.append(u)
+	u.flying = data.get("flying",false)
+	u.summon_left = data.get("summon_interval",0.0)
 	return u
 
 func damage(target: Dictionary, amount: float, team: int, kind: String) -> void:
@@ -334,6 +338,18 @@ func damage(target: Dictionary, amount: float, team: int, kind: String) -> void:
 	event("hit",target.pos,target.team)
 	if target.has("cell") and target.team == 0: building_alarm[target.cell.y] = 1.5
 	if target.hp <= 0:
+		if target.has("serial"):
+			serials_in_use.erase(target.serial)
+			# Clear the released number: later cleanup must not free a number reused by a summon.
+			var old_serial: int = target.serial
+			target.serial = 0
+			if not target.has("cell"):
+				death_queue.append({"lane":target.lane,"pos":target.pos,"team":target.team,"kind":target.kind,"serial":old_serial,"poison_team":team if kind == "plague" else -1})
+				if target.kind == "skeleton" and not target.get("revived",false):
+					target.revived = true
+					target.revive_at = elapsed+B.CARDS.skeleton.revive_delay
+			elif target.kind == "bonewall":
+				death_queue.append({"explosion":true,"pos":target.pos,"team":target.team})
 		if target.has("cell"): refresh_territory()
 		if target.kind == "farm" and elapsed < 180.0: stats[target.team].farms_lost_early += 1
 		var art_kind: String = "lord_"+target.lord if target.kind == "lord" else target.kind
@@ -355,6 +371,60 @@ func hit_gate(side: int, lane: int, amount: float, kind: String = "militia") -> 
 	stats[1-side].damage[kind] = stats[1-side].damage.get(kind,0.0)+dealt
 	if side == 0: alarm[lane] = 1.5
 
+func grave_drop(b: Dictionary) -> void:
+	b.production = 0.0 # death acceleration never carries over into the next cycle
+	gain_ink(b.team,B.CARDS.grave.income)
+	event("ink",b.pos,b.team)
+
+func add_zone(pos: Vector2, team: int, radius: float, duration: float) -> void:
+	zones.append({"pos":pos,"team":team,"radius":radius,"left":duration,"tick":B.CARDS.plague.tick_interval})
+
+func update_zones(dt: float) -> void:
+	for zone: Dictionary in zones.duplicate():
+		var active := minf(dt,zone.left)
+		zone.left -= dt
+		zone.tick -= active
+		while zone.tick <= 0.000001:
+			zone.tick += B.CARDS.plague.tick_interval
+			for u: Dictionary in units:
+				if u.hp > 0 and u.team != zone.team and u.pos.distance_to(zone.pos) <= zone.radius:
+					damage(u,B.CARDS.plague.tick_damage,zone.team,"plague")
+	zones = zones.filter(func(z: Dictionary) -> bool: return z.left > 0.000001)
+
+func resolve_deaths() -> void:
+	# Append-only during processing: explosions may add more deaths, in deterministic order.
+	var index := 0
+	while index < death_queue.size():
+		var dead: Dictionary = death_queue[index]
+		index += 1
+		if dead.get("explosion",false):
+			for u: Dictionary in units:
+				if u.hp > 0 and u.team != dead.team and u.pos.distance_to(dead.pos) <= B.CARDS.bonewall.radius:
+					damage(u,B.CARDS.bonewall.explosion_damage,dead.team,"bonewall")
+			event("boneburst",dead.pos,dead.team)
+			continue
+		for b: Dictionary in buildings:
+			if b.hp > 0 and b.kind == "grave" and b.cell.y == dead.lane:
+				b.production += B.CARDS.grave.death_advance
+				if b.production >= B.CARDS.grave.period: grave_drop(b)
+		for u: Dictionary in units:
+			if u.hp <= 0 or u.kind != "ghoul" or u.pos.distance_to(dead.pos) > B.CARDS.ghoul.radius: continue
+			u.hp = minf(u.max_hp,u.hp+B.CARDS.ghoul.devour_heal)
+			var tier_index: int = B.TIERS.damage.find(u.get("damage",B.CARDS.ghoul.damage))
+			u.damage = B.TIERS.damage[maxi(B.CARDS.ghoul.max_damage_tier,tier_index-1)]
+			event("heal",u.pos,u.team)
+		if dead.poison_team >= 0:
+			add_zone(dead.pos,dead.poison_team,B.CARDS.plague.spread_radius,B.CARDS.plague.spread_duration)
+	death_queue.clear()
+
+func reaper_target(u: Dictionary) -> Dictionary:
+	var found: Dictionary = {}
+	for other: Dictionary in lane_foes[u.team][u.lane]+lane_foe_buildings[u.team][u.lane]:
+		if other.hp <= 0 or u.pos.distance_to(other.pos) > B.CARDS.reaper.range: continue
+		if found.is_empty() or other.serial < found.serial: found = other
+	if found.is_empty(): return nearest(u.pos,u.team,54.0,lords)
+	return found
+
 # Why the lord's skill cannot be cast now ("" = it can).
 func skill_error(team: int) -> String:
 	if ended: return "戰局已經結束。"
@@ -362,17 +432,27 @@ func skill_error(team: int) -> String:
 	var info: Dictionary = B.LORDS[lords[team].lord]
 	if lords[team].hp <= 0: return "領主倒下了，復活後才能發動%s。" % info.skill
 	if skill_cd[team] > 0.00001: return "%s還要冷卻 %d 秒。" % [info.skill,ceili(skill_cd[team])]
-	if ink[team] < B.SKILL_COST: return "金幣不足：%s要 %d，還差 %d。" % [info.skill,int(B.SKILL_COST),ceili(B.SKILL_COST-ink[team])]
+	if lords[team].lord == "underworld" and count_buildings(team,"grave") == 0: return "沒有墓碑"
+	var cost := B.skill_cost(lords[team].lord)
+	if ink[team] < cost: return "金幣不足：%s要 %d，還差 %d。" % [info.skill,int(cost),ceili(cost-ink[team])]
 	return ""
 
 func cast_skill(team: int) -> bool:
 	if not skill_error(team).is_empty(): return false
-	ink[team] -= B.SKILL_COST
+	ink[team] -= B.skill_cost(lords[team].lord)
 	skill_cd[team] = B.SKILL_COOLDOWN
 	var kind: String = lords[team].lord
 	stats[team].skills = stats[team].get("skills",0)+1
 	var visual_targets: Array[Vector2] = []
 	match kind:
+		"underworld":
+			for b: Dictionary in buildings:
+				if b.hp <= 0 or b.team != team or b.kind != "grave": continue
+				for i: int in range(B.LORDS.underworld.summon_count):
+					var u := spawn_unit(team,b.cell.y,"skeleton",b.pos)
+					u.card = "skill"
+					u.spawn_delay = i*0.12
+				if record_events: visual_targets.append(b.pos)
 		"lion":
 			# One knight per lane at the front-most deploy column of that lane.
 			for lane: int in range(5):
@@ -423,11 +503,12 @@ func take_serial() -> int:
 	serials_in_use[n] = true
 	return n
 
-func nearest(pos: Vector2, team: int, radius: float, candidates: Array, lane: int = -1) -> Dictionary:
+func nearest(pos: Vector2, team: int, radius: float, candidates: Array, lane: int = -1, can_hit_flying: bool = true) -> Dictionary:
 	var found: Dictionary = {}
 	var best := radius
 	for other: Dictionary in candidates:
 		if other.team == team or other.hp <= 0: continue
+		if not can_hit_flying and other.get("flying",false): continue
 		if lane >= 0 and other.get("lane",other.get("cell",Vector2i(-1,-1)).y) != lane: continue
 		var d := pos.distance_to(other.pos)
 		if d > radius: continue
@@ -452,14 +533,14 @@ func lord_target(lord: Dictionary) -> Dictionary:
 
 func attack(u: Dictionary, target: Dictionary) -> void:
 	var data: Dictionary = B.CARDS[u.kind]
-	var amount: float = data.damage
+	var amount: float = u.get("damage",data.damage)
 	if u.kind == "ox":
 		if not u.charged:
 			amount = B.OX_CHARGE
 			u.charged = true
 			if not target.has("cell"): target.pos.x += u.face*B.OX_KNOCKBACK
 		if target.has("cell"): amount *= B.OX_BUILDING_BONUS
-	if u.kind == "hunter": shoot(u,target,amount)
+	if u.kind in ["hunter","necromancer"]: shoot(u,target,amount)
 	else: damage(target,amount,u.team,u.get("card",u.kind))
 	u.cd = data.interval
 
@@ -512,6 +593,14 @@ func step(dt: float) -> void:
 	if paused or ended: return
 	elapsed += dt
 	last_dt = dt
+	resolve_deaths()
+	for u: Dictionary in units:
+		if u.hp <= 0 and u.has("revive_at") and elapsed >= u.revive_at:
+			u.hp = u.max_hp*B.CARDS.skeleton.revive_share
+			u.serial = take_serial()
+			u.erase("revive_at")
+			u.cd = B.CARDS.skeleton.interval
+			event("revive",u.pos,u.team)
 	update_ai(dt)
 	for team: int in range(2):
 		# Card cooldowns speed up together with ink (x1.5 after 3:00, x2 after 5:00).
@@ -534,7 +623,10 @@ func step(dt: float) -> void:
 			refresh_territory()
 			event("death",b.pos,b.team,{"card":b.kind,"art_kind":b.kind,"face":1.0})
 			continue
-		if b.kind == "farm":
+		if b.kind == "grave":
+			b.production += dt
+			if b.production >= B.CARDS.grave.period: grave_drop(b)
+		elif b.kind == "farm":
 			var active_dt: float = clampf(elapsed-b.ready_at,0,dt)
 			b.production += active_dt*farm_speed_with(b,lane_mill[b.team][b.cell.y])*multiplier()
 			while b.production >= B.FARM_INTERVAL-0.000001:
@@ -550,10 +642,12 @@ func step(dt: float) -> void:
 		spell.delay -= dt
 		if spell.delay <= 0: cast_spell(spell)
 	spells = spells.filter(func(s: Dictionary) -> bool: return s.delay > 0)
+	update_zones(dt)
 	update_projectiles(dt)
 	for lord: Dictionary in lords:
 		if lord_active[lord.team]: Lord.step(self,lord,dt)
-	for u: Dictionary in units:
+	# Summons append to units; a snapshot prevents them acting in their birth step.
+	for u: Dictionary in units.duplicate():
 		u.flash = maxf(0,u.flash-dt)
 		if u.hp <= 0: continue
 		if u.spawn_delay > 0:
@@ -561,11 +655,26 @@ func step(dt: float) -> void:
 			continue
 		u.cd = maxf(0,u.cd-dt)
 		var data: Dictionary = B.CARDS[u.kind]
+		if u.kind == "necromancer":
+			u.summon_left -= dt
+			if u.summon_left <= 0:
+				u.summon_left += data.summon_interval
+				var col := clampi(floori((u.pos.x-L.GRID_ORIGIN.x)/L.CELL_SIZE.x),0,L.GRID_COLUMNS-1)
+				for lane: int in range(maxi(0,u.lane-1),mini(5,u.lane+2)):
+					var child := spawn_unit(u.team,lane,"skeleton",L.cell_center(Vector2i(col,lane)))
+					child.card = u.get("card",u.kind)
+					event("revive",child.pos,u.team)
 		heal(u,dt)
-		var target: Dictionary = {} if u.kind == "ram" else nearest(u.pos,u.team,data.range,lane_foes[u.team][u.lane])
+		var target: Dictionary = {} if u.kind in ["ram","raven"] else nearest(u.pos,u.team,data.range,lane_foes[u.team][u.lane],-1,data.range > B.MELEE_RANGE)
 		var building := nearest(u.pos,u.team,data.range,lane_foe_buildings[u.team][u.lane])
+		if u.kind == "raven":
+			var farms: Array = lane_foe_buildings[u.team][u.lane].filter(func(b: Dictionary) -> bool: return b.kind == "farm" and (b.pos.x-u.pos.x)*u.face >= -data.range)
+			var farm := nearest(u.pos,u.team,INF,farms)
+			if not farm.is_empty():
+				building = farm if u.pos.distance_to(farm.pos) <= data.range else {}
 		if not building.is_empty() and (target.is_empty() or u.pos.distance_to(building.pos) < u.pos.distance_to(target.pos)): target = building
-		if u.kind != "ram":
+		if u.kind == "reaper": target = reaper_target(u)
+		elif u.kind not in ["ram","raven"]:
 			var taunt := nearest(u.pos,u.team,minf(data.range,B.TAUNT_RADIUS),lane_foe_taunts[u.team][u.lane])
 			if not taunt.is_empty(): target = taunt
 			if target.is_empty(): target = nearest(u.pos,u.team,54.0,lords)
@@ -588,7 +697,7 @@ func step(dt: float) -> void:
 					finish(u.team)
 					break
 				elif u.cd <= 0:
-					var amount: float = data.damage
+					var amount: float = u.get("damage",data.damage)
 					if u.kind == "ox":
 						amount = (B.OX_CHARGE if not u.charged else data.damage)*B.OX_BUILDING_BONUS
 						u.charged = true
@@ -596,15 +705,21 @@ func step(dt: float) -> void:
 					u.cd = data.interval
 			else:
 				u.pos.x = move_toward(u.pos.x,stop,(B.OX_SLOW_SPEED if u.kind == "ox" and u.charged else u.get("march",data.speed))*dt)
+	resolve_deaths()
 	for gone: Dictionary in units+buildings:
-		if gone.hp <= 0: serials_in_use.erase(gone.serial)
-	units = units.filter(func(u: Dictionary) -> bool: return u.hp > 0)
+		if gone.hp <= 0 and gone.serial > 0:
+			serials_in_use.erase(gone.serial)
+			gone.serial = 0
+	units = units.filter(func(u: Dictionary) -> bool: return u.hp > 0 or u.has("revive_at"))
 	buildings = buildings.filter(func(b: Dictionary) -> bool: return b.hp > 0)
 	update_clock()
 
 func cast_spell(s: Dictionary) -> void:
 	var data: Dictionary = B.CARDS[s.kind]
 	event("spell",s.pos,s.team,{"card":s.kind,"radius":data.radius})
+	if s.kind == "plague":
+		add_zone(s.pos,s.team,data.radius,data.duration)
+		return
 	if s.kind == "harvest":
 		for b: Dictionary in buildings:
 			if b.team == s.team and b.hp > 0 and b.kind == "farm" and b.pos.distance_to(s.pos) <= data.radius:
@@ -635,7 +750,7 @@ func skill_state(team: int) -> Dictionary:
 	for hp: float in gates[team]:
 		gate_total += hp
 		if hp <= 0: broken += 1
-	return {"lord":lords[team].lord,"ready":lords[team].hp > 0 and skill_cd[team] <= 0,"ink":ink[team],"elapsed":elapsed,"farms":farms,"gate_share":gate_total/(5*B.GATE_HP),"broken":broken,"difficulty":difficulty,"params":ai_params[team]}
+	return {"lord":lords[team].lord,"ready":lords[team].hp > 0 and skill_cd[team] <= 0,"ink":ink[team],"elapsed":elapsed,"farms":farms,"graves":count_buildings(team,"grave"),"gate_share":gate_total/(5*B.GATE_HP),"broken":broken,"difficulty":difficulty,"params":ai_params[team]}
 
 func snapshot(team: int) -> Dictionary:
 	var candidates: Array = []

@@ -1,0 +1,42 @@
+{
+  "generator": "built-in image_gen",
+  "reference": "hunter.png; existing character-prompts.json",
+  "assets": [
+    {
+      "name": "skeleton",
+      "prompt": "Production 2D sprite for the existing medieval illuminated manuscript strategy game. Use the hunter shown earlier as STYLE REFERENCE only: bold dark brown ink contours, flat matte gouache shapes, restrained fine paper pigment texture, charming slightly squat medieval manuscript proportions, muted vermilion, indigo, ochre and ivory. Subject: ONE full-body ivory skeleton infantry soldier facing RIGHT, wearing a small torn vermilion tabard and brown belt, holding a short rusty sword in right hand, empty left hand visibly connected to arm. Two legs and two arms with coherent joints. Readable at 80 pixels. Fully isolated on genuine transparent background, entire sword and feet visible with ample padding. No ground, shadow, frame, text, modern fantasy rendering, 3D, realistic shading, glowing eyes, gore, or extra poses. Match hand-inked medieval illustration, not glossy cartoon."
+    },
+    {
+      "name": "grave",
+      "prompt": "Production 2D isolated sprite for medieval illuminated manuscript strategy game. Match existing hunter and skeleton: bold dark brown hand-ink contours, flat matte gouache vermilion indigo ochre ivory, restrained pigment texture, slightly squat charming medieval proportions. Readable at 80 pixels. Full subject with ample margins, facing RIGHT in three-quarter view. Genuine transparent background. No scenery, ground base, cast shadow, text, frame, 3D, glossy shading, neon glow, realistic horror or gore. Anatomically coherent limbs and hands. One squat weathered warm grey medieval headstone with a simple carved skull medallion and small vermilion ribbon tied around its base; a few ivory bones leaning at the foot. Front three-quarter view."
+    },
+    {
+      "name": "ghoul",
+      "prompt": "Production 2D isolated sprite for medieval illuminated manuscript strategy game. Match existing hunter and skeleton: bold dark brown hand-ink contours, flat matte gouache vermilion indigo ochre ivory, restrained pigment texture, slightly squat charming medieval proportions. Readable at 80 pixels. Full subject with ample margins, facing RIGHT in three-quarter view. Genuine transparent background. No scenery, ground base, cast shadow, text, frame, 3D, glossy shading, neon glow, realistic horror or gore. Anatomically coherent limbs and hands. One full-body hunched ghoul, grey olive skin, ragged vermilion tunic, brown belt and shorts, bare clawed feet, two arms with visible hands held forward, gaunt mischievous medieval marginalia face, no gore."
+    },
+    {
+      "name": "necromancer",
+      "prompt": "Production 2D isolated sprite for medieval illuminated manuscript strategy game. Match existing hunter and skeleton: bold dark brown hand-ink contours, flat matte gouache vermilion indigo ochre ivory, restrained pigment texture, slightly squat charming medieval proportions. Readable at 80 pixels. Full subject with ample margins, facing RIGHT in three-quarter view. Genuine transparent background. No scenery, ground base, cast shadow, text, frame, 3D, glossy shading, neon glow, realistic horror or gore. Anatomically coherent limbs and hands. One full-body elderly necromancer in dark muted plum robe with vermilion shoulder mantle, ivory hair and beard. Right hand holds a wooden staff topped with a small ivory skull, left hand holds an open medieval book. Both hands connected correctly. No floating accessories."
+    },
+    {
+      "name": "reaper",
+      "prompt": "Production 2D isolated sprite for medieval illuminated manuscript strategy game. Match existing hunter and skeleton: bold dark brown hand-ink contours, flat matte gouache vermilion indigo ochre ivory, restrained pigment texture, slightly squat charming medieval proportions. Readable at 80 pixels. Full subject with ample margins, facing RIGHT in three-quarter view. Genuine transparent background. No scenery, ground base, cast shadow, text, frame, 3D, glossy shading, neon glow, realistic horror or gore. Anatomically coherent limbs and hands. One full-body hooded skeletal reaper in muted charcoal plum robe with a vermilion sash. Two bone hands visibly grasp a wooden scythe shaft, entire simple iron curved scythe blade visible, two feet below robe, no glow."
+    },
+    {
+      "name": "raven",
+      "prompt": "Production 2D isolated sprite for medieval illuminated manuscript strategy game. Match existing hunter and skeleton: bold dark brown hand-ink contours, flat matte gouache vermilion indigo ochre ivory, restrained pigment texture, slightly squat charming medieval proportions. Readable at 80 pixels. Full subject with ample margins, facing RIGHT in three-quarter view. Genuine transparent background. No scenery, ground base, cast shadow, text, frame, 3D, glossy shading, neon glow, realistic horror or gore. Anatomically coherent limbs and hands. ONE single dark indigo black raven in flight toward RIGHT, wings spread showing two wings with simple feather shapes, small ochre beak, two tucked feet, a tiny vermilion cloth ribbon tied around one leg. Single bird, not a flock. All wing tips visible."
+    },
+    {
+      "name": "plague",
+      "prompt": "Production 2D isolated sprite for medieval illuminated manuscript strategy game. Match existing hunter and skeleton: bold dark brown hand-ink contours, flat matte gouache vermilion indigo ochre ivory, restrained pigment texture, slightly squat charming medieval proportions. Readable at 80 pixels. Full subject with ample margins, facing RIGHT in three-quarter view. Genuine transparent background. No scenery, ground base, cast shadow, text, frame, 3D, glossy shading, neon glow, realistic horror or gore. Anatomically coherent limbs and hands. An isolated medieval manuscript spell emblem: three curling lobes of muted olive green poison mist with an ivory skull motif emerging in the middle, thin dark brown ink outlines and flat gouache. Small plum wisps. No bottle, no background, no neon light. Compact silhouette."
+    },
+    {
+      "name": "bonewall",
+      "prompt": "Production 2D isolated sprite for medieval illuminated manuscript strategy game. Match existing hunter and skeleton: bold dark brown hand-ink contours, flat matte gouache vermilion indigo ochre ivory, restrained pigment texture, slightly squat charming medieval proportions. Readable at 80 pixels. Full subject with ample margins, facing RIGHT in three-quarter view. Genuine transparent background. No scenery, ground base, cast shadow, text, frame, 3D, glossy shading, neon glow, realistic horror or gore. Anatomically coherent limbs and hands. One low defensive wall built from interwoven large ivory bones and three small skulls, with two weathered wooden stakes and tiny vermilion cloth ties, three-quarter view, sturdy coherent structure, full wall visible. Stylized medieval marginal illustration, no gore."
+    },
+    {
+      "name": "lord-underworld",
+      "prompt": "Production 2D isolated sprite for medieval illuminated manuscript strategy game. Match existing hunter and skeleton: bold dark brown hand-ink contours, flat matte gouache vermilion indigo ochre ivory, restrained pigment texture, slightly squat charming medieval proportions. Readable at 80 pixels. Full subject with ample margins, facing RIGHT in three-quarter view. Genuine transparent background. No scenery, ground base, cast shadow, text, frame, 3D, glossy shading, neon glow, realistic horror or gore. Anatomically coherent limbs and hands. One full-body dignified underworld lord, elderly pale human with short grey beard, modest ochre crown with three pointed tips, dark plum medieval robe with vermilion cape and ochre belt, brown boots. Right hand holds a wooden staff crowned by a small ivory skull, left hand rests on belt. Both complete connected arms and hands visible. No shield, no glow. Slightly squat medieval manuscript proportions, not realistic armor."
+    }
+  ]
+}

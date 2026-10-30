@@ -43,6 +43,14 @@ const LORD_HYSTERESIS := 1.5
 # and "spread": true to deploy "count" troops in each of three adjacent lanes.
 # "cooldown": seconds a card must wait after it enters the hand before it can be played (0..30).
 const CARDS := {
+	"grave":{"name":"墓碑","role":"死亡·經濟","series":"dark","type":"building","cost":5,"cooldown":10.0,"hp":400.0,"expires":-1.0,"period":60.0,"income":6.0,"death_advance":20.0},
+	"skeleton":{"name":"骷髏兵","role":"復活·纏鬥","series":"dark","type":"unit","cost":6,"cooldown":2.0,"count":4,"hp":50.0,"damage":12.0,"interval":0.85,"range":47.0,"speed":45.0,"revive_delay":3.0,"revive_share":0.5},
+	"ghoul":{"name":"食屍鬼","role":"吞噬·成長","series":"dark","type":"unit","cost":9,"cooldown":6.0,"count":2,"hp":200.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":70.0,"radius":110.0,"devour_heal":50.0,"max_damage_tier":1},
+	"necromancer":{"name":"死靈法師","role":"三路·招魂","series":"dark","type":"unit","cost":14,"cooldown":12.0,"count":1,"hp":200.0,"damage":12.0,"interval":1.2,"range":145.0,"speed":30.0,"summon_interval":15.0},
+	"reaper":{"name":"收割者","role":"收割·老兵","series":"dark","type":"unit","cost":12,"cooldown":10.0,"count":1,"hp":400.0,"damage":90.0,"interval":1.7,"range":100.0,"speed":45.0},
+	"raven":{"name":"烏鴉群","role":"飛行·拆田","series":"dark","type":"unit","cost":8,"cooldown":6.0,"count":6,"hp":50.0,"damage":6.0,"interval":0.6,"range":47.0,"speed":105.0,"flying":true},
+	"plague":{"name":"瘟疫","role":"毒霧·擴散","series":"dark","type":"spell","cost":7,"cooldown":10.0,"radius":110.0,"tick_damage":12.0,"tick_interval":1.0,"duration":6.0,"spread_duration":3.0,"spread_radius":60.0},
+	"bonewall":{"name":"骨牆","role":"阻擋·反擊","series":"dark","type":"building","cost":6,"cooldown":8.0,"hp":750.0,"expires":-1.0,"explosion_damage":150.0,"radius":110.0},
 	"farmer":{"name":"農民","role":"經濟·耕田","type":"unit","cost":3,"cooldown":0.0,"count":3,"hp":50.0,"damage":6.0,"interval":1.2,"range":47.0,"speed":45.0},
 	"militia":{"name":"民兵隊","role":"循環·擋路","type":"unit","cost":10,"cooldown":2.0,"count":5,"hp":100.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":45.0},
 	"harvest":{"name":"豐收","role":"經濟·爆發","type":"spell","cost":3,"cooldown":8.0,"radius":120.0},
@@ -74,6 +82,7 @@ const PRESET_LORDS := ["harvest","iron","lion"]
 # All lords have the same tier-A health (producer 2026-10-29): they differ only in attack and skill.
 # Lord speed tiers C/D/E (producer 2026-10-30): lion 45, harvest 30, iron 20.
 const LORDS := {
+	"underworld":{"name":"冥府領主","role":"亡者型","hp":750.0,"damage":45.0,"speed":30.0,"skill":"亡者大軍","skill_cost":30.0,"summon_count":4,"skill_desc":"我方每座墓碑各召喚 %s 隻骷髏兵；沒有墓碑時無法發動。"},
 	"lion":{"name":"紅獅領主","role":"進攻型","hp":750.0,"damage":90.0,"speed":45.0,"skill":"獅王號令","skill_desc":"每路有領地時各召喚一名騎士，從領地前線進攻。"},
 	"harvest":{"name":"豐收領主","role":"經濟型","hp":750.0,"damage":45.0,"speed":30.0,"skill":"豐年祭","skill_desc":"每路在己方領地空格種一塊農田，全部農田回滿血並產量加倍 %s 秒。"},
 	"iron":{"name":"鐵壁領主","role":"防守型","hp":750.0,"damage":90.0,"speed":20.0,"skill":"重築城牆","skill_desc":"五座城門回滿血，已破的城門重建，城門前拆殘垣的敵兵要重新開始。"}
@@ -83,18 +92,22 @@ const LORDS := {
 const SKILL_COST := 50.0
 const SKILL_COOLDOWN := 60.0
 const FEAST_BOOST := 30.0 # 豐年祭: seconds of doubled farm output
+static func skill_cost(kind: String) -> float:
+	return LORDS[kind].get("skill_cost",SKILL_COST)
 
 # One-line skill text for the deck screen, battle panel and help.
 static func skill_text(kind: String) -> String:
 	var info: Dictionary = LORDS[kind]
 	var desc: String = info.skill_desc % number(FEAST_BOOST) if kind == "harvest" else info.skill_desc
-	return "%s（%d 金幣，冷卻 %d 秒）：%s" % [info.skill,int(SKILL_COST),int(SKILL_COOLDOWN),desc]
+	if kind == "underworld": desc = desc % int(info.summon_count)
+	return "%s（%d 金幣，冷卻 %d 秒）：%s" % [info.skill,int(skill_cost(kind)),int(SKILL_COOLDOWN),desc]
 
 # Stat tiers S..E (producer 2026-10-29; nonlinear since 2026-10-30: damage/health 30x E->S, speed 8x,
 # range and attack speed ~6x): every troop, tower and lord stat uses exactly one of these
 # values, so the same tier always means the same number. Interval is seconds per hit (lower = faster).
 const TIER_NAMES := ["S","A","B","C","D","E"]
 const TIERS := {
+	"radius":[200.0,150.0,110.0,80.0,60.0,45.0],
 	"damage":[180.0,90.0,45.0,24.0,12.0,6.0],
 	"hp":[1500.0,750.0,400.0,200.0,100.0,50.0],
 	"range":[300.0,210.0,145.0,100.0,70.0,47.0],
@@ -147,6 +160,14 @@ static func card_description(kind: String, cards: Dictionary = CARDS) -> String:
 		lines.append("範圍半徑 %s；落下時間 %s 秒。" % [number(d.radius),number(SPELL_DELAY)])
 		if d.has("damage"): lines.append("部隊傷害 %s、建築傷害 %s、城門傷害 %s。" % [number(d.damage),number(d.building_damage),number(d.gate_damage)])
 	match kind:
+		"grave": lines.append("每 %s 秒產出 %s 金幣；本路每名敵我部隊死亡，提前 %s 秒，超出的時間不保留。" % [number(d.period),number(d.income),number(d.death_advance)])
+		"skeleton": lines.append("首次死亡後 %s 秒原地復活一次，恢復 %s%% 生命並取得新序號。" % [number(d.revive_delay),number(d.revive_share*100)])
+		"ghoul": lines.append("半徑 %s 內每名部隊死亡，回復 %s 生命，攻擊升一檔，最高 A 檔 %s。" % [number(d.radius),number(d.devour_heal),number(TIERS.damage[d.max_damage_tier])])
+		"necromancer": lines.append("每 %s 秒，在本路與相鄰路同一欄各召喚一名骷髏兵。" % number(d.summon_interval))
+		"reaper": lines.append("優先攻擊射程內序號最低的敵人；序號釋放後會被重新使用。")
+		"raven": lines.append("飛越近戰部隊，只攻擊建築與城門，優先本路農田；遠程與領主仍可攻擊它。")
+		"plague": lines.append("毒霧持續 %s 秒，每 %s 秒對敵兵造成 %s 傷害；毒死的敵兵產生半徑 %s、持續 %s 秒的小毒霧。" % [number(d.duration),number(d.tick_interval),number(d.tick_damage),number(d.spread_radius),number(d.spread_duration)])
+		"bonewall": lines.append("摧毀時對半徑 %s 內敵兵造成 %s 傷害。" % [number(d.radius),number(d.explosion_damage)])
 		"farm": lines.append("常駐卡，不輪轉。種下 %s 秒後啟動，每 %s 秒產出 %s 金幣（未加成）。" % [number(FARM_START),number(FARM_INTERVAL),number(FARM_DROP)])
 		"farmer": lines.append("順路耕田 %s 秒，農田回復 %s 生命，%s 秒內產出加倍。" % [number(CULTIVATE_TIME),number(FARMER_HEAL),number(BOOST_TIME)])
 		"mill": lines.append("同一路農田產出 ×%s；多座磨坊不疊加。" % number(MILL_BONUS))

@@ -33,13 +33,14 @@ static func skill_plan(k: Dictionary) -> Dictionary:
 	var wanted := false
 	var hoard: bool = pr.get("hoard",1.0) >= 0.5
 	match k.lord:
+		"underworld": wanted = k.get("graves",0) >= 2
 		"lion": wanted = k.elapsed >= pr.get("skill_after",45.0)
 		"harvest": wanted = k.elapsed >= pr.get("skill_after",45.0) and k.farms <= pr.get("harvest_max_farms",7.0)
 		"iron":
 			wanted = k.broken > 0 or k.gate_share < pr.get("iron_gate_share",0.6)
 			hoard = pr.get("iron_hoard",1.0) >= 0.5
 	# Hoard only once the purse is fairly full, so the AI keeps attacking while it saves up.
-	return {"cast":wanted and k.ink >= B.SKILL_COST,"save":wanted and hoard and k.ink >= pr.get("save_from",30.0)}
+	return {"cast":wanted and k.ink >= B.skill_cost(k.lord),"save":wanted and hoard and k.ink >= pr.get("save_from",30.0)}
 
 static func decide(s: Dictionary) -> Dictionary:
 	var pr: Dictionary = weights(s)
@@ -128,14 +129,18 @@ static func decide(s: Dictionary) -> Dictionary:
 							best = c.duplicate()
 					continue
 			if s.get("saving",false) and defend < 0: continue # holding gold for the lord's skill
+			var dark_score := dark_card_score(c,s,ours,foes,my_troop_x)
+			if dark_score > best_score:
+				best_score = dark_score
+				best = c.duplicate()
 			if defend >= 0:
 				if lane != defend: continue
 				var fx: float = foe_x[lane]
-				if data.type == "spell" and c.kind in ["rain","fire"]: score = 1000-c.pos.distance_to(Vector2(fx,c.pos.y))
+				if data.type == "spell" and c.kind in ["rain","fire","plague"]: score = 1000-c.pos.distance_to(Vector2(fx,c.pos.y))
 				elif data.type == "unit" and not c.kind in ["farmer","healer"]:
 					# Troops never turn round, so spawn between the attacker and our gate.
 					if (fx-c.pos.x)*forward >= 0: score = 900-absf(fx-c.pos.x)*0.5-data.cost*3
-				elif c.kind in ["tower","scarecrow"]: score = 950-absf(fx-c.pos.x)
+				elif c.kind in ["tower","scarecrow","bonewall"]: score = 950-absf(fx-c.pos.x)
 			else:
 				if c.kind == "farm" and farm_total < farm_goal:
 					# Spread farms over the lanes, back row first, away from lanes under pressure.
@@ -221,3 +226,32 @@ static func own_building(buildings: Array, team: int, cell: Vector2i) -> Diction
 	for b: Dictionary in buildings:
 		if b.hp > 0 and b.team == team and b.cell == cell: return b
 	return {}
+
+static func dark_card_score(c: Dictionary, s: Dictionary, ours: Array, foes: Array, troop_x: Array) -> float:
+	var lane: int = c.cell.y
+	var forward := 1.0 if s.team == 0 else -1.0
+	match c.kind:
+		"grave":
+			var activity: float = ours[lane]+foes[lane]
+			var existing := 0
+			for b: Dictionary in s.buildings:
+				if b.hp > 0 and b.team == s.team and b.kind == "grave" and b.cell.y == lane: existing += 1
+			return 660.0+minf(activity,1500)*0.08-existing*90 if activity > 0 else 510.0-existing*90
+		"necromancer", "ghoul":
+			var score := -INF
+			for x: float in troop_x[lane]:
+				var ahead: float = (x-c.pos.x)*forward
+				if ahead > 0 and ahead <= B.HEAL_RADIUS: score = maxf(score,710.0-ahead*0.3)
+			return score
+		"reaper":
+			for u: Dictionary in s.units:
+				if u.hp > 0 and u.team != s.team and u.lane == lane and u.kind in ["knight","ram"] and (u.pos.x-c.pos.x)*forward >= 0: return 740.0-absf(u.pos.x-c.pos.x)*0.1
+		"raven":
+			for b: Dictionary in s.buildings:
+				if b.hp > 0 and b.team != s.team and b.kind == "farm" and b.cell.y == lane: return 720.0-absf(b.pos.x-c.pos.x)*0.1
+		"plague":
+			var count := 0
+			for u: Dictionary in s.units:
+				if u.hp > 0 and u.team != s.team and u.pos.distance_to(c.pos) <= B.CARDS.plague.radius: count += 1
+			if count > 0: return 650.0+count*60
+	return -INF

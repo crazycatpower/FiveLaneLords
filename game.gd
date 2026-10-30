@@ -29,6 +29,7 @@ var player_deck: Array = []
 var player_lord := "iron"
 var deck_path := "user://deck.json"
 var deck_tab := "unit"
+var deck_page := 0
 var difficulty := 1
 var spectating := false
 var menu_notice := ""
@@ -434,7 +435,7 @@ func draw_fitted(texture: Texture2D, box: Rect2, shade: Color = Color.WHITE, bot
 
 func actor_rect(kind: String) -> Rect2:
 	if kind.begins_with("lord_"): return fitted_rect(art(kind).get_size(),Rect2(-47,-67,94,94),true)
-	if kind in ["farm","mill","tower","scarecrow"]: return fitted_rect(art(kind).get_size(),Rect2(-45,-39,90,78),true)
+	if kind in ["farm","mill","tower","scarecrow","grave","bonewall"]: return fitted_rect(art(kind).get_size(),Rect2(-45,-39,90,78),true)
 	var width := 112.0 if kind in ["ox","ram"] else 80.0
 	return fitted_rect(art(kind).get_size(),Rect2(-width/2,-63,width,80),true)
 
@@ -460,6 +461,7 @@ func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 	var s := rect.size
 	var short: bool = screen == "battle" and model.ink[0] < data.cost
 	draw_texture_rect(ART.card(selected == slot and slot >= 0),rect,false)
+	if data.get("series","") == "dark": draw_rect(rect.grow(-3),Color("66506d"),false,2)
 	var shade := Color(0.45,0.45,0.45) if short else Color.WHITE
 	draw_card_art(kind,Rect2(rect.position+s*Vector2(0.08,0.13),s*Vector2(0.84,0.5)),0,shade)
 	# Name and type sit above the frame's bottom corner flowers (they start ~83% down).
@@ -523,6 +525,7 @@ func draw_battle_landscape(field: Rect2) -> void:
 		draw_polyline(path,Color(0.68,0.60,0.40,0.09),20,true)
 		draw_polyline(path,Color(0.74,0.67,0.45,0.07),9,true)
 	for b: Dictionary in model.buildings:
+		if b.hp <= 0: continue
 		if b.hp > 0: ground_wash(b.pos+Vector2(0,26),Vector2(53,17),Color("8f7952"),int(b.cell.x+b.cell.y*9),0.13)
 	draw_texture_rect(PAPER,field,false,Color(1,1,1,0.08))
 
@@ -598,7 +601,13 @@ func draw_battle() -> void:
 		if b.kind == "farm":
 			var doubled: bool = maxf(b.boost_until,b.harvest_until) > model.elapsed
 			bar(Rect2(b.pos+Vector2(-30,36),Vector2(60,5)),b.production,B.FARM_INTERVAL,Color("f2c230") if doubled else Color("c8962c"))
+		elif b.kind == "grave":
+			bar(Rect2(b.pos+Vector2(-30,36),Vector2(60,5)),b.production,B.CARDS.grave.period,Color("a885af"))
 		if b.boost_until > model.elapsed: draw_arc(b.pos,37,0,TAU,20,Color.GOLD,2)
+	for zone: Dictionary in model.zones:
+		draw_circle(zone.pos,zone.radius,Color(0.35,0.42,0.19,0.20))
+		draw_arc(zone.pos,zone.radius,0,TAU,40,Color(0.28,0.35,0.16,0.65),1.5,true)
+		draw_fitted(art("plague"),Rect2(zone.pos-Vector2.ONE*zone.radius*0.65,Vector2.ONE*zone.radius*1.3),Color(1,1,1,0.42))
 	layout_formations()
 	var ordered: Array = model.units.duplicate()
 	ordered.sort_custom(func(a: Dictionary,b: Dictionary) -> bool: return a.draw.y < b.draw.y)
@@ -704,8 +713,14 @@ func team_shadow(center: Vector2, radius: float, color: Color) -> void:
 	draw_set_transform(Vector2.ZERO)
 
 func draw_unit(u: Dictionary) -> void:
+	if u.hp <= 0:
+		if u.has("revive_at"):
+			draw_actor(u.kind,u.team,u.draw+Vector2(0,14),u.face,Color(1,1,1,0.20))
+			bar(Rect2(u.draw+Vector2(-20,22),Vector2(40,4)),B.CARDS.skeleton.revive_delay-(u.revive_at-model.elapsed),B.CARDS.skeleton.revive_delay,Color("9b78a9"))
+		return
 	var pos: Vector2 = u.draw-Vector2(u.face*4,0) if fx_enabled and u.flash > 0 else u.draw # small knockback on hit
 	var bounce := sin(model.elapsed*8+u.phase)*2
+	if u.get("flying",false): bounce = -20+sin(model.elapsed*10+u.phase)*5
 	team_base(pos+Vector2(0,16),24,RED if u.team == 0 else BLUE)
 	draw_actor(u.kind,u.team,pos+Vector2(0,bounce),u.face,Color(1.6,1.6,1.6) if fx_enabled and u.flash > 0 else Color.WHITE)
 	if u.hp < u.max_hp: bar(Rect2(pos-Vector2(24,68),Vector2(48,5)),u.hp,u.max_hp,RED if u.team == 0 else BLUE)
@@ -752,6 +767,7 @@ func draw_effects() -> void:
 	for e: Dictionary in effects:
 		var progress: float = 1-e.life/e.duration
 		match e.kind:
+			"revive", "boneburst": draw_arc(e.pos,12+progress*36,0,TAU,24,Color(0.55,0.38,0.60,1-progress),2,true)
 			"skill": draw_skill_effect(e,progress)
 			"ink": draw_circle(e.pos.lerp(Vector2(80,765) if e.team == 0 else Vector2(1322,35),progress),7,Color("d9a62e"))
 			"spell": draw_circle(e.pos,e.get("radius",50.0)*progress,Color(0.7,0.3,0.1,e.life*0.4))
@@ -786,7 +802,7 @@ func draw_skill_effect(e: Dictionary, progress: float) -> void:
 	var direction := 1.0 if e.team == 0 else -1.0
 	for point: Vector2 in e.get("targets",[]):
 		match e.lord:
-			"lion":
+			"lion", "underworld":
 				draw_circle(point+Vector2(0,-20),18+progress*30,Color(1.0,0.85,0.45,strength*0.22))
 				draw_arc(point+Vector2(0,-20),14+progress*35,0,TAU,32,gold,2.0,true)
 				var tip := point+Vector2(direction*(25+progress*100),-18)
@@ -895,8 +911,10 @@ func draw_skill_button() -> void:
 	draw_string(font,SKILL_RECT.position+Vector2(8,28),"Q",HORIZONTAL_ALIGNMENT_CENTER,24,15,Color("efdfb9"))
 	label_at(SKILL_RECT.position+Vector2(42,24),"領主技能：%s" % info.skill,17,RED if ready else INK)
 	var cd: float = model.skill_cd[0]
-	var state: String = "冷卻 %d 秒" % ceili(cd) if cd > 0 else ("可發動" if ready else "還差 %d 金幣" % ceili(B.SKILL_COST-model.ink[0]) if model.ink[0] < B.SKILL_COST else "領主倒下中")
-	label_at(SKILL_RECT.position+Vector2(42,44),"%d 金幣 · %s" % [int(B.SKILL_COST),state],13,Color("6f5a3e"))
+	var cost := B.skill_cost(model.lords[0].lord)
+	var state: String = "冷卻 %d 秒" % ceili(cd) if cd > 0 else ("可發動" if ready else "還差 %d 金幣" % ceili(cost-model.ink[0]) if model.ink[0] < cost else "領主倒下中")
+	if model.lords[0].hp > 0 and model.lords[0].lord == "underworld" and model.count_buildings(0,"grave") == 0: state = "沒有墓碑"
+	label_at(SKILL_RECT.position+Vector2(42,44),"%d 金幣 · %s" % [int(cost),state],13,Color("6f5a3e"))
 
 func try_skill() -> bool:
 	var reason: String = model.skill_error(0)
@@ -934,7 +952,10 @@ func show_deck() -> void:
 		button(Rect2(120+i*300,155,270,45),B.PRESET_NAMES[i],func(): player_deck = B.PRESETS[index].duplicate(); player_lord = B.PRESET_LORDS[index]; save_choice(); show_deck())
 	for i: int in range(3):
 		var tab: String = ["unit","building","spell"][i]
-		button(Rect2(120+i*210,235,190,44),["部隊","建築","法術"][i],func(): deck_tab = tab; show_deck())
+		button(Rect2(120+i*210,235,190,44),["部隊","建築","法術"][i],func(): deck_tab = tab; deck_page = 0; show_deck())
+	deck_page = clampi(deck_page,0,(tab_size()-1)/8)
+	if tab_size() > 8:
+		button(Rect2(755,235,200,44),"第 %d 頁 / %d　→" % [deck_page+1,ceili(tab_size()/8.0)],func(): deck_page = (deck_page+1)%ceili(tab_size()/8.0); show_deck())
 	var lord_index := 0
 	for lord_kind: String in B.LORDS:
 		var choice := lord_kind
@@ -945,6 +966,9 @@ func show_deck() -> void:
 	var index := 0
 	for kind: String in B.CARDS:
 		if B.CARDS[kind].type != deck_tab or kind == "farm": continue
+		if index/8 != deck_page:
+			index += 1
+			continue
 		var card_kind := kind
 		var rect := pool_rect(index,tab_size())
 		var b := button(rect,"",func(): toggle_deck_card(card_kind))
@@ -967,16 +991,16 @@ func lord_tooltip(kind: String) -> String:
 	return "%s（%s）\n%d 血 · 普攻 %d\n%s" % [info.name,info.role,int(info.hp),int(info.damage),B.skill_text(kind)]
 
 func lord_rect(index: int) -> Rect2:
-	return Rect2(1010+index*190,150,180,90)
+	return Rect2(1010+(index%2)*270,148+(index/2)*74,260,68)
 
 func save_choice() -> void:
 	if DeckStore.valid(player_deck): DeckStore.save_deck(player_deck,deck_path,player_lord)
 
 # Card pool layout: up to eight full-size cards in a row, narrower when a tab holds more.
 func pool_rect(index: int, count: int) -> Rect2:
-	var step := minf(170.0,1380.0/maxi(1,count))
+	var step := minf(170.0,1380.0/maxi(1,mini(8,count)))
 	var width := minf(150.0,step-12)
-	return Rect2(120+index*step,310,width,width*190.0/150.0)
+	return Rect2(120+(index%8)*step,310,width,width*190.0/150.0)
 
 func toggle_deck_card(kind: String) -> void:
 	if kind in player_deck: player_deck.erase(kind)
@@ -995,14 +1019,17 @@ func draw_deck() -> void:
 		var info: Dictionary = B.LORDS[lord_kind]
 		panel(r,Color("f2e3c0") if lord_kind == player_lord else Color("e3d2aa"),RED if lord_kind == player_lord else INK)
 		if lord_kind == player_lord: draw_rect(r.grow(2),RED,false,3)
-		draw_fitted(lord_art(lord_kind),Rect2(r.position+Vector2(6,6),Vector2(64,78)))
-		label_at(r.position+Vector2(76,32),info.name,18)
-		label_at(r.position+Vector2(76,56),"%s · %d 血" % [info.role,int(info.hp)],12,Color("6f5a3e"))
-		label_at(r.position+Vector2(76,78),"技能：%s" % info.skill,12,RED)
+		draw_fitted(lord_art(lord_kind),Rect2(r.position+Vector2(6,3),Vector2(54,62)))
+		label_at(r.position+Vector2(68,23),info.name,18)
+		label_at(r.position+Vector2(68,41),"%s · %d 血" % [info.role,int(info.hp)],12,Color("6f5a3e"))
+		label_at(r.position+Vector2(68,58),"%s · %d 金幣" % [info.skill,int(B.skill_cost(lord_kind))],12,RED)
 		lord_index += 1
 	var index := 0
 	for kind: String in B.CARDS:
 		if B.CARDS[kind].type != deck_tab or kind == "farm": continue
+		if index/8 != deck_page:
+			index += 1
+			continue
 		var rect := pool_rect(index,tab_size())
 		draw_card(kind,rect)
 		if kind in player_deck: draw_rect(rect,Color("9b3d2c"),false,4)
@@ -1048,7 +1075,7 @@ func watch_card_rect(team: int, index: int) -> Rect2:
 	return Rect2(120+team*760+(index%4)*150,330+(index/4)*190,136,172)
 
 func watch_lord_rect(team: int, index: int) -> Rect2:
-	return Rect2(120+team*760+index*196,236,186,52)
+	return Rect2(120+team*760+index*164,236,158,52)
 
 func show_watch() -> void:
 	screen = "watch"
@@ -1108,7 +1135,7 @@ func card_description(kind: String) -> String:
 
 func help_columns() -> Array[String]:
 	return [
-		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐農田；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 有選牌時取消，沒選牌時切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩，戰鬥中按 R 不重開。\n\n[b]牌組與領主[/b]\n農田固定＋領主三選一＋自選 8 張輪轉牌。農田不輪轉、不佔 8 張名額。領主由 AI 移動，只在農田後方防守；按 Q 花 %s 金幣發動領主技能，冷卻 %s 秒。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2，等待時間會縮短。" % [B.number(B.SKILL_COST),B.number(B.SKILL_COOLDOWN),B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
+		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐農田；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 有選牌時取消，沒選牌時切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩，戰鬥中按 R 不重開。\n\n[b]牌組與領主[/b]\n農田固定＋領主四選一＋自選 8 張輪轉牌。農田不輪轉、不佔 8 張名額。領主由 AI 移動，只在農田後方防守；按 Q 花 %s 金幣（冥府為 %s）發動領主技能，冷卻 %s 秒。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2，等待時間會縮短。" % [B.number(B.SKILL_COST),B.number(B.skill_cost("underworld")),B.number(B.SKILL_COOLDOWN),B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
 		"[b]種田與防守[/b]\n農田自己產金幣；農民從田後方出發，順路耕田加速並回血。相同建築覆蓋自己的舊建築可補滿生命。\n部隊只往前走，不追身後範圍外的敵人；城門不反擊，靠領主、部隊與建築防守。\n\n[b]破門與勝負[/b]\n建築與部隊限己方領地：建築、城牆周圍八格先佔先得，失去所有己方建築覆蓋就釋出。敵兵破門後需停下拆殘垣 %s 秒，再向家門前進。\n任何敵兵走進家門就輸，沒有時間限制。\n\n[b]觀戰模式[/b]\n開戰前調整雙方牌組與領主（預設隨機），AI 出牌；1–4 切換 ×1／×2／×4／×8，＋／－ 逐級調速。空白鍵暫停。" % B.number(B.RUBBLE_TIME)
 	]
 
