@@ -546,7 +546,7 @@ func attack(u: Dictionary, target: Dictionary) -> void:
 			u.charged = true
 			if not target.has("cell"): target.pos.x += u.face*B.OX_KNOCKBACK
 		if target.has("cell"): amount *= B.OX_BUILDING_BONUS
-	if u.kind in ["hunter","necromancer"]: shoot(u,target,amount)
+	if data.get("projectile",false): shoot(u,target,amount)
 	else: damage(target,amount,u.team,u.get("card",u.kind))
 	u.cd = data.interval
 
@@ -709,16 +709,16 @@ func summon_skeletons(u: Dictionary, data: Dictionary, dt: float) -> void:
 
 # Whom this troop attacks right now ({} = nobody in reach).
 func choose_target(u: Dictionary, data: Dictionary) -> Dictionary:
-	var target: Dictionary = {} if u.kind in ["ram","raven"] else nearest(u.pos,u.team,data.range,lane_foes[u.team][u.lane],-1,data.range > B.MELEE_RANGE)
+	var target: Dictionary = {} if data.get("hits","") == "buildings" else nearest(u.pos,u.team,data.range,lane_foes[u.team][u.lane],-1,data.range > B.MELEE_RANGE)
 	var building := nearest(u.pos,u.team,data.range,lane_foe_buildings[u.team][u.lane])
-	if u.kind == "raven":
+	if data.get("prefers","") == "farm":
 		var farms: Array = lane_foe_buildings[u.team][u.lane].filter(func(b: Dictionary) -> bool: return b.kind == "farm" and (b.pos.x-u.pos.x)*u.face >= -data.range)
 		var farm := nearest(u.pos,u.team,INF,farms)
 		if not farm.is_empty():
 			building = farm if u.pos.distance_to(farm.pos) <= data.range else {}
 	if not building.is_empty() and (target.is_empty() or u.pos.distance_to(building.pos) < u.pos.distance_to(target.pos)): target = building
-	if u.kind == "reaper": target = reaper_target(u)
-	elif u.kind not in ["ram","raven"]:
+	if data.get("target_rule","") == "lowest_serial": target = reaper_target(u)
+	elif data.get("hits","") != "buildings":
 		var taunt := nearest(u.pos,u.team,minf(data.range,B.TAUNT_RADIUS),lane_foe_taunts[u.team][u.lane])
 		if not taunt.is_empty(): target = taunt
 		if target.is_empty(): target = nearest(u.pos,u.team,54.0,lords)

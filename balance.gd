@@ -46,29 +46,44 @@ const CARDS := {
 	"grave":{"name":"墓碑","role":"死亡·經濟","series":"dark","type":"building","cost":5,"cooldown":10.0,"hp":400.0,"expires":-1.0,"period":60.0,"income":6.0,"death_advance":20.0},
 	"skeleton":{"name":"骷髏兵","role":"復活·纏鬥","series":"dark","type":"unit","cost":6,"cooldown":2.0,"count":4,"hp":50.0,"damage":12.0,"interval":0.85,"range":47.0,"speed":45.0,"revive_delay":3.0,"revive_share":0.5},
 	"ghoul":{"name":"食屍鬼","role":"吞噬·成長","series":"dark","type":"unit","cost":9,"cooldown":6.0,"count":2,"hp":200.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":70.0,"radius":110.0,"devour_heal":50.0,"max_damage_tier":1},
-	"necromancer":{"name":"死靈法師","role":"三路·招魂","series":"dark","type":"unit","cost":14,"cooldown":12.0,"count":1,"hp":200.0,"damage":12.0,"interval":1.2,"range":145.0,"speed":30.0,"summon_interval":15.0},
-	"reaper":{"name":"收割者","role":"收割·老兵","series":"dark","type":"unit","cost":12,"cooldown":10.0,"count":1,"hp":400.0,"damage":90.0,"interval":1.7,"range":100.0,"speed":45.0},
-	"raven":{"name":"烏鴉群","role":"飛行·拆田","series":"dark","type":"unit","cost":8,"cooldown":6.0,"count":6,"hp":50.0,"damage":6.0,"interval":0.6,"range":47.0,"speed":105.0,"flying":true},
-	"plague":{"name":"瘟疫","role":"毒霧·擴散","series":"dark","type":"spell","cost":7,"cooldown":10.0,"radius":110.0,"tick_damage":12.0,"tick_interval":1.0,"duration":6.0,"spread_duration":3.0,"spread_radius":60.0},
-	"bonewall":{"name":"骨牆","role":"阻擋·反擊","series":"dark","type":"building","cost":6,"cooldown":8.0,"hp":750.0,"expires":-1.0,"explosion_damage":150.0,"radius":110.0},
-	"farmer":{"name":"農民","role":"經濟·耕田","type":"unit","cost":3,"cooldown":0.0,"count":3,"hp":50.0,"damage":6.0,"interval":1.2,"range":47.0,"speed":45.0},
+	"necromancer":{"name":"死靈法師","role":"三路·招魂","series":"dark","type":"unit","projectile":true,"cost":14,"cooldown":12.0,"count":1,"hp":200.0,"damage":12.0,"interval":1.2,"range":145.0,"speed":30.0,"summon_interval":15.0},
+	"reaper":{"name":"收割者","role":"收割·老兵","series":"dark","type":"unit","target_rule":"lowest_serial","cost":12,"cooldown":10.0,"count":1,"hp":400.0,"damage":90.0,"interval":1.7,"range":100.0,"speed":45.0},
+	"raven":{"name":"烏鴉群","role":"飛行·拆田","series":"dark","type":"unit","hits":"buildings","prefers":"farm","cost":8,"cooldown":6.0,"count":6,"hp":50.0,"damage":6.0,"interval":0.6,"range":47.0,"speed":105.0,"flying":true},
+	"plague":{"name":"瘟疫","role":"毒霧·擴散","series":"dark","type":"spell","ai":["defend_spell"],"cost":7,"cooldown":10.0,"radius":110.0,"tick_damage":12.0,"tick_interval":1.0,"duration":6.0,"spread_duration":3.0,"spread_radius":60.0},
+	"bonewall":{"name":"骨牆","role":"阻擋·反擊","series":"dark","type":"building","ai":["defend_building"],"cost":6,"cooldown":8.0,"hp":750.0,"expires":-1.0,"explosion_damage":150.0,"radius":110.0},
+	"farmer":{"name":"農民","role":"經濟·耕田","type":"unit","ai":["no_defend"],"cost":3,"cooldown":0.0,"count":3,"hp":50.0,"damage":6.0,"interval":1.2,"range":47.0,"speed":45.0},
 	"militia":{"name":"民兵隊","role":"循環·擋路","type":"unit","cost":10,"cooldown":2.0,"count":5,"hp":100.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":45.0},
 	"harvest":{"name":"豐收","role":"經濟·爆發","type":"spell","cost":3,"cooldown":8.0,"radius":120.0},
-	"scarecrow":{"name":"稻草人","role":"誘敵·護田","type":"building","cost":2,"cooldown":3.0,"hp":400.0,"expires":-1.0},
-	"mob":{"name":"乾草叉暴民","role":"三路群攻","type":"unit","cost":11,"cooldown":6.0,"count":4,"spread":true,"hp":50.0,"damage":12.0,"interval":0.85,"range":47.0,"speed":70.0},
-	"hunter":{"name":"獵戶","role":"遠程輸出","type":"unit","cost":4,"cooldown":4.0,"count":3,"hp":50.0,"damage":12.0,"interval":1.7,"range":210.0,"speed":30.0},
+	"scarecrow":{"name":"稻草人","role":"誘敵·護田","type":"building","ai":["guard","defend_building","obstacle"],"cost":2,"cooldown":3.0,"hp":400.0,"expires":-1.0},
+	"mob":{"name":"乾草叉暴民","role":"三路群攻","type":"unit","ai":["raid"],"cost":11,"cooldown":6.0,"count":4,"spread":true,"hp":50.0,"damage":12.0,"interval":0.85,"range":47.0,"speed":70.0},
+	"hunter":{"name":"獵戶","role":"遠程輸出","type":"unit","projectile":true,"cost":4,"cooldown":4.0,"count":3,"hp":50.0,"damage":12.0,"interval":1.7,"range":210.0,"speed":30.0},
 	"spearbow":{"name":"槍弓混編","role":"遠近軍團","type":"unit","cost":12,"cooldown":6.0,"members":[["militia",4,0.0],["hunter",2,45.0]],"art":["militia","hunter"]},
 	"farm":{"name":"農田","role":"經濟·基礎","type":"building","cost":6,"cooldown":30.0,"hp":250.0,"expires":-1.0},
-	"rain":{"name":"箭雨","role":"清群法術","type":"spell","cost":6,"cooldown":6.0,"radius":110.0,"damage":200.0,"building_damage":60.0,"gate_damage":60.0},
-	"tower":{"name":"箭樓","role":"防守","type":"building","cost":10,"cooldown":8.0,"hp":400.0,"expires":-1.0,"range":300.0,"damage":24.0,"interval":0.6},
-	"healer":{"name":"草藥婆","role":"支援·治療","type":"unit","cost":5,"cooldown":8.0,"count":1,"hp":200.0,"damage":6.0,"interval":1.2,"range":145.0,"speed":30.0},
-	"ox":{"name":"耕牛","role":"衝鋒·拆建","type":"unit","cost":12,"cooldown":10.0,"count":2,"hp":400.0,"damage":24.0,"interval":1.7,"range":47.0,"speed":105.0},
-	"fire":{"name":"火罐","role":"燒田法術","type":"spell","cost":10,"cooldown":15.0,"radius":95.0,"damage":420.0,"building_damage":840.0,"gate_damage":140.0},
-	"knight":{"name":"騎士","role":"主坦","type":"unit","cost":22,"cooldown":15.0,"count":2,"hp":750.0,"damage":90.0,"interval":1.7,"range":47.0,"speed":20.0},
+	"rain":{"name":"箭雨","role":"清群法術","type":"spell","ai":["defend_spell","wave_spell"],"cost":6,"cooldown":6.0,"radius":110.0,"damage":200.0,"building_damage":60.0,"gate_damage":60.0},
+	"tower":{"name":"箭樓","role":"防守","type":"building","ai":["guard","defend_building","obstacle"],"cost":10,"cooldown":8.0,"hp":400.0,"expires":-1.0,"range":300.0,"damage":24.0,"interval":0.6},
+	"healer":{"name":"草藥婆","role":"支援·治療","type":"unit","ai":["no_defend","hold"],"cost":5,"cooldown":8.0,"count":1,"hp":200.0,"damage":6.0,"interval":1.2,"range":145.0,"speed":30.0},
+	"ox":{"name":"耕牛","role":"衝鋒·拆建","type":"unit","ai":["raid"],"cost":12,"cooldown":10.0,"count":2,"hp":400.0,"damage":24.0,"interval":1.7,"range":47.0,"speed":105.0},
+	"fire":{"name":"火罐","role":"燒田法術","type":"spell","ai":["defend_spell","wave_spell","raid"],"cost":10,"cooldown":15.0,"radius":95.0,"damage":420.0,"building_damage":840.0,"gate_damage":140.0},
+	"knight":{"name":"騎士","role":"主坦","type":"unit","ai":["big"],"cost":22,"cooldown":15.0,"count":2,"hp":750.0,"damage":90.0,"interval":1.7,"range":47.0,"speed":20.0},
 	"guard":{"name":"聖堂護衛","role":"重裝軍團","type":"unit","cost":30,"cooldown":18.0,"members":[["knight",2,0.0],["healer",2,50.0]],"art":["knight","healer"]},
-	"mill":{"name":"磨坊","role":"大型經濟","type":"building","cost":18,"cooldown":20.0,"hp":900.0,"expires":-1.0},
-	"ram":{"name":"攻城槌","role":"終結·破門","type":"unit","cost":24,"cooldown":30.0,"members":[["ram",1,0.0],["militia",4,-40.0]],"art":["ram","militia"],"count":1,"hp":1500.0,"damage":180.0,"interval":2.4,"range":47.0,"speed":20.0}
+	"mill":{"name":"磨坊","role":"大型經濟","type":"building","ai":["obstacle"],"cost":18,"cooldown":20.0,"hp":900.0,"expires":-1.0},
+	"ram":{"name":"攻城槌","role":"終結·破門","type":"unit","hits":"buildings","ai":["hold","big"],"cost":24,"cooldown":30.0,"members":[["ram",1,0.0],["militia",4,-40.0]],"art":["ram","militia"],"count":1,"hp":1500.0,"damage":180.0,"interval":2.4,"range":47.0,"speed":20.0}
 }
+
+# Behaviour fields a card may carry (read by battle.gd; a new card only needs the fields):
+#   "projectile": true            attacks fire an arrow (flight time ARROW_TIME) instead of hitting at once
+#   "hits": "buildings"           ignores troops and lords; only attacks buildings and gates
+#   "prefers": "farm"             walks to and attacks enemy farms in its lane first
+#   "target_rule": "lowest_serial" attacks the lowest serial in reach instead of the nearest
+#   "flying": true                melee troops and buildings cannot hit it
+# AI tags in "ai" (read by enemy_ai.gd):
+#   defend_spell   cast on attackers near our gate      wave_spell   cast on enemy clusters while attacking
+#   raid           sent at the lane with most enemy farms  guard      one per farm lane, early
+#   defend_building placed in front of attackers        obstacle     counts as an enemy wall when choosing a lane
+#   no_defend      never sent to stop an attack          hold         only played with gold to spare (or at 45+)
+#   big            a target worth the reaper
+static func has_tag(kind: String, tag: String) -> bool:
+	return tag in CARDS[kind].get("ai",[])
 
 # Deck = farmland (always, own hand slot) + a chosen lord + 8 rotating cards (producer 2026-10-29).
 const PRESET_NAMES := ["向日葵流","穩健農莊","劫掠隊"]

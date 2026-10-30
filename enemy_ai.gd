@@ -81,11 +81,11 @@ static func decide(s: Dictionary) -> Dictionary:
 			if b.kind == "farm":
 				my_farms[b.cell.y] += 1
 				farm_total += 1
-			if b.kind in ["tower","scarecrow"]:
+			if B.has_tag(b.kind,"guard"):
 				ours[b.cell.y] += b.hp
 				my_guard[b.cell.y] += 1
 		elif b.kind == "farm": their_farms[b.cell.y] += 1
-		elif b.kind in ["tower","scarecrow","mill"]: their_guard[b.cell.y] += b.hp
+		elif B.has_tag(b.kind,"obstacle"): their_guard[b.cell.y] += b.hp
 	# Defence: the lane whose approaching enemies most outweigh what we have there.
 	var danger := -1
 	var largest := 0.0
@@ -136,11 +136,11 @@ static func decide(s: Dictionary) -> Dictionary:
 			if defend >= 0:
 				if lane != defend: continue
 				var fx: float = foe_x[lane]
-				if data.type == "spell" and c.kind in ["rain","fire","plague"]: score = 1000-c.pos.distance_to(Vector2(fx,c.pos.y))
-				elif data.type == "unit" and not c.kind in ["farmer","healer"]:
+				if data.type == "spell" and B.has_tag(c.kind,"defend_spell"): score = 1000-c.pos.distance_to(Vector2(fx,c.pos.y))
+				elif data.type == "unit" and not B.has_tag(c.kind,"no_defend"):
 					# Troops never turn round, so spawn between the attacker and our gate.
 					if (fx-c.pos.x)*forward >= 0: score = 900-absf(fx-c.pos.x)*0.5-data.cost*3
-				elif c.kind in ["tower","scarecrow","bonewall"]: score = 950-absf(fx-c.pos.x)
+				elif B.has_tag(c.kind,"defend_building"): score = 950-absf(fx-c.pos.x)
 			else:
 				if c.kind == "farm" and farm_total < farm_goal:
 					# Spread farms over the lanes, back row first, away from lanes under pressure.
@@ -150,15 +150,15 @@ static func decide(s: Dictionary) -> Dictionary:
 					for b: Dictionary in s.buildings:
 						if b.team == team and b.kind == "farm" and b.hp > 0 and b.cell.y == lane and (b.pos.x-c.pos.x)*forward > 0 and b.boost_until <= s.elapsed: ahead += 1
 					if ahead > 0: score = pr.get("farmer_score",740.0)+ahead*12-col*6
-				elif enemy_farm_total >= pr.get("raid_min_farms",4.0) and c.kind in ["fire","ox","mob"] and their_farms[lane] == their_farms.max():
+				elif enemy_farm_total >= pr.get("raid_min_farms",4.0) and B.has_tag(c.kind,"raid") and their_farms[lane] == their_farms.max():
 					score = pr.get("raid_score",700.0)
 					if c.kind == "fire":
 						for b: Dictionary in s.buildings:
 							if b.team != team and b.kind == "farm" and b.pos.distance_to(c.pos) <= data.radius: score += 100
-				elif s.difficulty == 2 and s.enemy_ink >= 35 and c.kind in ["tower","scarecrow"]:
+				elif s.difficulty == 2 and s.enemy_ink >= 35 and B.has_tag(c.kind,"guard"):
 					var expected := int(s.memory.get("lane",target_lane))
 					if lane == expected and ours[lane] < 400: score = 780
-				elif c.kind in ["tower","scarecrow"] and my_farms[lane] > 0 and my_guard[lane] == 0 and s.elapsed >= pr.get("guard_after",20.0):
+				elif B.has_tag(c.kind,"guard") and my_farms[lane] > 0 and my_guard[lane] == 0 and s.elapsed >= pr.get("guard_after",20.0):
 					# Guard farm lanes before raiders arrive: one tower or scarecrow just in front of the farms.
 					score = pr.get("guard_score",690.0)-(0.0 if c.kind == "tower" else 10.0)+my_farms[lane]*10-absf(col-2)*8
 				elif c.kind == "ram":
@@ -173,7 +173,7 @@ static func decide(s: Dictionary) -> Dictionary:
 				elif wave and data.type == "unit" and c.kind != "farmer":
 					# Front-most legal cell of the chosen lane; other lanes only as a weaker fallback.
 					score = pr.get("wave_score",600.0)+col*4-data.cost-(0 if lane == target_lane else 60+(attack[target_lane]-attack[lane])*0.05)
-				elif wave and c.kind in ["rain","fire"]:
+				elif wave and B.has_tag(c.kind,"wave_spell"):
 					for u: Dictionary in s.units:
 						if u.team != team and u.hp > 0 and u.pos.distance_to(c.pos) < data.radius: score = maxf(0,score)+80
 				elif c.kind == "mill" and farm_total >= pr.get("mill_min_farms",3.0): score = pr.get("mill_score",650.0)+my_farms[lane]*10
@@ -218,7 +218,7 @@ static func spend_score(c: Dictionary, s: Dictionary, team: int, lane: int, col:
 			return 490.0+value if value > 0 else 300.0-data.cost
 	# Ram and healer have their own rules above; near the gold cap they may still go, or they would
 	# sit in hand forever and stop the deck rotating.
-	if c.kind in ["ram","healer"] and s.ink < 45.0: return -INF
+	if B.has_tag(c.kind,"hold") and s.ink < 45.0: return -INF
 	if data.type == "unit": return 480.0+(30.0 if lane == target_lane else 0.0)+col*3-data.cost*0.5
 	return -INF
 
@@ -245,7 +245,7 @@ static func dark_card_score(c: Dictionary, s: Dictionary, ours: Array, foes: Arr
 			return score
 		"reaper":
 			for u: Dictionary in s.units:
-				if u.hp > 0 and u.team != s.team and u.lane == lane and u.kind in ["knight","ram"] and (u.pos.x-c.pos.x)*forward >= 0: return 740.0-absf(u.pos.x-c.pos.x)*0.1
+				if u.hp > 0 and u.team != s.team and u.lane == lane and B.has_tag(u.kind,"big") and (u.pos.x-c.pos.x)*forward >= 0: return 740.0-absf(u.pos.x-c.pos.x)*0.1
 		"raven":
 			for b: Dictionary in s.buildings:
 				if b.hp > 0 and b.team != s.team and b.kind == "farm" and b.cell.y == lane: return 720.0-absf(b.pos.x-c.pos.x)*0.1
