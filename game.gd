@@ -488,6 +488,7 @@ func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 func _draw() -> void:
 	if font == null or model == null: return
 	draw_texture_rect(PAPER,Rect2(Vector2.ZERO,L.VIEWPORT_SIZE),false,PAPER_TINT)
+	if screen != "battle": draw_landscape(L.PAGE_FRAME.grow(-7),0.46)
 	panel(L.PAGE_FRAME,Color(0.85,0.74,0.53,0.15))
 	if screen == "battle": draw_battle()
 	elif screen == "deck": draw_deck()
@@ -496,9 +497,35 @@ func _draw() -> void:
 	elif screen == "settings": draw_string(font,Vector2(0,220),"畫面與音效設定",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,40,INK)
 	else: draw_title()
 
+# Flat manuscript pigments over paper; deterministic strokes never consume battle RNG.
+func draw_landscape(rect: Rect2, horizon: float) -> void:
+	draw_rect(rect,Color("8db7cb"))
+	var top := rect.position
+	var line_y := top.y+rect.size.y*horizon
+	# Faint geometric sky ornament, like the painted diaper patterns in manuscripts.
+	for x: int in range(int(top.x)+22,int(rect.end.x)-20,58):
+		for y: int in range(int(top.y)+14,int(line_y)-10,42):
+			draw_polyline(PackedVector2Array([Vector2(x,y-9),Vector2(x+15,y),Vector2(x,y+9),Vector2(x-15,y),Vector2(x,y-9)]),Color(0.85,0.92,0.89,0.22),1.4,true)
+	for layer: int in range(3):
+		var points := PackedVector2Array()
+		for i: int in range(65):
+			var x := rect.size.x*i/64.0
+			var y := line_y+layer*rect.size.y*0.12+sin(i*0.12+layer*1.7)*rect.size.y*0.025
+			points.append(top+Vector2(x,y-top.y))
+		points.append(rect.end)
+		points.append(Vector2(top.x,rect.end.y))
+		draw_colored_polygon(points,[Color("7e9661"),Color("708a51"),Color("81965b")][layer])
+	for i: int in range(95):
+		var x := top.x+12+fposmod(i*137.39,rect.size.x-24)
+		var y := line_y+32+fposmod(i*79.73,maxf(1,rect.end.y-line_y-46))
+		tuft(Vector2(x,y),Color(0.77,0.80,0.49,0.34),7+float(i%5))
+	# Let the existing parchment grain show through the painted pigments.
+	draw_texture_rect(PAPER,rect,false,Color(1,1,1,0.19))
+
 func draw_battle() -> void:
 	var field: Rect2 = L.FIELD_FRAME
 	draw_texture_rect_region(PAPER,field,Rect2(field.position*0.6,field.size*0.6),FIELD_TINT)
+	if tutorial == null: draw_landscape(field.grow(-7),0.10)
 	ink_frame(field)
 	var corner := Vector2(96,86)
 	draw_texture_rect(ART.ornament(0),Rect2(field.position+Vector2(8,8),corner),false,Color(1,1,1,0.85))
@@ -605,6 +632,7 @@ func team_base(center: Vector2, radius: float, color: Color) -> void:
 
 # The battlefield floor: tinted zones, alternating lane shade, grass and pebbles, darker edges.
 func draw_ground(grid: Rect2) -> void:
+	if tutorial != null: return # The tutorial keeps an undecorated parchment field.
 	var cw: float = L.CELL_SIZE.x
 	var ch: float = L.CELL_SIZE.y
 	draw_rect(Rect2(grid.position,Vector2(3*cw,grid.size.y)),Color(MEADOW,0.30))
