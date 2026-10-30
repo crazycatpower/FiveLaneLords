@@ -36,12 +36,19 @@ def make_sandbox(path):
 
 
 def play(job):
+    """One match. Godot occasionally fails to start under heavy parallel load (no output at all), so
+    a failed run is retried; a script error is a real bug and stops the tuning. None = skipped."""
     sandbox, seed, out = job
     cmd = ["godot_console", "--headless", "--path", sandbox, "-s", "tools/random_sim.gd", "--", f"--start={seed}", "--count=1", f"--out={out}"]
-    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", shell=(os.name == "nt"))
-    if r.returncode != 0 or "SCRIPT ERROR" in r.stdout + r.stderr:
-        raise RuntimeError(f"match {seed} failed:\n{r.stdout[-1500:]}\n{r.stderr[-1500:]}")
-    return json.loads(open(out, encoding="utf-8").readline())
+    for attempt in range(3):
+        r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", shell=(os.name == "nt"))
+        if "SCRIPT ERROR" in r.stdout + r.stderr:
+            raise RuntimeError(f"match {seed} hit a script error:\n{r.stdout[-1500:]}\n{r.stderr[-1500:]}")
+        if r.returncode == 0 and os.path.exists(out) and os.path.getsize(out) > 0:
+            return json.loads(open(out, encoding="utf-8").readline())
+        time.sleep(1.0)
+    print(f"match {seed}: Godot failed three times, skipped", flush=True)
+    return None
 
 
 def rounded(x):
@@ -71,6 +78,7 @@ def main():
     history = {k: [] for k in cost}
     outcomes = {k: [] for k in cost}  # (match number, 1 win / 0 loss) when only one side held the card
     draws = 0
+    skipped = 0
     t0 = time.time()
     done = 0
     seed = args.seed
@@ -80,6 +88,11 @@ def main():
             jobs = [(args.sandbox, seed + i, os.path.join(runs, f"m{seed + i}.jsonl")) for i in range(batch)]
             for r in pool.map(play, jobs):  # results come back in seed order
                 done += 1
+                if r is None:
+                    skipped += 1
+                    for k in cost:
+                        history[k].append(cost[k])
+                    continue
                 w = r["winner"]
                 if w < 0:
                     draws += 1
@@ -112,7 +125,7 @@ def main():
         rows.append((rounded(mean) - start[k], k, start[k], mean, spread, rounded(mean), rate(first), rate(second)))
     rows.sort(key=lambda r: (-abs(r[0]), -r[3]))
     text = [f"# 線上調費報告\n\n{time.strftime('%Y-%m-%d %H:%M')}：{args.matches} 場隨機牌組＋隨機領主的 AI 對戰；每場後只有贏方帶的牌 +{args.step:g}、只有輸方帶的牌 −{args.step:g} 金幣"
-            f"（平手 {draws} 場不調）。每批 {args.workers} 場同時進行。期望費用＝第 {burn + 1}–{args.matches} 場的費用平均；常駐牌（農田、墓碑）不調。總耗時 {(time.time() - t0) / 60:.0f} 分鐘。\n\n"
+            f"（平手 {draws} 場不調；Godot 啟動失敗略過 {skipped} 場）。每批 {args.workers} 場同時進行。期望費用＝第 {burn + 1}–{args.matches} 場的費用平均；常駐牌（農田、墓碑）不調。總耗時 {(time.time() - t0) / 60:.0f} 分鐘。\n\n"
             "| 卡牌 | 原費用 | 期望費用（平均） | 標準差 | 建議費用 | 前半勝率（場次） | 後半勝率（場次） |\n|---|---|---|---|---|---|---|\n"]
     for delta, k, s, mean, spread, new, r1, r2 in rows:
         text.append(f"| {names[k]} | {s:g} | {mean:.2f} | {spread:.2f} | **{new}**{'（' + ('+' if delta > 0 else '') + str(int(delta)) + '）' if delta else ''} | {r1} | {r2} |\n")
