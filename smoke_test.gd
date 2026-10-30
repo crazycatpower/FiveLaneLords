@@ -298,7 +298,7 @@ func preview() -> void:
 func test_lords() -> void:
 	var m := bare(9)
 	var lord: Dictionary = m.lords[0]
-	lord.hp = 200
+	lord.hp = B.LORDS.lion.hp*0.2
 	lord.last_hit = m.elapsed
 	tick(m,0.6)
 	check(lord.retreating and is_equal_approx(lord.target.y,L.spawn_position(0,2).y) and lord.target.x <= m.Lord.zone(0).y,"low health retreats to the middle of the back strip")
