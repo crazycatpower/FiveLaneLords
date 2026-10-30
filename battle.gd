@@ -201,39 +201,45 @@ func kind_at(team: int, slot: int) -> String:
 func slot_cd(team: int, slot: int) -> float:
 	return farm_cd[team] if slot == FARM_SLOT else hand_cd[team][slot]
 
-func can_play(team: int, slot: int, pos: Vector2) -> bool:
-	# Mirrors play_error() rule for rule (a smoke test checks they agree), minus the message strings.
-	if ended or paused: return false
-	if (slot < 0 or slot >= 4) and slot != FARM_SLOT: return false
+# Placement rules live in one place: play_check() says why a card cannot go here (Refusal.OK = it
+# can). can_play() is the cheap yes/no the AI asks hundreds of times per decision; play_error()
+# turns the reason into the sentence the player sees.
+enum Refusal {OK, ENDED, PAUSED, NO_CARD, COOLDOWN, GOLD, OFF_GRID, NOT_OURS, OCCUPIED}
+
+func play_check(team: int, slot: int, pos: Vector2) -> Refusal:
+	if ended: return Refusal.ENDED
+	if paused: return Refusal.PAUSED
+	if (slot < 0 or slot >= 4) and slot != FARM_SLOT: return Refusal.NO_CARD
 	var kind: String = kind_at(team,slot)
 	var card: Dictionary = B.CARDS[kind]
-	if slot_cd(team,slot) > 0.00001 or ink[team] < card.cost: return false
+	if slot_cd(team,slot) > 0.00001: return Refusal.COOLDOWN
+	if ink[team] < card.cost: return Refusal.GOLD
 	var cell := cell_at(pos)
-	if cell.x < 0: return false
-	if card.type == "spell": return true
-	if territory_owner(cell) != team: return false
+	if cell.x < 0: return Refusal.OFF_GRID
+	if card.type == "spell": return Refusal.OK
+	if territory_owner(cell) != team: return Refusal.NOT_OURS
 	if card.type == "building":
 		var here := building_at(cell)
-		if not here.is_empty() and (here.team != team or here.kind != kind): return false
-	return true
+		if not here.is_empty() and (here.team != team or here.kind != kind): return Refusal.OCCUPIED
+	return Refusal.OK
+
+func can_play(team: int, slot: int, pos: Vector2) -> bool:
+	return play_check(team,slot,pos) == Refusal.OK
 
 # Why a card cannot go here ("" = it can). The player sees this text when a placement is refused.
 func play_error(team: int, slot: int, pos: Vector2) -> String:
-	if ended: return "戰局已經結束。"
-	if paused: return "暫停中。"
-	if (slot < 0 or slot >= 4) and slot != FARM_SLOT: return "先選一張手牌。"
-	var kind: String = kind_at(team,slot)
-	var card: Dictionary = B.CARDS[kind]
-	if slot_cd(team,slot) > 0.00001: return "%s 還要冷卻 %.1f 秒。" % [card.name,slot_cd(team,slot)]
-	if ink[team] < card.cost: return "金幣不足：%s 要 %d，還差 %d。" % [card.name,card.cost,ceili(card.cost-ink[team])]
-	var cell := cell_at(pos)
-	if cell.x < 0: return "要放在戰場的格子上。"
-	if card.type == "spell": return ""
-	if territory_owner(cell) != team: return "只能部署在我方領地；建築與城牆周圍八格可擴張，先佔先得。"
-	if card.type == "building":
-		var here := building_at(cell)
-		if not here.is_empty() and (here.team != team or here.kind != kind): return "這格已經有別的建築；只有同一種建築可以覆蓋回血。"
-	return ""
+	var why := play_check(team,slot,pos)
+	match why:
+		Refusal.OK: return ""
+		Refusal.ENDED: return "戰局已經結束。"
+		Refusal.PAUSED: return "暫停中。"
+		Refusal.NO_CARD: return "先選一張手牌。"
+		Refusal.OFF_GRID: return "要放在戰場的格子上。"
+		Refusal.NOT_OURS: return "只能部署在我方領地；建築與城牆周圍八格可擴張，先佔先得。"
+		Refusal.OCCUPIED: return "這格已經有別的建築；只有同一種建築可以覆蓋回血。"
+	var card: Dictionary = B.CARDS[kind_at(team,slot)]
+	if why == Refusal.COOLDOWN: return "%s 還要冷卻 %.1f 秒。" % [card.name,slot_cd(team,slot)]
+	return "金幣不足：%s 要 %d，還差 %d。" % [card.name,card.cost,ceili(card.cost-ink[team])]
 
 func play(team: int, slot: int, pos: Vector2) -> bool:
 	if not can_play(team,slot,pos): return false
@@ -589,11 +595,30 @@ func cultivate(u: Dictionary, dt: float) -> bool:
 			return true
 	return false
 
+# One fixed simulation step. The phase order is part of the rules (tools/golden_matches.json
+# fails if it changes): deaths and revivals, AI plays, clocks and income, buildings, spells and
+# clouds, arrows, lords, troops, then deaths again and cleanup.
 func step(dt: float) -> void:
 	if paused or ended: return
 	elapsed += dt
 	last_dt = dt
 	resolve_deaths()
+	revive_skeletons()
+	update_ai(dt)
+	tick_clocks(dt)
+	build_lookups()
+	update_buildings(dt)
+	update_spells(dt)
+	update_zones(dt)
+	update_projectiles(dt)
+	for lord: Dictionary in lords:
+		if lord_active[lord.team]: Lord.step(self,lord,dt)
+	update_units(dt)
+	resolve_deaths()
+	remove_dead()
+	update_clock()
+
+func revive_skeletons() -> void:
 	for u: Dictionary in units:
 		if u.hp <= 0 and u.has("revive_at") and elapsed >= u.revive_at:
 			u.hp = u.max_hp*B.CARDS.skeleton.revive_share
@@ -601,7 +626,9 @@ func step(dt: float) -> void:
 			u.erase("revive_at")
 			u.cd = B.CARDS.skeleton.interval
 			event("revive",u.pos,u.team)
-	update_ai(dt)
+
+# Card and skill cooldowns, base income, lane alarms.
+func tick_clocks(dt: float) -> void:
 	for team: int in range(2):
 		# Card cooldowns speed up together with ink (x1.5 after 3:00, x2 after 5:00).
 		for slot: int in range(4): hand_cd[team][slot] = maxf(0,hand_cd[team][slot]-dt*multiplier())
@@ -614,7 +641,9 @@ func step(dt: float) -> void:
 	for lane: int in range(5):
 		alarm[lane] = maxf(0,alarm[lane]-dt)
 		building_alarm[lane] = maxf(0,building_alarm[lane]-dt)
-	build_lookups()
+
+# Expiry, farm and grave income, tower shots.
+func update_buildings(dt: float) -> void:
 	for b: Dictionary in buildings:
 		b.flash = maxf(0,b.flash-dt)
 		if b.hp <= 0: continue
@@ -638,81 +667,96 @@ func step(dt: float) -> void:
 			if not target.is_empty() and b.cd <= 0:
 				shoot(b,target,B.CARDS.tower.damage)
 				b.cd = B.CARDS.tower.interval
+
+func update_spells(dt: float) -> void:
 	for spell: Dictionary in spells:
 		spell.delay -= dt
 		if spell.delay <= 0: cast_spell(spell)
 	spells = spells.filter(func(s: Dictionary) -> bool: return s.delay > 0)
-	update_zones(dt)
-	update_projectiles(dt)
-	for lord: Dictionary in lords:
-		if lord_active[lord.team]: Lord.step(self,lord,dt)
+
+func update_units(dt: float) -> void:
 	# Summons append to units; a snapshot prevents them acting in their birth step.
 	for u: Dictionary in units.duplicate():
-		u.flash = maxf(0,u.flash-dt)
-		if u.hp <= 0: continue
-		if u.spawn_delay > 0:
-			u.spawn_delay -= dt
-			continue
-		u.cd = maxf(0,u.cd-dt)
-		var data: Dictionary = B.CARDS[u.kind]
-		if u.kind == "necromancer":
-			u.summon_left -= dt
-			if u.summon_left <= 0:
-				u.summon_left += data.summon_interval
-				var col := clampi(floori((u.pos.x-L.GRID_ORIGIN.x)/L.CELL_SIZE.x),0,L.GRID_COLUMNS-1)
-				for lane: int in range(maxi(0,u.lane-1),mini(5,u.lane+2)):
-					var child := spawn_unit(u.team,lane,"skeleton",L.cell_center(Vector2i(col,lane)))
-					child.card = u.get("card",u.kind)
-					event("revive",child.pos,u.team)
-		heal(u,dt)
-		var target: Dictionary = {} if u.kind in ["ram","raven"] else nearest(u.pos,u.team,data.range,lane_foes[u.team][u.lane],-1,data.range > B.MELEE_RANGE)
-		var building := nearest(u.pos,u.team,data.range,lane_foe_buildings[u.team][u.lane])
-		if u.kind == "raven":
-			var farms: Array = lane_foe_buildings[u.team][u.lane].filter(func(b: Dictionary) -> bool: return b.kind == "farm" and (b.pos.x-u.pos.x)*u.face >= -data.range)
-			var farm := nearest(u.pos,u.team,INF,farms)
-			if not farm.is_empty():
-				building = farm if u.pos.distance_to(farm.pos) <= data.range else {}
-		if not building.is_empty() and (target.is_empty() or u.pos.distance_to(building.pos) < u.pos.distance_to(target.pos)): target = building
-		if u.kind == "reaper": target = reaper_target(u)
-		elif u.kind not in ["ram","raven"]:
-			var taunt := nearest(u.pos,u.team,minf(data.range,B.TAUNT_RADIUS),lane_foe_taunts[u.team][u.lane])
-			if not taunt.is_empty(): target = taunt
-			if target.is_empty(): target = nearest(u.pos,u.team,54.0,lords)
-		if not target.is_empty():
-			if u.cd <= 0: attack(u,target)
-		elif cultivate(u,dt): pass
-		else:
-			# Gate standing: halt and batter it. Gate broken: keep walking; reaching the home line wins.
-			var enemy: int = 1-u.team
-			var open: bool = gates[enemy][u.lane] <= 0
-			var climbed: bool = u.get("climb",0.0) >= B.RUBBLE_TIME
-			var stop: float = L.gate_icon_x(enemy) if open and climbed else L.gate_stop(enemy)
-			var forward := 1.0 if u.team == 0 else -1.0
-			if (stop-u.pos.x)*forward <= 0.001:
-				if open and not climbed:
-					u.climb = u.get("climb",0.0)+dt
-					if enemy == 0: alarm[u.lane] = 1.5
-				elif open:
-					event("invaded",u.pos,u.team,{"lane":u.lane})
-					finish(u.team)
-					break
-				elif u.cd <= 0:
-					var amount: float = u.get("damage",data.damage)
-					if u.kind == "ox":
-						amount = (B.OX_CHARGE if not u.charged else data.damage)*B.OX_BUILDING_BONUS
-						u.charged = true
-					hit_gate(1-u.team,u.lane,amount,u.get("card",u.kind))
-					u.cd = data.interval
-			else:
-				u.pos.x = move_toward(u.pos.x,stop,(B.OX_SLOW_SPEED if u.kind == "ox" and u.charged else u.get("march",data.speed))*dt)
-	resolve_deaths()
+		if update_unit(u,dt): return # an invader just ended the match
+
+# One troop's turn: summon, heal, then fight, cultivate or march. True when it ends the match.
+func update_unit(u: Dictionary, dt: float) -> bool:
+	u.flash = maxf(0,u.flash-dt)
+	if u.hp <= 0: return false
+	if u.spawn_delay > 0:
+		u.spawn_delay -= dt
+		return false
+	u.cd = maxf(0,u.cd-dt)
+	var data: Dictionary = B.CARDS[u.kind]
+	if u.kind == "necromancer": summon_skeletons(u,data,dt)
+	heal(u,dt)
+	var target := choose_target(u,data)
+	if not target.is_empty():
+		if u.cd <= 0: attack(u,target)
+		return false
+	if cultivate(u,dt): return false
+	return march(u,data,dt)
+
+func summon_skeletons(u: Dictionary, data: Dictionary, dt: float) -> void:
+	u.summon_left -= dt
+	if u.summon_left > 0: return
+	u.summon_left += data.summon_interval
+	var col := clampi(floori((u.pos.x-L.GRID_ORIGIN.x)/L.CELL_SIZE.x),0,L.GRID_COLUMNS-1)
+	for lane: int in range(maxi(0,u.lane-1),mini(5,u.lane+2)):
+		var child := spawn_unit(u.team,lane,"skeleton",L.cell_center(Vector2i(col,lane)))
+		child.card = u.get("card",u.kind)
+		event("revive",child.pos,u.team)
+
+# Whom this troop attacks right now ({} = nobody in reach).
+func choose_target(u: Dictionary, data: Dictionary) -> Dictionary:
+	var target: Dictionary = {} if u.kind in ["ram","raven"] else nearest(u.pos,u.team,data.range,lane_foes[u.team][u.lane],-1,data.range > B.MELEE_RANGE)
+	var building := nearest(u.pos,u.team,data.range,lane_foe_buildings[u.team][u.lane])
+	if u.kind == "raven":
+		var farms: Array = lane_foe_buildings[u.team][u.lane].filter(func(b: Dictionary) -> bool: return b.kind == "farm" and (b.pos.x-u.pos.x)*u.face >= -data.range)
+		var farm := nearest(u.pos,u.team,INF,farms)
+		if not farm.is_empty():
+			building = farm if u.pos.distance_to(farm.pos) <= data.range else {}
+	if not building.is_empty() and (target.is_empty() or u.pos.distance_to(building.pos) < u.pos.distance_to(target.pos)): target = building
+	if u.kind == "reaper": target = reaper_target(u)
+	elif u.kind not in ["ram","raven"]:
+		var taunt := nearest(u.pos,u.team,minf(data.range,B.TAUNT_RADIUS),lane_foe_taunts[u.team][u.lane])
+		if not taunt.is_empty(): target = taunt
+		if target.is_empty(): target = nearest(u.pos,u.team,54.0,lords)
+	return target
+
+# Nothing to hit: walk to the enemy gate, batter it, clear its rubble, walk in. True = match won.
+func march(u: Dictionary, data: Dictionary, dt: float) -> bool:
+	var enemy: int = 1-u.team
+	var open: bool = gates[enemy][u.lane] <= 0
+	var climbed: bool = u.get("climb",0.0) >= B.RUBBLE_TIME
+	var stop: float = L.gate_icon_x(enemy) if open and climbed else L.gate_stop(enemy)
+	var forward := 1.0 if u.team == 0 else -1.0
+	if (stop-u.pos.x)*forward > 0.001:
+		u.pos.x = move_toward(u.pos.x,stop,(B.OX_SLOW_SPEED if u.kind == "ox" and u.charged else u.get("march",data.speed))*dt)
+	elif open and not climbed:
+		u.climb = u.get("climb",0.0)+dt
+		if enemy == 0: alarm[u.lane] = 1.5
+	elif open:
+		event("invaded",u.pos,u.team,{"lane":u.lane})
+		finish(u.team)
+		return true
+	elif u.cd <= 0:
+		var amount: float = u.get("damage",data.damage)
+		if u.kind == "ox":
+			amount = (B.OX_CHARGE if not u.charged else data.damage)*B.OX_BUILDING_BONUS
+			u.charged = true
+		hit_gate(1-u.team,u.lane,amount,u.get("card",u.kind))
+		u.cd = data.interval
+	return false
+
+# Free the serials of the dead and drop them (waiting skeletons stay until they rise).
+func remove_dead() -> void:
 	for gone: Dictionary in units+buildings:
 		if gone.hp <= 0 and gone.serial > 0:
 			serials_in_use.erase(gone.serial)
 			gone.serial = 0
 	units = units.filter(func(u: Dictionary) -> bool: return u.hp > 0 or u.has("revive_at"))
 	buildings = buildings.filter(func(b: Dictionary) -> bool: return b.hp > 0)
-	update_clock()
 
 func cast_spell(s: Dictionary) -> void:
 	var data: Dictionary = B.CARDS[s.kind]
