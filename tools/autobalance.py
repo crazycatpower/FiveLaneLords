@@ -25,7 +25,7 @@ def read_cards():
     """{kind: (name, cost)} for every card line in balance.gd (lines that carry a "type")."""
     cards = {}
     for line in open(BALANCE, encoding="utf-8"):
-        m = re.match(r'\t"(\w+)":\{"name":"([^"]+)".*"type":"\w+","cost":(\d+)', line)
+        m = re.match(r'\t"(\w+)":\{"name":"([^"]+)".*?"type":"\w+".*?"cost":(\d+)', line)
         if m: cards[m.group(1)] = (m.group(2), int(m.group(3)))
     return cards
 
@@ -33,7 +33,7 @@ def read_cards():
 def write_costs(new_costs):
     text = open(BALANCE, encoding="utf-8").read()
     for kind, cost in new_costs.items():
-        pattern = r'(\t"%s":\{"name":"[^"]+".*?"type":"\w+","cost":)\d+' % kind
+        pattern = r'(\t"%s":\{"name":"[^"]+".*?"type":"\w+".*?"cost":)\d+' % kind
         text, n = re.subn(pattern, lambda m: m.group(1) + str(cost), text, count=1)
         assert n == 1, kind
     open(BALANCE, "w", encoding="utf-8", newline="").write(text)

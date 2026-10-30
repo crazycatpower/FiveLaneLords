@@ -552,7 +552,7 @@ func test_cards() -> void:
 		if B.tier(pair[0],pair[1]).is_empty(): off_tier.append(str(pair))
 	check(off_tier.is_empty(),"every troop, tower and lord stat sits exactly on an S-E tier value: %s" % str(off_tier))
 	var costs: Array = B.CARDS.values().map(func(c: Dictionary) -> int: return c.cost)
-	check(costs.min() >= 1 and costs.max() == 30,"card costs stay within 1 to 30")
+	check(costs.min() >= 1 and costs.max() <= 30,"card costs stay within 1 to 30")
 	check(B.CARDS.values().all(func(c: Dictionary) -> bool: return c.has("role") and not c.role.is_empty()),"every card has a role")
 	var m := bare(1)
 	m.lords.clear()
