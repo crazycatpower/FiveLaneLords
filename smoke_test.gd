@@ -30,6 +30,8 @@ func offer(m: RefCounted, kind: String, team: int = 0) -> void:
 	m.ink[team] = 50.0
 	m.hand_cd[team] = [0.0,0.0,0.0,0.0]
 func run() -> void:
+	test_golden()
+	check(finished.has("golden"),"golden match test ran to the end")
 	preload("res://tools/test_dark_age.gd").run(self)
 	check(finished.has("dark_age"),"dark age tests completed")
 	test_art_regressions()
@@ -224,6 +226,18 @@ func test_serials() -> void:
 	m.build_lookups()
 	check(m.lord_target(lord) == newest and newest.serial > behind.serial,"level enemies: the lord hits the higher serial")
 	finished["serials"] = true
+
+# Fixed-seed AI battles must end exactly as recorded in tools/golden_matches.json. A failure after a
+# refactor means behaviour changed; after an intended rule change, regenerate with tools/make_golden.gd.
+func test_golden() -> void:
+	var Golden = preload("res://tools/golden.gd")
+	var expected: Array = Golden.load_expected()
+	check(expected.size() == Golden.SEEDS.size(),"golden match file is present (tools/golden_matches.json)")
+	for row: Dictionary in expected:
+		var got: Dictionary = Golden.fingerprint(int(row.seed))
+		var diff: Array = row.keys().filter(func(k: String) -> bool: return str(got.get(k,"?")) != str(row[k]))
+		check(diff.is_empty(),"golden match seed %s unchanged%s" % [row.seed,"" if diff.is_empty() else " (differs: %s)" % ", ".join(diff.map(func(k: String) -> String: return "%s %s -> %s" % [k,row[k],got.get(k,"?")]))])
+	finished["golden"] = true
 
 func test_core() -> void:
 	var m := bare(42)
