@@ -8,7 +8,7 @@
 - 停模擬只停命令列含 `random_sim.gd`／`autobalance.py` 的程序；不要關掉所有 Godot（製作人的編輯器會一起被關）。
 - 數值：部隊、箭樓、領主的攻擊／血量／射程／移速／攻擊間隔必須是 `B.TIERS` 的 S–E 檔次值（同檔同數值，測試會擋）；調強弱用費用、冷卻或換檔次。
 - Git 基線（v1）：ff32c1c；每個改動一個 commit。
-- 名詞：「墨水」已改名「金幣」（程式內部變數仍叫 ink）。牌組＝常駐農田（`Battle.FARM_SLOT`）＋領主（`B.LORDS` 三選一，Q 技能）＋自選 8 張。
+- 名詞：「墨水」已改名「金幣」（程式內部變數仍叫 ink）。牌組＝常駐農田（`Battle.FARM_SLOT`）＋領主（`B.LORDS` 四選一，Q 技能）＋自選 8 張。
 - 美術：雙方共用一套圖，藍方由 `game.gd` 的 `recolor_blue()` 把紅色換成藍色，不要整張染色；新素材 prompt 存進 `assets/manuscript-v1/`。
 - 新增卡牌／領主照 `docs/新增卡牌指南.md`；只改程式結構時黃金對局（`tools/golden_matches.json`）必須不變，有意改玩法才用 `tools/make_golden.gd` 重錄。
 - 不要改回去的設計見交接文件第 5 節。
