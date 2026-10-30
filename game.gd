@@ -144,6 +144,15 @@ func prepare_tutorial_step() -> void:
 		notice = tutorial.caption()
 		return
 	var step: Dictionary = tutorial.current()
+	if step.done == "skill":
+		model.ink[0] = maxf(model.ink[0],B.SKILL_COST)
+		model.skill_cd[0] = 0.0
+		model.lords[0].hp = model.lords[0].max_hp
+		model.lords[0].respawn = 0.0
+		selected = -1
+		dragging = false
+		notice = tutorial.caption()
+		return
 	if step.card == "farm": model.farm_cd[0] = 0.0
 	else:
 		var deck: Array = model.decks[0]

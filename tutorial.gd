@@ -8,6 +8,7 @@ const STEPS := [
 	{"card":"militia","text":"派出民兵隊：部隊只會往前走，一路打到敵方城門。","done":"play_militia"},
 	{"card":"tower","text":"在我方部署區蓋一座箭樓，守住城門。部隊不會回頭，防守靠建築和領主。","done":"play_tower"},
 	{"card":"fire","text":"對準右側藍方的練習農田丟出火罐，燒掉它。","done":"burn"},
+	{"card":"","text":"按 Q 或點右下方技能按鈕，發動領主技能。已備好金幣，看看五路出現的援軍！","done":"skill"},
 	{"card":"knight","text":"第 III 路的藍方城門快倒了：派騎士去打破它，破門後那一路部署區會往前延伸。","done":"breach"},
 ]
 var stage := 0
@@ -33,6 +34,7 @@ func observe(events: Array) -> bool:
 			"play_militia": hit = e.kind == "play" and e.get("card","") == "militia"
 			"play_tower": hit = e.kind == "play" and e.get("card","") == "tower"
 			"burn": hit = e.kind == "burn" and e.team == 1
+			"skill": hit = e.kind == "skill"
 			"breach": hit = e.kind == "breach" and e.team == 0
 		if hit:
 			stage += 1

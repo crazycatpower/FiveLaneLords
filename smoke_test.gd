@@ -720,16 +720,34 @@ func test_tutorial() -> void:
 	check(m.decks[0] == game.Tutorial.DECK or m.decks[0].size() == 8,"tutorial uses its own deck")
 	var plan := [["farm",Vector2i(1,2)],["farmer",Vector2i(0,2)],["militia",Vector2i(2,1)],["tower",Vector2i(1,3)],["fire",Vector2i(7,2)],["knight",Vector2i(2,2)]]
 	for i: int in range(plan.size()):
+		if game.tutorial.current().done == "skill":
+			var skill_stage: int = game.tutorial.stage
+			check(not game.tutorial.observe([{"kind":"skill","team":1}]),"enemy skill cannot complete player tutorial")
+			var deck_before: Array = m.decks[0].duplicate()
+			m.ink[0] = 0
+			m.skill_cd[0] = B.SKILL_COOLDOWN
+			m.lords[0].hp = 0
+			m.lords[0].respawn = 60.0
+			game.prepare_tutorial_step()
+			check(m.ink[0] >= B.SKILL_COST and m.skill_cd[0] == 0 and m.lords[0].hp > 0,"tutorial prepares gold cooldown and living lord")
+			check(m.decks[0] == deck_before,"skill preparation preserves the deck")
+			var key := InputEventKey.new()
+			key.keycode = KEY_Q
+			key.pressed = true
+			game._unhandled_input(key)
+			game._physics_process(1.0/60.0)
+			check(m.stats[0].skills == 1 and game.tutorial.stage == skill_stage+1,"actual Q input casts and advances the tutorial")
+		var stage: int = game.tutorial.stage
 		var card: String = plan[i][0]
 		var slot: int = m.FARM_SLOT if card == "farm" else m.decks[0].find(card)
 		check((slot == m.FARM_SLOT or slot >= 0 and slot < 4) and m.ink[0] >= B.CARDS[card].cost,"tutorial step %d puts %s in hand with enough gold" % [i+1,card])
 		m.hand_cd[0] = [0.0,0.0,0.0,0.0]
 		check(game.try_play(slot,L.cell_center(plan[i][1])),"tutorial step %d card can be played" % [i+1])
 		var frames := 0
-		while game.tutorial.stage == i and frames < 60*60:
+		while game.tutorial.stage == stage and frames < 60*60:
 			game._physics_process(1.0/60.0)
 			frames += 1
-		check(game.tutorial.stage == i+1,"tutorial step %d completes (%s)" % [i+1,card])
+		check(game.tutorial.stage == stage+1,"tutorial step %d completes (%s)" % [i+1,card])
 	check(game.tutorial.complete and m.lord_active[1] and m.ai_start < 1e8,"after the tutorial the blue side wakes up")
 	var frames := 0
 	while not m.ended and frames < 60*30:
