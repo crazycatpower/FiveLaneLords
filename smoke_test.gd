@@ -40,6 +40,7 @@ func run() -> void:
 	test_feel()
 	test_overlap()
 	test_opening_hand()
+	test_battlefield_input()
 	test_tutorial()
 	test_card_cooldowns()
 	test_repair()
@@ -959,3 +960,33 @@ func test_skill_visuals() -> void:
 	check(game.effects.is_empty(),"effects setting disables skill visuals")
 	game.free()
 	finished["skill_visuals"] = true
+
+func test_battlefield_input() -> void:
+	var game = load("res://main.tscn").instantiate()
+	root.add_child(game)
+	game.set_physics_process(false)
+	game.start_battle()
+	game.model.buildings.clear()
+	for lane: int in range(5):
+		game.model.ink[0] = 50
+		game.model.farm_cd[0] = 0
+		game.selected = Battle.FARM_SLOT
+		var cell := Vector2i(1,lane)
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = true
+		click.position = game.battlefield_transform()*L.cell_center(cell)
+		game._unhandled_input(click)
+		check(game.model.buildings.any(func(b: Dictionary) -> bool: return b.cell == cell),"displayed lane %d mouse click places in the matching simulation cell" % lane)
+	game.selected = Battle.FARM_SLOT
+	game.model.ink[0] = 50
+	game.model.farm_cd[0] = 0
+	var sky := InputEventMouseButton.new()
+	sky.button_index = MOUSE_BUTTON_LEFT
+	sky.pressed = true
+	sky.position = Vector2(400,135)
+	game._unhandled_input(sky)
+	check(game.model.buildings.size() == 5,"sky cannot accept battlefield placements")
+	game.start_tutorial()
+	check(game.battlefield_transform() == Transform2D.IDENTITY,"parchment tutorial retains original display coordinates")
+	game.free()
