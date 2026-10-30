@@ -13,6 +13,9 @@ func _initialize() -> void:
 func bare(seed_value: int = 1, deck_a: Array = [], deck_b: Array = [], lord_a: String = "", lord_b: String = "") -> Battle:
 	var m := Battle.new(seed_value,deck_a,deck_b,lord_a,lord_b)
 	m.buildings.clear()
+	# Legacy mechanic fixtures use three claimed columns; territory tests use Battle.new().
+	for team: int in range(2):
+		for lane: int in range(5): m.claim_around(team,Vector2i(1 if team == 0 else 7,lane))
 	return m
 func check(ok: bool, message: String) -> void:
 	checks += 1
@@ -40,6 +43,8 @@ func run() -> void:
 	test_feel()
 	test_overlap()
 	test_opening_hand()
+	test_territory()
+	check(finished.has("territory"),"territory tests completed")
 	test_battlefield_input()
 	test_tutorial()
 	test_card_cooldowns()
@@ -376,13 +381,13 @@ func test_match() -> void:
 	m = bare(1)
 	m.hit_gate(1,2,600)
 	offer(m,"militia")
-	check(m.can_play(0,0,L.cell_center(Vector2i(5,2))),"breach expands unit deployment to column six")
+	check(not m.can_play(0,0,L.cell_center(Vector2i(5,2))),"breach does not claim neutral land")
 	check(not m.can_play(0,0,L.cell_center(Vector2i(5,1))),"other lanes remain closed")
 	offer(m,"farm")
 	check(not m.can_play(0,0,L.cell_center(Vector2i(5,2))),"buildings remain in original deployment zone")
 	m.hit_gate(0,3,600)
 	offer(m,"militia",1)
-	check(m.can_play(1,0,L.cell_center(Vector2i(3,3))),"blue breach mirrors deployment")
+	check(not m.can_play(1,0,L.cell_center(Vector2i(3,3))),"blue breach does not claim neutral land")
 	m = bare(1)
 	m.lords.clear()
 	var u := m.spawn_unit(1,0,"militia",Vector2(L.gate_stop(0)+100,L.cell_center(Vector2i(0,0)).y))
@@ -653,7 +658,7 @@ func test_feel() -> void:
 	game.selected = 0
 	var before: int = game.effects.size()
 	check(not game.try_play(0,L.cell_center(Vector2i(5,2))),"far cells are refused")
-	check("左側三欄" in game.notice and game.effects.size() == before+1 and game.effects.back().kind == "fail","refusal explains why and shows a red cross")
+	check("我方領地" in game.notice and game.effects.size() == before+1 and game.effects.back().kind == "fail","refusal explains why and shows a red cross")
 	m.ink[0] = 0
 	check("金幣不足" in m.play_error(0,0,field),"short ink is explained")
 	check(m.decks[0][0] == kind,"a refused card stays in hand")
@@ -881,7 +886,7 @@ func test_help_layout() -> void:
 			check(control.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART,"help wraps inside bounded column")
 			check(L.HELP_PANEL.encloses(Rect2(control.position,control.size)),"help column fits panel")
 	var words := "\n".join(game.help_columns())
-	for term: String in ["常駐農田","三選一","8 張","金幣","城門不反擊","沒有時間限制","第六欄","各自冷卻"]:
+	for term: String in ["常駐農田","三選一","8 張","金幣","城門不反擊","沒有時間限制","先佔先得","各自冷卻"]:
 		check(words.contains(term),"help covers current rule: "+term)
 	check(not words.contains("墨水") and not words.contains("皇冠"),"help omits obsolete rules")
 	game.free()
@@ -990,3 +995,53 @@ func test_battlefield_input() -> void:
 	game.start_tutorial()
 	check(L.GRID_ORIGIN == Vector2(269,104) and L.CELL_SIZE == Vector2(118,116),"battlefield retains full original lane dimensions")
 	game.free()
+
+func test_territory() -> void:
+	var m := Battle.new(1)
+	for lane: int in range(5):
+		check(m.territory_owner(Vector2i(0,lane)) == 0 and m.territory_owner(Vector2i(8,lane)) == 1,"walls seed both back columns")
+	check(m.territory_owner(Vector2i(2,2)) == -1,"initial farm radius does not claim a third column")
+	m.territory.fill(-1)
+	m.claim_around(0,Vector2i(-1,2))
+	check(m.territory.count(0) == 3,"off-board wall claims only its three on-board neighbours")
+	m.territory.fill(-1)
+	var tower := m.add_building(0,Vector2i(3,2),"tower")
+	check(m.territory.count(0) == 9,"building claims its own tile plus all eight neighbours")
+	m.add_building(1,Vector2i(5,2),"farm")
+	check(m.territory.count(0) == 9 and m.territory.count(1) == 6,"later enemy building cannot overwrite the overlap")
+	m.damage(tower,tower.max_hp,1,"militia")
+	check(m.territory_owner(Vector2i(3,2)) == -1,"unsupported land becomes neutral after destruction")
+	check(m.territory_owner(Vector2i(4,2)) == 1,"enemy covering a released tile takes over")
+	var ally := m.add_building(0,Vector2i(2,2),"farm")
+	var backup := m.add_building(0,Vector2i(1,2),"tower")
+	m.damage(ally,ally.max_hp,1,"militia")
+	check(m.territory_owner(Vector2i(2,2)) == 0 and m.territory_owner(Vector2i(3,2)) == -1,"overlapping allied coverage retains only supported land")
+	offer(m,"militia",1)
+	check(not m.can_play(1,0,L.cell_center(Vector2i(2,2))),"enemy cannot deploy on supported allied territory")
+	offer(m,"rain",1)
+	check(m.can_play(1,0,L.cell_center(Vector2i(2,2))),"spells still target any battlefield tile")
+	m.damage(backup,backup.max_hp,1,"militia")
+	check(m.territory_owner(Vector2i(2,2)) == -1,"losing the last supporting building releases the tile")
+	m.buildings.clear()
+	m.refresh_territory()
+	for lane: int in range(3): m.hit_gate(0,lane,B.GATE_HP)
+	check(m.territory_owner(Vector2i(0,1)) == -1 and m.territory_owner(Vector2i(0,2)) == 0,"wall loss releases unsupported tiles but adjacent walls retain coverage")
+	m.lords[0].lord = "iron"
+	m.ink[0] = B.SKILL_COST
+	m.cast_skill(0)
+	check(m.territory_owner(Vector2i(0,1)) == 0,"rebuilt walls reclaim unowned territory")
+	m = Battle.new(2,[],[],"lion","harvest")
+	m.claim_around(0,Vector2i(3,2))
+	m.ink[0] = B.SKILL_COST
+	m.cast_skill(0)
+	check(m.units.any(func(u: Dictionary) -> bool: return u.lane == 2 and u.pos == L.cell_center(Vector2i(4,2))),"lion summons at the actual territorial frontier")
+	m.ink[1] = B.SKILL_COST
+	m.cast_skill(1)
+	check(m.buildings.all(func(b: Dictionary) -> bool: return m.territory_owner(b.cell) == b.team),"harvest farms stay on their own territory")
+	m = Battle.new(3,[],[],"lion","iron")
+	m.buildings.clear()
+	for lane: int in range(5): m.hit_gate(0,lane,B.GATE_HP)
+	m.ink[0] = B.SKILL_COST
+	m.cast_skill(0)
+	check(m.units.is_empty(),"lion cannot summon onto neutral or enemy land after losing all territory")
+	finished["territory"] = true

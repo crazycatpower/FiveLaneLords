@@ -540,6 +540,19 @@ func draw_battle() -> void:
 	draw_mirrored(art("castle_blue",1),L.CASTLE_RECTS[1])
 	var grid := Rect2(L.GRID_ORIGIN,L.GRID_SIZE)
 	draw_ground(grid)
+	for row: int in range(L.GRID_ROWS):
+		for col: int in range(L.GRID_COLUMNS):
+			var cell := Vector2i(col,row)
+			var owner: int = model.territory_owner(cell)
+			if owner < 0: continue
+			var r := Rect2(L.GRID_ORIGIN+Vector2(cell)*L.CELL_SIZE,L.CELL_SIZE)
+			var color := Color(RED if owner == 0 else BLUE,0.65)
+			for side: int in range(4):
+				var delta: Vector2i = [Vector2i.LEFT,Vector2i.UP,Vector2i.RIGHT,Vector2i.DOWN][side]
+				if model.territory_owner(cell+delta) == owner: continue
+				var corners := [r.position,Vector2(r.end.x,r.position.y),r.end,Vector2(r.position.x,r.end.y)]
+				var edge: int = [3,0,1,2][side]
+				draw_line(corners[edge],corners[(edge+1)%4],color,2.5,true)
 	if selected >= 0:
 		for row: int in range(5):
 			for col: int in range(9):
@@ -551,12 +564,6 @@ func draw_battle() -> void:
 	for lane: int in range(6):
 		var y := grid.position.y+lane*L.CELL_SIZE.y
 		ink_line(Vector2(grid.position.x,y),Vector2(grid.end.x,y),lane,Color(INK,0.55 if lane == 0 or lane == 5 else 0.38),2.0)
-	for col: int in [3,6]:
-		var x := grid.position.x+col*L.CELL_SIZE.x
-		var y := grid.position.y
-		while y < grid.end.y:
-			draw_line(Vector2(x,y),Vector2(x,minf(y+9,grid.end.y)),Color(INK,0.4),1.5)
-			y += 16
 	for lane: int in range(5):
 		draw_string(font,Vector2(grid.position.x+6,grid.position.y+lane*L.CELL_SIZE.y+20),ROMAN[lane],HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color(INK,0.6))
 	for b: Dictionary in model.buildings:
@@ -642,13 +649,6 @@ func draw_ground(grid: Rect2) -> void:
 	for lane: int in range(5):
 		var row := Rect2(grid.position+Vector2(0,lane*ch),Vector2(grid.size.x,ch))
 		if lane % 2 == 1: draw_rect(row,Color(0.25,0.16,0.06,0.06))
-		# A broken gate lets the attacker deploy three columns deeper in that lane.
-		if model.gates[1][lane] <= 0: draw_rect(Rect2(row.position+Vector2(3*cw,0),Vector2(3*cw,ch)),Color(MEADOW,0.2))
-		if model.gates[0][lane] <= 0: draw_rect(Rect2(row.position+Vector2(3*cw,0),Vector2(3*cw,ch)),Color(FROST,0.2))
-	# Faint cell lines inside both deploy zones, where cards can be placed.
-	for col: int in [1,2,7,8]:
-		var x: float = grid.position.x+col*cw
-		draw_line(Vector2(x,grid.position.y),Vector2(x,grid.end.y),Color(INK,0.12),1.0)
 	for row: int in range(5):
 		for col: int in range(9):
 			var origin: Vector2 = grid.position+Vector2(col*cw,row*ch)
@@ -1075,7 +1075,7 @@ func card_description(kind: String) -> String:
 func help_columns() -> Array[String]:
 	return [
 		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐農田；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 有選牌時取消，沒選牌時切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩，戰鬥中按 R 不重開。\n\n[b]牌組與領主[/b]\n農田固定＋領主三選一＋自選 8 張輪轉牌。農田不輪轉、不佔 8 張名額。領主由 AI 移動，只在農田後方防守；按 Q 花 %s 金幣發動領主技能，冷卻 %s 秒。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2，等待時間會縮短。" % [B.number(B.SKILL_COST),B.number(B.SKILL_COOLDOWN),B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
-		"[b]種田與防守[/b]\n農田自己產金幣；農民從田後方出發，順路耕田加速並回血。相同建築覆蓋自己的舊建築可補滿生命。\n部隊只往前走，不追身後範圍外的敵人；城門不反擊，靠領主、部隊與建築防守。\n\n[b]破門與勝負[/b]\n破門後該路部隊可部署到第六欄，建築仍限原始三欄。敵兵破門後需停下拆殘垣 %s 秒，再向家門前進。\n任何敵兵走進家門就輸，沒有時間限制。\n\n[b]觀戰模式[/b]\n開戰前調整雙方牌組與領主（預設隨機），AI 出牌；1–4 切換 ×1／×2／×4／×8，＋／－ 逐級調速。空白鍵暫停。" % B.number(B.RUBBLE_TIME)
+		"[b]種田與防守[/b]\n農田自己產金幣；農民從田後方出發，順路耕田加速並回血。相同建築覆蓋自己的舊建築可補滿生命。\n部隊只往前走，不追身後範圍外的敵人；城門不反擊，靠領主、部隊與建築防守。\n\n[b]破門與勝負[/b]\n建築與部隊限己方領地：建築、城牆周圍八格先佔先得，失去所有己方建築覆蓋就釋出。敵兵破門後需停下拆殘垣 %s 秒，再向家門前進。\n任何敵兵走進家門就輸，沒有時間限制。\n\n[b]觀戰模式[/b]\n開戰前調整雙方牌組與領主（預設隨機），AI 出牌；1–4 切換 ×1／×2／×4／×8，＋／－ 逐級調速。空白鍵暫停。" % B.number(B.RUBBLE_TIME)
 	]
 
 func show_help() -> void:

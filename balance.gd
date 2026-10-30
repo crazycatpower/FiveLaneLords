@@ -73,8 +73,8 @@ const PRESET_LORDS := ["harvest","iron","lion"]
 # Lords are chosen on the deck screen and never enter the hand.
 # All lords have the same 1000 HP (producer 2026-10-29): they differ only in attack and skill.
 const LORDS := {
-	"lion":{"name":"紅獅領主","role":"進攻型","hp":1000.0,"damage":60.0,"speed":90.0,"skill":"獅王號令","skill_desc":"五路各召喚一名騎士，從前線進攻。"},
-	"harvest":{"name":"豐收領主","role":"經濟型","hp":1000.0,"damage":45.0,"speed":90.0,"skill":"豐年祭","skill_desc":"每一路各種下一塊農田（有空格時），全部農田回滿血並產量加倍 %s 秒。"},
+	"lion":{"name":"紅獅領主","role":"進攻型","hp":1000.0,"damage":60.0,"speed":90.0,"skill":"獅王號令","skill_desc":"每路有領地時各召喚一名騎士，從領地前線進攻。"},
+	"harvest":{"name":"豐收領主","role":"經濟型","hp":1000.0,"damage":45.0,"speed":90.0,"skill":"豐年祭","skill_desc":"每路在己方領地空格種一塊農田，全部農田回滿血並產量加倍 %s 秒。"},
 	"iron":{"name":"鐵壁領主","role":"防守型","hp":1000.0,"damage":60.0,"speed":90.0,"skill":"重築城牆","skill_desc":"五座城門回滿血，已破的城門重建，城門前拆殘垣的敵兵要重新開始。"}
 }
 # Lord skills (producer 2026-10-29): lords have no passive effects; each has one strong skill the

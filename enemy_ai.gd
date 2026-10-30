@@ -177,7 +177,7 @@ static func decide(s: Dictionary) -> Dictionary:
 						if b.team == team and b.kind == "farm" and b.pos.distance_to(c.pos) <= data.radius: count += 1
 					if count >= pr.get("harvest_min",2.0): score = pr.get("harvest_score",670.0)+count
 			if defend < 0 and score == -INF and s.ink >= pr.get("spend_at",SPEND_AT):
-				score = spend_score(c,s,team,lane,col,target_lane,foes,urgency,my_farms,15-own_buildings)
+				score = spend_score(c,s,team,lane,col,target_lane,foes,urgency,my_farms,s.get("owned_cells",15)-own_buildings)
 			if score > best_score:
 				best_score = score
 				best = c.duplicate()

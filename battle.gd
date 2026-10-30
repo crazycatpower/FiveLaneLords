@@ -10,6 +10,7 @@ var hand_cd: Array = [[0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0]] # seconds until each 
 var decks: Array = []
 var units: Array[Dictionary] = []
 var buildings: Array[Dictionary] = []
+var territory := PackedInt32Array() # -1 neutral; first owner keeps a tile while supported
 var projectiles: Array[Dictionary] = []
 var spells: Array[Dictionary] = []
 var lords: Array = []
@@ -52,6 +53,11 @@ var ai_save: Array = [false,false] # the AI is holding gold for its lord's skill
 var ai_params: Array = [{},{}] # per-side AI strategy weights (enemy_ai.gd; {} = the hand-written defaults)
 
 func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = [], lord_a: String = "", lord_b: String = "") -> void:
+	territory.resize(L.GRID_COLUMNS*L.GRID_ROWS)
+	territory.fill(-1)
+	for team: int in range(2):
+		for lane: int in range(L.GRID_ROWS):
+			claim_around(team,Vector2i(-1 if team == 0 else L.GRID_COLUMNS,lane))
 	rng.seed = seed_value
 	for team: int in range(2):
 		var deck: Array = (deck_a if team == 0 else deck_b).duplicate()
@@ -82,6 +88,46 @@ func event(kind: String, pos: Vector2, team: int = 0, extra: Dictionary = {}) ->
 func cell_at(pos: Vector2) -> Vector2i:
 	if not Rect2(L.GRID_ORIGIN,L.GRID_SIZE).has_point(pos): return Vector2i(-1,-1)
 	return Vector2i((pos-L.GRID_ORIGIN)/L.CELL_SIZE)
+
+func territory_owner(cell: Vector2i) -> int:
+	if cell.x < 0 or cell.x >= L.GRID_COLUMNS or cell.y < 0 or cell.y >= L.GRID_ROWS: return -1
+	return territory[cell.y*L.GRID_COLUMNS+cell.x]
+
+func claim_around(team: int, center: Vector2i) -> void:
+	# Include the building's own tile, plus its eight neighbours; never overwrite ownership.
+	for dy: int in range(-1,2):
+		for dx: int in range(-1,2):
+			var cell := center+Vector2i(dx,dy)
+			if cell.x < 0 or cell.x >= L.GRID_COLUMNS or cell.y < 0 or cell.y >= L.GRID_ROWS: continue
+			var index := cell.y*L.GRID_COLUMNS+cell.x
+			if territory[index] == -1: territory[index] = team
+
+func refresh_territory() -> void:
+	# Keep the current owner while any living allied structure supports the tile.
+	# Otherwise the oldest surviving claimant takes over, or the tile becomes neutral.
+	for row: int in range(L.GRID_ROWS):
+		for col: int in range(L.GRID_COLUMNS):
+			var support := 0
+			var first := -1
+			for team: int in range(2):
+				if col != (0 if team == 0 else L.GRID_COLUMNS-1): continue
+				for lane: int in range(maxi(0,row-1),mini(L.GRID_ROWS,row+2)):
+					if gates[team][lane] > 0:
+						support |= 1 << team
+						if first < 0: first = team
+			for b: Dictionary in buildings:
+				if b.hp <= 0 or absi(b.cell.x-col) > 1 or absi(b.cell.y-row) > 1: continue
+				support |= 1 << int(b.team)
+				if first < 0: first = b.team
+			var index := row*L.GRID_COLUMNS+col
+			var owner := territory[index]
+			if owner < 0 or (support & (1 << owner)) == 0: territory[index] = first
+
+func front_column(team: int, lane: int) -> int:
+	for distance: int in range(L.GRID_COLUMNS-1,-1,-1):
+		var col := distance if team == 0 else L.GRID_COLUMNS-1-distance
+		if territory_owner(Vector2i(col,lane)) == team: return col
+	return -1
 
 func count_buildings(team: int, kind: String = "farm") -> int:
 	var n := 0
@@ -162,8 +208,7 @@ func can_play(team: int, slot: int, pos: Vector2) -> bool:
 	var cell := cell_at(pos)
 	if cell.x < 0: return false
 	if card.type == "spell": return true
-	var col := cell.x if team == 0 else 8-cell.x
-	if col >= (6 if card.type == "unit" and gates[1-team][cell.y] <= 0 else 3): return false
+	if territory_owner(cell) != team: return false
 	if card.type == "building":
 		var here := building_at(cell)
 		if not here.is_empty() and (here.team != team or here.kind != kind): return false
@@ -181,10 +226,7 @@ func play_error(team: int, slot: int, pos: Vector2) -> String:
 	var cell := cell_at(pos)
 	if cell.x < 0: return "要放在戰場的格子上。"
 	if card.type == "spell": return ""
-	var col := cell.x if team == 0 else 8-cell.x
-	var limit := 6 if card.type == "unit" and gates[1-team][cell.y] <= 0 else 3
-	if col >= limit:
-		return "建築只能蓋在我方左側三欄。" if card.type == "building" else "部隊只能放在我方左側三欄（打破對方城門的那一路可到第六欄）。"
+	if territory_owner(cell) != team: return "只能部署在我方領地；建築與城牆周圍八格可擴張，先佔先得。"
 	if card.type == "building":
 		var here := building_at(cell)
 		if not here.is_empty() and (here.team != team or here.kind != kind): return "這格已經有別的建築；只有同一種建築可以覆蓋回血。"
@@ -220,6 +262,7 @@ func play(team: int, slot: int, pos: Vector2) -> bool:
 	return true
 
 func add_building(team: int, cell: Vector2i, kind: String) -> Dictionary:
+	claim_around(team,cell)
 	next_id += 1
 	var data: Dictionary = B.CARDS[kind]
 	var b := {"id":next_id,"kind":kind,"team":team,"cell":cell,"pos":L.cell_center(cell),"hp":data.hp,"max_hp":data.hp,"expires":elapsed+data.expires if data.expires > 0 else -1.0,"boost_until":0.0,"harvest_until":0.0,"ready_at":elapsed+B.FARM_START,"production":0.0,"cd":0.0,"flash":0.0}
@@ -282,6 +325,7 @@ func damage(target: Dictionary, amount: float, team: int, kind: String) -> void:
 	event("hit",target.pos,target.team)
 	if target.has("cell") and target.team == 0: building_alarm[target.cell.y] = 1.5
 	if target.hp <= 0:
+		if target.has("cell"): refresh_territory()
 		if target.kind == "farm" and elapsed < 180.0: stats[target.team].farms_lost_early += 1
 		var art_kind: String = "lord_"+target.lord if target.kind == "lord" else target.kind
 		var face: float = target.get("face",1.0 if target.team == 0 else -1.0)
@@ -296,6 +340,7 @@ func hit_gate(side: int, lane: int, amount: float, kind: String = "militia") -> 
 	if gates[side][lane] <= 0: return # already open; the attackers just walk in
 	var dealt: float = minf(gates[side][lane],amount)
 	gates[side][lane] = maxf(0,gates[side][lane]-amount)
+	if gates[side][lane] == 0: refresh_territory()
 	if gates[side][lane] == 0 and first_breach < 0: first_breach = elapsed
 	if gates[side][lane] == 0: event("breach",Vector2(L.gate_icon_x(side),L.cell_center(Vector2i(0,lane)).y),1-side,{"lane":lane})
 	stats[1-side].damage[kind] = stats[1-side].damage.get(kind,0.0)+dealt
@@ -322,17 +367,18 @@ func cast_skill(team: int) -> bool:
 		"lion":
 			# One knight per lane at the front-most deploy column of that lane.
 			for lane: int in range(5):
-				var col := (6 if gates[1-team][lane] <= 0 else 3)-1
-				var u := spawn_unit(team,lane,"knight",L.cell_center(Vector2i(col if team == 0 else 8-col,lane)))
+				var col := front_column(team,lane)
+				if col < 0: continue # No summon into neutral or enemy-owned land.
+				var u := spawn_unit(team,lane,"knight",L.cell_center(Vector2i(col,lane)))
 				u.card = "skill"
 				u.spawn_delay = lane*0.1
 				if record_events: visual_targets.append(u.pos)
 		"harvest":
 			# A farm in each lane (front-most free home cell), then every farm healed and doubled.
 			for lane: int in range(5):
-				for col: int in range(3):
+				for col: int in range(L.GRID_COLUMNS):
 					var cell := Vector2i(col if team == 0 else 8-col,lane)
-					if building_at(cell).is_empty():
+					if territory_owner(cell) == team and building_at(cell).is_empty():
 						add_building(team,cell,"farm")
 						break
 			for b: Dictionary in buildings:
@@ -344,6 +390,7 @@ func cast_skill(team: int) -> bool:
 			# Every gate back to full; attackers already clearing rubble must start over.
 			for lane: int in range(5):
 				gates[team][lane] = B.GATE_HP
+				claim_around(team,Vector2i(-1 if team == 0 else L.GRID_COLUMNS,lane))
 				if record_events: visual_targets.append(Vector2(L.gate_icon_x(team),L.cell_center(Vector2i(0,lane)).y))
 			for u: Dictionary in units:
 				if u.team != team: u.climb = 0.0
@@ -447,6 +494,7 @@ func step(dt: float) -> void:
 		if b.hp <= 0: continue
 		if b.expires > 0 and elapsed >= b.expires:
 			b.hp = 0
+			refresh_territory()
 			event("death",b.pos,b.team,{"card":b.kind,"art_kind":b.kind,"face":1.0})
 			continue
 		if b.kind == "farm":
@@ -559,7 +607,7 @@ func snapshot(team: int) -> Dictionary:
 				var cell := Vector2i(col,row)
 				var pos := L.cell_center(cell)
 				if can_play(team,slot,pos): candidates.append({"slot":slot,"kind":kind_at(team,slot),"pos":pos,"cell":cell})
-	return {"team":team,"ink":ink[team],"enemy_ink":ink[1-team],"difficulty":difficulty,"elapsed":elapsed,"wave_until":wave_until[team],"memory":memory[team].duplicate(),"recent":recent_lanes[team].duplicate(),"saving":ai_save[team],"params":ai_params[team],"units":units,"buildings":buildings,"gates":gates,"candidates":candidates}
+	return {"team":team,"ink":ink[team],"enemy_ink":ink[1-team],"difficulty":difficulty,"elapsed":elapsed,"wave_until":wave_until[team],"memory":memory[team].duplicate(),"recent":recent_lanes[team].duplicate(),"saving":ai_save[team],"params":ai_params[team],"units":units,"buildings":buildings,"gates":gates,"candidates":candidates,"owned_cells":territory.count(team)}
 
 func update_ai(dt: float) -> void:
 	if elapsed < ai_start: return
