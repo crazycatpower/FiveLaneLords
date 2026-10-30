@@ -975,7 +975,7 @@ func test_battlefield_input() -> void:
 		var click := InputEventMouseButton.new()
 		click.button_index = MOUSE_BUTTON_LEFT
 		click.pressed = true
-		click.position = game.battlefield_transform()*L.cell_center(cell)
+		click.position = L.cell_center(cell)
 		game._unhandled_input(click)
 		check(game.model.buildings.any(func(b: Dictionary) -> bool: return b.cell == cell),"displayed lane %d mouse click places in the matching simulation cell" % lane)
 	game.selected = Battle.FARM_SLOT
@@ -984,9 +984,9 @@ func test_battlefield_input() -> void:
 	var sky := InputEventMouseButton.new()
 	sky.button_index = MOUSE_BUTTON_LEFT
 	sky.pressed = true
-	sky.position = Vector2(400,135)
+	sky.position = Vector2(400,35)
 	game._unhandled_input(sky)
 	check(game.model.buildings.size() == 5,"sky cannot accept battlefield placements")
 	game.start_tutorial()
-	check(game.battlefield_transform() == Transform2D.IDENTITY,"parchment tutorial retains original display coordinates")
+	check(L.GRID_ORIGIN == Vector2(269,104) and L.CELL_SIZE == Vector2(118,116),"battlefield retains full original lane dimensions")
 	game.free()

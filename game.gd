@@ -327,11 +327,11 @@ func _unhandled_input(event: InputEvent) -> void:
 				dragging = true
 				press_pos = pos
 				return
-			if selected >= 0: try_play(selected,field_mouse(pos))
+			if selected >= 0: try_play(selected,pos)
 		elif dragging:
 			dragging = false
 			var slot := card_at(pos)
-			if slot < 0 and pos.distance_to(press_pos) > 12 and selected >= 0: try_play(selected,field_mouse(pos))
+			if slot < 0 and pos.distance_to(press_pos) > 12 and selected >= 0: try_play(selected,pos)
 			elif slot == selected and press_was_selected and pos.distance_to(press_pos) <= 12: selected = -1 # clicking the selected card again puts it back
 
 func label_at(pos: Vector2, text: String, size: int = 20, color: Color = INK) -> void:
@@ -439,9 +439,9 @@ func actor_rect(kind: String) -> Rect2:
 	return fitted_rect(art(kind).get_size(),Rect2(-width/2,-63,width,80),true)
 
 func draw_actor(kind: String, team: int, pos: Vector2, face: float, shade: Color = Color.WHITE) -> void:
-	local_draw_transform(pos,0,Vector2(face,1))
+	draw_set_transform(pos,0,Vector2(face,1))
 	draw_texture_rect(art(kind,team),actor_rect(kind),false,shade)
-	local_draw_transform(Vector2.ZERO)
+	draw_set_transform(Vector2.ZERO)
 
 func card_art_kinds(kind: String) -> Array:
 	return B.CARDS[kind].get("art",[kind])
@@ -498,25 +498,9 @@ func _draw() -> void:
 	else: draw_title()
 
 # Flat manuscript pigments over paper; deterministic strokes never consume battle RNG.
-var field_transform := Transform2D.IDENTITY
-
-func battlefield_transform() -> Transform2D:
-	if tutorial != null: return Transform2D.IDENTITY
-	# Reserve a separate sky strip; keep simulation coordinates and distances unchanged.
-	var scale_y := (L.GRID_ORIGIN.y+L.GRID_SIZE.y-190.0)/L.GRID_SIZE.y
-	return Transform2D(Vector2(1,0),Vector2(0,scale_y),Vector2(0,190.0-L.GRID_ORIGIN.y*scale_y))
-
-func field_mouse(pos: Vector2) -> Vector2:
-	return battlefield_transform().affine_inverse()*pos
-
-func local_draw_transform(pos: Vector2, rotation: float = 0.0, scale_value: Vector2 = Vector2.ONE) -> void:
-	draw_set_transform_matrix(field_transform*Transform2D(rotation,scale_value,0.0,pos))
-
 func draw_battle_landscape(field: Rect2) -> void:
 	draw_rect(field,Color("81975e"))
-	# The distant hills end before the first lane, with no gameplay decoration in the sky.
-	draw_landscape(Rect2(field.position,Vector2(field.size.x,190-field.position.y)),0.64)
-	draw_texture_rect(PAPER,Rect2(field.position.x,190,field.size.x,field.end.y-190),false,Color(1,1,1,0.08))
+	draw_texture_rect(PAPER,field,false,Color(1,1,1,0.08))
 
 func draw_landscape(rect: Rect2, horizon: float) -> void:
 	draw_rect(rect,Color("8db7cb"))
@@ -552,8 +536,6 @@ func draw_battle() -> void:
 	draw_texture_rect(ART.ornament(1),Rect2(Vector2(field.end.x-8-corner.x,field.position.y+8),corner),false,Color(1,1,1,0.85))
 	draw_texture_rect(ART.ornament(2),Rect2(Vector2(field.position.x+8,field.end.y-8-corner.y),corner),false,Color(1,1,1,0.85))
 	draw_texture_rect(ART.ornament(3),Rect2(field.end-Vector2(8,8)-corner,corner),false,Color(1,1,1,0.85))
-	field_transform = battlefield_transform()
-	local_draw_transform(Vector2.ZERO)
 	draw_texture_rect(art("castle_red",0),L.CASTLE_RECTS[0],false)
 	draw_mirrored(art("castle_blue",1),L.CASTLE_RECTS[1])
 	var grid := Rect2(L.GRID_ORIGIN,L.GRID_SIZE)
@@ -606,8 +588,6 @@ func draw_battle() -> void:
 		draw_line(arrow.pos-Vector2(12,0),arrow.pos,INK,2)
 	draw_preview()
 	draw_effects()
-	field_transform = Transform2D.IDENTITY
-	local_draw_transform(Vector2.ZERO)
 	draw_hud()
 	if tutorial != null and not model.ended:
 		panel(Rect2(290,98,1020,34),Color("f6ead0"))
@@ -649,10 +629,10 @@ func result_value(team: int, key: String) -> float:
 
 # Ground under a soldier: a dark shadow with a ring in the team's colour, so sides read at a glance.
 func team_base(center: Vector2, radius: float, color: Color) -> void:
-	local_draw_transform(center,0,Vector2(1,0.34))
+	draw_set_transform(center,0,Vector2(1,0.34))
 	draw_circle(Vector2.ZERO,radius,Color(0.18,0.12,0.06,0.42))
 	draw_circle(Vector2.ZERO,radius,Color(color,0.55),false,4.0)
-	local_draw_transform(Vector2.ZERO)
+	draw_set_transform(Vector2.ZERO)
 
 # The battlefield floor: tinted zones, alternating lane shade, grass and pebbles, darker edges.
 func draw_ground(grid: Rect2) -> void:
@@ -687,9 +667,9 @@ func tuft(base: Vector2, color: Color, height: float) -> void:
 		draw_line(base,base+Vector2(sin(a)*height*0.8,-cos(a)*height),color,1.3,true)
 
 func team_shadow(center: Vector2, radius: float, color: Color) -> void:
-	local_draw_transform(center,0,Vector2(1,0.32))
+	draw_set_transform(center,0,Vector2(1,0.32))
 	draw_circle(Vector2.ZERO,radius,Color(color,0.45))
-	local_draw_transform(Vector2.ZERO)
+	draw_set_transform(Vector2.ZERO)
 
 func draw_unit(u: Dictionary) -> void:
 	var pos: Vector2 = u.draw-Vector2(u.face*4,0) if fx_enabled and u.flash > 0 else u.draw # small knockback on hit
@@ -715,7 +695,7 @@ func layout_formations() -> void:
 
 func draw_preview() -> void:
 	if selected < 0: return
-	var pos := field_mouse(get_global_mouse_position())
+	var pos := get_global_mouse_position()
 	var cell: Vector2i = model.cell_at(pos)
 	if cell.x < 0: return
 	var kind: String = model.kind_at(0,selected)
@@ -795,7 +775,14 @@ func draw_skill_effect(e: Dictionary, progress: float) -> void:
 					draw_line(Vector2(point.x-24,y),Vector2(point.x+24,y),Color(gold,strength*(1.0-i*0.2)),2.0,true)
 
 func draw_hud() -> void:
-	panel(L.HUD_FRAME)
+	if tutorial != null:
+		panel(L.HUD_FRAME)
+	else:
+		draw_rect(L.HUD_FRAME,Color("a6c9dc"))
+		for x: int in range(48,1550,58):
+			draw_polyline(PackedVector2Array([Vector2(x,24),Vector2(x+16,34),Vector2(x,44),Vector2(x-16,34),Vector2(x,24)]),Color(0.92,0.97,1,0.23),1.2,true)
+		draw_texture_rect(PAPER,L.HUD_FRAME,false,Color(1,1,1,0.06))
+		ink_frame(L.HUD_FRAME)
 	for team: int in range(2):
 		var x := 95.0 if team == 0 else 1070.0
 		draw_texture_rect(art("crest",team),Rect2(x-58,21,48,50),false)
@@ -850,7 +837,7 @@ func draw_hud() -> void:
 			panel(SPEED_RECTS[i],Color("c9a96a") if speed == SPEEDS[i] else Color("e8d5ab"))
 			draw_string(font,SPEED_RECTS[i].position+Vector2(0,25),"×%d" % SPEEDS[i],HORIZONTAL_ALIGNMENT_CENTER,SPEED_RECTS[i].size.x,18,INK)
 	var mouse := get_global_mouse_position()
-	if dragging and selected >= 0 and card_at(mouse) < 0 and model.cell_at(field_mouse(mouse)).x < 0:
+	if dragging and selected >= 0 and card_at(mouse) < 0 and model.cell_at(mouse).x < 0:
 		draw_card_art(model.kind_at(0,selected),Rect2(mouse-Vector2(40,36),Vector2(80,72)),0,Color(1,1,1,0.7))
 	if spectating: label_at(Vector2(1220,766),"雙方領主",20)
 	else: draw_skill_button()
@@ -894,9 +881,9 @@ func show_title() -> void:
 
 # The blue castle faces the red one: draw it flipped left-right inside the same rect.
 func draw_mirrored(tex: Texture2D, r: Rect2) -> void:
-	local_draw_transform(Vector2(2*r.position.x+r.size.x,0),0,Vector2(-1,1))
+	draw_set_transform(Vector2(2*r.position.x+r.size.x,0),0,Vector2(-1,1))
 	draw_texture_rect(tex,r,false)
-	local_draw_transform(Vector2.ZERO)
+	draw_set_transform(Vector2.ZERO)
 
 func draw_title() -> void:
 	draw_texture_rect(textures.castle_red,Rect2(100,290,350,480),false)
