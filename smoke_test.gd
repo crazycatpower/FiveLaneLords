@@ -59,6 +59,8 @@ func run() -> void:
 	test_start_farms()
 	check(finished.has("start_farms"),"start farm test ran to the end")
 	test_fast_rules()
+	test_factions()
+	check(finished.has("factions"),"faction test ran to the end")
 	test_serials()
 	check(finished.has("serials"),"serial test ran to the end")
 	check(finished.has("fast_rules"),"fast rule test ran to the end")
@@ -241,6 +243,33 @@ func test_golden() -> void:
 		check(diff.is_empty(),"golden match seed %s unchanged%s" % [row.seed,"" if diff.is_empty() else " (differs: %s)" % ", ".join(diff.map(func(k: String) -> String: return "%s %s -> %s" % [k,row[k],got.get(k,"?")]))])
 	finished["golden"] = true
 
+# 普通／黑暗／中立: lords take their own faction plus neutral cards; the underworld lord's home card
+# is the tombstone (it replaces the farm, including the two starting buildings).
+func test_factions() -> void:
+	var dark_cards: Array = B.CARDS.keys().filter(func(k: String) -> bool: return B.card_faction(k) == "dark")
+	var normal_cards: Array = B.CARDS.keys().filter(func(k: String) -> bool: return B.card_faction(k) == "normal")
+	check("farm" in normal_cards and "harvest" in normal_cards and "grave" in dark_cards,"farm and harvest are normal; the tombstone is dark")
+	var rng := RandomNumberGenerator.new()
+	var wrong := 0
+	for i: int in range(200):
+		rng.seed = i
+		for lord: String in B.LORDS:
+			var deck: Array = DS.random_deck(rng,lord)
+			if not DS.valid(deck,lord): wrong += 1
+	check(wrong == 0,"random decks only hold cards their lord may take (200 seeds x every lord)")
+	var deck: Array = B.PRESETS[0].duplicate()
+	if not "harvest" in deck: deck[0] = "harvest"
+	check(DS.valid(deck,"lion") and not DS.valid(deck,"underworld"),"the underworld lord cannot take 豐收")
+	var fitted: Array = DS.fit_to_lord(deck,"underworld")
+	check(DS.valid(fitted,"underworld") and fitted.size() == 8,"fit_to_lord swaps out other-faction cards and keeps eight")
+	check(DS.pool("lion").all(func(k: String) -> bool: return B.card_faction(k) != "dark") and DS.pool("underworld").all(func(k: String) -> bool: return B.card_faction(k) != "normal"),"each lord's pool is its faction plus neutral")
+	var m := Battle.new(3,[],[],"underworld","lion")
+	check(m.kind_at(0,m.FARM_SLOT) == "grave" and m.kind_at(1,m.FARM_SLOT) == "farm","the F slot holds each lord's home card")
+	check(m.buildings.filter(func(b: Dictionary) -> bool: return b.team == 0).all(func(b: Dictionary) -> bool: return b.kind == "grave") and m.buildings.filter(func(b: Dictionary) -> bool: return b.team == 1).all(func(b: Dictionary) -> bool: return b.kind == "farm"),"the underworld lord starts with tombstones instead of farms")
+	m.lords.clear()
+	check(m.kind_at(0,m.FARM_SLOT) == "grave","the home card does not depend on the lord staying in the list")
+	finished["factions"] = true
+
 func test_core() -> void:
 	var m := bare(42)
 	check(m.ink == [B.START_INK,B.START_INK] and B.START_INK == 25.0,"opening gold is 25 on both sides")
@@ -325,6 +354,7 @@ func preview() -> void:
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	game.deck_path = "user://test-ui-deck.json"
+	game.player_lord = "lion" # tests use normal-faction decks, whatever lord the saved deck has
 	game.player_deck = B.PRESETS[0].duplicate()
 	if DisplayServer.get_name() != "headless":
 		for screen: String in ["title","deck","help"]:
@@ -624,6 +654,7 @@ func test_screens() -> void:
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	game.deck_path = "user://test-ui-deck.json" # never touch the player's own deck
+	game.player_lord = "lion" # tests use normal-faction decks, whatever lord the saved deck has
 	game.set_physics_process(false)
 	check(game.screen == "title","game opens on the title screen")
 	var labels: Array = game.ui.map(func(b: Button) -> String: return b.text)
@@ -667,6 +698,7 @@ func test_screens() -> void:
 	game.cycle_watch_card(0,0)
 	check(game.watch_decks[0][0] != before_card and DS.valid(game.watch_decks[0]) and game.watch_source[0] == -1,"clicking a card swaps it and keeps the deck valid")
 	game.watch_lords[0] = "harvest"
+	game.watch_decks[0] = DS.fit_to_lord(game.watch_decks[0],"harvest")
 	var red_deck: Array = game.watch_decks[0].duplicate()
 	game.spectating = true
 	game.start_battle()
@@ -692,6 +724,7 @@ func test_feel() -> void:
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	game.deck_path = "user://test-ui-deck.json"
+	game.player_lord = "lion" # tests use normal-faction decks, whatever lord the saved deck has
 	game.set_physics_process(false)
 	game.player_deck = B.PRESETS[1].duplicate()
 	game.spectating = false
@@ -783,6 +816,7 @@ func test_tutorial() -> void:
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	game.deck_path = "user://test-ui-deck.json"
+	game.player_lord = "lion" # tests use normal-faction decks, whatever lord the saved deck has
 	game.set_physics_process(false)
 	game.start_tutorial()
 	var m = game.model
@@ -1018,7 +1052,7 @@ func test_skill_visuals() -> void:
 			var cue: Dictionary = game.effects.filter(func(e: Dictionary) -> bool: return e.kind == "skill").back()
 			check(cue.duration == 1.0 and cue.lord == kind and cue.team == team,"skill visual identity and duration")
 			var count: int = game.model.buildings.filter(func(b: Dictionary) -> bool: return b.team == team and b.kind == "farm").size() if kind == "harvest" else 5
-			if kind == "underworld": count = 1
+			if kind == "underworld": count = game.model.buildings.filter(func(b: Dictionary) -> bool: return b.team == team and b.kind == "grave").size()
 			check(cue.targets.size() == count,"all affected lanes or farms get a visual cue")
 			game._process(1.1)
 			check(game.effects.is_empty() and game.model.ink[team] == gold,"skill visuals expire without changing gold")

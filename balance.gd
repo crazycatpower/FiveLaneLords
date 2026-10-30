@@ -43,22 +43,22 @@ const LORD_HYSTERESIS := 1.5
 # and "spread": true to deploy "count" troops in each of three adjacent lanes.
 # "cooldown": seconds a card must wait after it enters the hand before it can be played (0..30).
 const CARDS := {
-	"grave":{"name":"墓碑","role":"死亡·經濟","series":"dark","type":"building","cost":5,"cooldown":10.0,"hp":400.0,"expires":-1.0,"period":60.0,"income":6.0,"death_advance":20.0},
-	"skeleton":{"name":"骷髏兵","role":"復活·纏鬥","series":"dark","type":"unit","cost":6,"cooldown":2.0,"count":4,"hp":50.0,"damage":12.0,"interval":0.85,"range":47.0,"speed":45.0,"revive_delay":3.0,"revive_share":0.5},
-	"ghoul":{"name":"食屍鬼","role":"吞噬·成長","series":"dark","type":"unit","cost":9,"cooldown":6.0,"count":2,"hp":200.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":70.0,"radius":110.0,"devour_heal":50.0,"max_damage_tier":1},
-	"necromancer":{"name":"死靈法師","role":"三路·招魂","series":"dark","type":"unit","projectile":true,"cost":14,"cooldown":12.0,"count":1,"hp":200.0,"damage":12.0,"interval":1.2,"range":145.0,"speed":30.0,"summon_interval":15.0},
+	"grave":{"name":"墓碑","role":"死亡·經濟","faction":"dark","series":"dark","type":"building","cost":5,"cooldown":30.0,"hp":400.0,"expires":-1.0,"period":60.0,"income":6.0,"death_advance":20.0},
+	"skeleton":{"name":"骷髏兵","role":"復活·纏鬥","faction":"dark","series":"dark","type":"unit","cost":6,"cooldown":2.0,"count":4,"hp":50.0,"damage":12.0,"interval":0.85,"range":47.0,"speed":45.0,"revive_delay":3.0,"revive_share":0.5},
+	"ghoul":{"name":"食屍鬼","role":"吞噬·成長","faction":"dark","series":"dark","type":"unit","cost":9,"cooldown":6.0,"count":2,"hp":200.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":70.0,"radius":110.0,"devour_heal":50.0,"max_damage_tier":1},
+	"necromancer":{"name":"死靈法師","role":"三路·招魂","faction":"dark","series":"dark","type":"unit","projectile":true,"cost":14,"cooldown":12.0,"count":1,"hp":200.0,"damage":12.0,"interval":1.2,"range":145.0,"speed":30.0,"summon_interval":15.0},
 	"reaper":{"name":"收割者","role":"收割·老兵","series":"dark","type":"unit","target_rule":"lowest_serial","cost":12,"cooldown":10.0,"count":1,"hp":400.0,"damage":90.0,"interval":1.7,"range":100.0,"speed":45.0},
 	"raven":{"name":"烏鴉群","role":"飛行·拆田","series":"dark","type":"unit","hits":"buildings","prefers":"farm","cost":8,"cooldown":6.0,"count":6,"hp":50.0,"damage":6.0,"interval":0.6,"range":47.0,"speed":105.0,"flying":true},
 	"plague":{"name":"瘟疫","role":"毒霧·擴散","series":"dark","type":"spell","ai":["defend_spell"],"cost":7,"cooldown":10.0,"radius":110.0,"tick_damage":12.0,"tick_interval":1.0,"duration":6.0,"spread_duration":3.0,"spread_radius":60.0},
 	"bonewall":{"name":"骨牆","role":"阻擋·反擊","series":"dark","type":"building","ai":["defend_building"],"cost":6,"cooldown":8.0,"hp":750.0,"expires":-1.0,"explosion_damage":150.0,"radius":110.0},
-	"farmer":{"name":"農民","role":"經濟·耕田","type":"unit","ai":["no_defend"],"cost":3,"cooldown":0.0,"count":3,"hp":50.0,"damage":6.0,"interval":1.2,"range":47.0,"speed":45.0},
+	"farmer":{"name":"農民","role":"經濟·耕田","faction":"normal","type":"unit","ai":["no_defend"],"cost":3,"cooldown":0.0,"count":3,"hp":50.0,"damage":6.0,"interval":1.2,"range":47.0,"speed":45.0},
 	"militia":{"name":"民兵隊","role":"循環·擋路","type":"unit","cost":10,"cooldown":2.0,"count":5,"hp":100.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":45.0},
-	"harvest":{"name":"豐收","role":"經濟·爆發","type":"spell","cost":3,"cooldown":8.0,"radius":120.0},
+	"harvest":{"name":"豐收","role":"經濟·爆發","faction":"normal","type":"spell","cost":3,"cooldown":8.0,"radius":120.0},
 	"scarecrow":{"name":"稻草人","role":"誘敵·護田","type":"building","ai":["guard","defend_building","obstacle"],"cost":2,"cooldown":3.0,"hp":400.0,"expires":-1.0},
 	"mob":{"name":"乾草叉暴民","role":"三路群攻","type":"unit","ai":["raid"],"cost":11,"cooldown":6.0,"count":4,"spread":true,"hp":50.0,"damage":12.0,"interval":0.85,"range":47.0,"speed":70.0},
 	"hunter":{"name":"獵戶","role":"遠程輸出","type":"unit","projectile":true,"cost":4,"cooldown":4.0,"count":3,"hp":50.0,"damage":12.0,"interval":1.7,"range":210.0,"speed":30.0},
 	"spearbow":{"name":"槍弓混編","role":"遠近軍團","type":"unit","cost":12,"cooldown":6.0,"members":[["militia",4,0.0],["hunter",2,45.0]],"art":["militia","hunter"]},
-	"farm":{"name":"農田","role":"經濟·基礎","type":"building","cost":6,"cooldown":30.0,"hp":250.0,"expires":-1.0},
+	"farm":{"name":"農田","role":"經濟·基礎","faction":"normal","type":"building","cost":6,"cooldown":30.0,"hp":250.0,"expires":-1.0},
 	"rain":{"name":"箭雨","role":"清群法術","type":"spell","ai":["defend_spell","wave_spell"],"cost":6,"cooldown":6.0,"radius":110.0,"damage":200.0,"building_damage":60.0,"gate_damage":60.0},
 	"tower":{"name":"箭樓","role":"防守","type":"building","ai":["guard","defend_building","obstacle"],"cost":10,"cooldown":8.0,"hp":400.0,"expires":-1.0,"range":300.0,"damage":24.0,"interval":0.6},
 	"healer":{"name":"草藥婆","role":"支援·治療","type":"unit","ai":["no_defend","hold"],"cost":5,"cooldown":8.0,"count":1,"hp":200.0,"damage":6.0,"interval":1.2,"range":145.0,"speed":30.0},
@@ -66,7 +66,7 @@ const CARDS := {
 	"fire":{"name":"火罐","role":"燒田法術","type":"spell","ai":["defend_spell","wave_spell","raid"],"cost":10,"cooldown":15.0,"radius":95.0,"damage":420.0,"building_damage":840.0,"gate_damage":140.0},
 	"knight":{"name":"騎士","role":"主坦","type":"unit","ai":["big"],"cost":22,"cooldown":15.0,"count":2,"hp":750.0,"damage":90.0,"interval":1.7,"range":47.0,"speed":20.0},
 	"guard":{"name":"聖堂護衛","role":"重裝軍團","type":"unit","cost":30,"cooldown":18.0,"members":[["knight",2,0.0],["healer",2,50.0]],"art":["knight","healer"]},
-	"mill":{"name":"磨坊","role":"大型經濟","type":"building","ai":["obstacle"],"cost":18,"cooldown":20.0,"hp":900.0,"expires":-1.0},
+	"mill":{"name":"磨坊","role":"大型經濟","faction":"normal","type":"building","ai":["obstacle"],"cost":18,"cooldown":20.0,"hp":900.0,"expires":-1.0},
 	"ram":{"name":"攻城槌","role":"終結·破門","type":"unit","hits":"buildings","ai":["hold","big"],"cost":24,"cooldown":30.0,"members":[["ram",1,0.0],["militia",4,-40.0]],"art":["ram","militia"],"count":1,"hp":1500.0,"damage":180.0,"interval":2.4,"range":47.0,"speed":20.0}
 }
 
@@ -82,6 +82,32 @@ const CARDS := {
 #   defend_building placed in front of attackers        obstacle     counts as an enemy wall when choosing a lane
 #   no_defend      never sent to stop an attack          hold         only played with gold to spare (or at 45+)
 #   big            a target worth the reaper
+# Each lord's permanent card in the F slot (and its two starting buildings): farmland, except the
+# underworld lord, whose tombstones replace farms (producer 2026-10-30). Home cards never go in the
+# chosen eight.
+static func home_card(lord: String) -> String:
+	return LORDS.get(lord,{}).get("home_card","farm")
+
+static func is_home_card(kind: String) -> bool:
+	if kind == "farm": return true
+	for lord: String in LORDS:
+		if LORDS[lord].get("home_card","") == kind: return true
+	return false
+
+# Factions (producer 2026-10-30): a card with "faction" can only be taken by lords of that faction;
+# a card without one is neutral (中立) and fits every deck. Lords carry their faction too.
+const FACTIONS := {"normal":"普通","dark":"黑暗","":"中立"}
+
+static func card_faction(kind: String) -> String:
+	return CARDS[kind].get("faction","")
+
+static func lord_faction(lord: String) -> String:
+	return LORDS.get(lord,{}).get("faction","normal")
+
+static func card_allowed(kind: String, lord: String) -> bool:
+	var faction := card_faction(kind)
+	return faction.is_empty() or faction == lord_faction(lord)
+
 static func has_tag(kind: String, tag: String) -> bool:
 	return tag in CARDS[kind].get("ai",[])
 
@@ -116,6 +142,7 @@ static func validate() -> Array[String]:
 			if c.has(stat) and (type == "unit" or c.has("range")) and tier(stat,c[stat]).is_empty(): problems.append("%s: %s %s is not an S-E tier value" % [kind,stat,str(c[stat])])
 		for key: String in BEHAVIOUR_VALUES:
 			if c.has(key) and not c[key] in BEHAVIOUR_VALUES[key]: problems.append("%s: %s must be one of %s" % [kind,key,str(BEHAVIOUR_VALUES[key])])
+		if not c.get("faction","") in FACTIONS: problems.append("%s: faction must be normal, dark or absent (neutral)" % kind)
 		for tag in c.get("ai",[]):
 			if not tag in AI_TAGS: problems.append("%s: unknown AI tag %s" % [kind,str(tag)])
 		# The description reads the fields above, so only build it once they are all present.
@@ -125,6 +152,10 @@ static func validate() -> Array[String]:
 			if not LORDS[kind].has(key): problems.append("lord %s: missing %s" % [kind,key])
 		for stat: String in ["hp","damage","speed"]:
 			if LORDS[kind].has(stat) and tier(stat,LORDS[kind][stat]).is_empty(): problems.append("lord %s: %s is not an S-E tier value" % [kind,stat])
+		var home: String = home_card(kind)
+		if not LORDS[kind].get("faction","") in ["normal","dark"]: problems.append("lord %s: faction must be normal or dark" % kind)
+		if CARDS.has(home) and not card_allowed(home,kind): problems.append("lord %s: home_card %s belongs to another faction" % [kind,home])
+		if not CARDS.has(home) or CARDS[home].type != "building": problems.append("lord %s: home_card %s must be a building card" % [kind,home])
 	return problems
 
 # Deck = farmland (always, own hand slot) + a chosen lord + 8 rotating cards (producer 2026-10-29).
@@ -139,10 +170,10 @@ const PRESET_LORDS := ["harvest","iron","lion"]
 # All lords have the same tier-A health (producer 2026-10-29): they differ only in attack and skill.
 # Lord speed tiers C/D/E (producer 2026-10-30): lion 45, harvest 30, iron 20.
 const LORDS := {
-	"underworld":{"name":"冥府領主","role":"亡者型","hp":750.0,"damage":45.0,"speed":30.0,"skill":"亡者大軍","skill_cost":30.0,"summon_count":4,"skill_desc":"我方每座墓碑各召喚 %s 隻骷髏兵；沒有墓碑時無法發動。"},
-	"lion":{"name":"紅獅領主","role":"進攻型","hp":750.0,"damage":90.0,"speed":45.0,"skill":"獅王號令","skill_desc":"每路有領地時各召喚一名騎士，從領地前線進攻。"},
-	"harvest":{"name":"豐收領主","role":"經濟型","hp":750.0,"damage":45.0,"speed":30.0,"skill":"豐年祭","skill_desc":"每路在己方領地空格種一塊農田，全部農田回滿血並產量加倍 %s 秒。"},
-	"iron":{"name":"鐵壁領主","role":"防守型","hp":750.0,"damage":90.0,"speed":20.0,"skill":"重築城牆","skill_desc":"五座城門回滿血，已破的城門重建，城門前拆殘垣的敵兵要重新開始。"}
+	"underworld":{"name":"冥府領主","role":"亡者型","faction":"dark","home_card":"grave","hp":750.0,"damage":45.0,"speed":30.0,"skill":"亡者大軍","skill_cost":30.0,"summon_count":4,"skill_desc":"我方每座墓碑各召喚 %s 隻骷髏兵；沒有墓碑時無法發動。"},
+	"lion":{"name":"紅獅領主","role":"進攻型","faction":"normal","hp":750.0,"damage":90.0,"speed":45.0,"skill":"獅王號令","skill_desc":"每路有領地時各召喚一名騎士，從領地前線進攻。"},
+	"harvest":{"name":"豐收領主","role":"經濟型","faction":"normal","hp":750.0,"damage":45.0,"speed":30.0,"skill":"豐年祭","skill_desc":"每路在己方領地空格種一塊農田，全部農田回滿血並產量加倍 %s 秒。"},
+	"iron":{"name":"鐵壁領主","role":"防守型","faction":"normal","hp":750.0,"damage":90.0,"speed":20.0,"skill":"重築城牆","skill_desc":"五座城門回滿血，已破的城門重建，城門前拆殘垣的敵兵要重新開始。"}
 }
 # Lord skills (producer 2026-10-29): lords have no passive effects; each has one strong skill the
 # player casts with Q (the AI casts its own). It costs a full purse and has a long cooldown.

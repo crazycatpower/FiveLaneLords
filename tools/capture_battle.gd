@@ -23,8 +23,8 @@ func run() -> void:
 	game.sound_enabled = false
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
-	game.watch_decks = [DeckStore.random_deck(rng),DeckStore.random_deck(rng)]
-	game.watch_lords = [B.LORDS.keys()[seed_value%3],B.LORDS.keys()[(seed_value+1)%3]]
+	game.watch_lords = [B.LORDS.keys()[seed_value%B.LORDS.size()],B.LORDS.keys()[(seed_value+1)%B.LORDS.size()]]
+	game.watch_decks = [DeckStore.random_deck(rng,game.watch_lords[0]),DeckStore.random_deck(rng,game.watch_lords[1])]
 	game.watch_source = [-1,-1]
 	game.spectating = true
 	game.start_battle()

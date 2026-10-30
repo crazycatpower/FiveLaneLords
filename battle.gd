@@ -51,6 +51,7 @@ var lane_mill: Array = [] # lane_mill[team][lane]: a living mill boosts that lan
 # Hand slots 0..3 rotate; FARM_SLOT is the permanent farmland slot (never rotates, own cooldown).
 const FARM_SLOT := 4
 var farm_cd: Array = [0.0,0.0]
+var home_cards: Array = ["farm","farm"] # each side's F-slot card, fixed by its lord at the start
 var skill_cd: Array = [0.0,0.0] # lord skill cooldown per side
 var ai_save: Array = [false,false] # the AI is holding gold for its lord's skill
 var ai_params: Array = [{},{}] # per-side AI strategy weights (enemy_ai.gd; {} = the hand-written defaults)
@@ -73,13 +74,15 @@ func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = [], lord_a: 
 		var lord_kind: String = lord_a if team == 0 else lord_b
 		if lord_kind.is_empty(): lord_kind = "lion" # neutral default when no lord is chosen
 		lords.append(Lord.create(team,lord_kind))
+		home_cards[team] = B.home_card(lord_kind)
 		decks.append(deck)
 		gates.append([B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP,B.GATE_HP])
 		stats.append({"produced":0.0,"wasted":0.0,"planted":0,"burned":0,"plays":0,"used":{},"damage":{},"spent":{},"cultivated":0,"drops":0,"farms_lost_early":0})
-	# Both sides start with two farms; they are not counted as planted.
+	# Both sides start with two of their home buildings (farms, or tombstones for the underworld lord);
+	# they are not counted as planted.
 	for team: int in range(2):
 		for cell: Vector2i in B.START_FARMS:
-			add_building(team,Vector2i(cell.x if team == 0 else 8-cell.x,cell.y),"farm")
+			add_building(team,Vector2i(cell.x if team == 0 else 8-cell.x,cell.y),home_cards[team])
 		stats[team].planted = 0
 
 func event(kind: String, pos: Vector2, team: int = 0, extra: Dictionary = {}) -> void:
@@ -196,7 +199,7 @@ func farm_drop(b: Dictionary) -> void:
 	event("ink",b.pos,b.team)
 
 func kind_at(team: int, slot: int) -> String:
-	return "farm" if slot == FARM_SLOT else decks[team][slot]
+	return home_cards[team] if slot == FARM_SLOT else decks[team][slot]
 
 func slot_cd(team: int, slot: int) -> float:
 	return farm_cd[team] if slot == FARM_SLOT else hand_cd[team][slot]

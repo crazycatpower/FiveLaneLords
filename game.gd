@@ -112,10 +112,11 @@ func _ready() -> void:
 func start_battle() -> void:
 	if spectating:
 		for team: int in range(2):
-			if not DeckStore.valid(watch_decks[team]): set_watch_source(team,0)
+			if not DeckStore.valid(watch_decks[team],watch_lords[team]): watch_decks[team] = DeckStore.fit_to_lord(watch_decks[team],watch_lords[team])
+			if not DeckStore.valid(watch_decks[team],watch_lords[team]): set_watch_source(team,0)
 		model = Battle.new(seed_value,watch_decks[0].duplicate(),watch_decks[1].duplicate(),watch_lords[0],watch_lords[1])
 	else:
-		if not DeckStore.valid(player_deck):
+		if not DeckStore.valid(player_deck,player_lord):
 			show_deck()
 			return
 		DeckStore.save_deck(player_deck,deck_path,player_lord)
@@ -472,6 +473,11 @@ func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 		# Outside battle the top-left corner shows the card's cooldown (in battle it shows the hand slot).
 		draw_rect(Rect2(rect.position+Vector2(7,7),Vector2(34,20)),Color("725138"))
 		draw_string(font,rect.position+Vector2(7,22),"%ds" % int(data.cooldown),HORIZONTAL_ALIGNMENT_CENTER,34,13,Color("efdfb9"))
+		# Faction tag (普通／黑暗／中立) between the cooldown and the cost.
+		var faction: String = B.card_faction(kind)
+		var tag := Rect2(rect.position+Vector2(s.x*0.5-18,8),Vector2(36,17))
+		draw_rect(tag,{"normal":Color("5f7a3a"),"dark":Color("5b4366")}.get(faction,Color("7d7466")))
+		draw_string(font,tag.position+Vector2(0,13),B.FACTIONS[faction],HORIZONTAL_ALIGNMENT_CENTER,tag.size.x,12,Color("f3e6c4"))
 	# Ink cost badge, top right.
 	var badge := rect.position+Vector2(s.x-19,19)
 	draw_circle(badge,15,Color("2f3f5c"))
@@ -868,7 +874,7 @@ func draw_hud() -> void:
 	var fr := farm_rect
 	if selected == Battle.FARM_SLOT: fr.position.y -= 16
 	elif hover_slot == Battle.FARM_SLOT: fr.position.y -= 8
-	draw_card("farm",fr,Battle.FARM_SLOT)
+	draw_card(model.kind_at(0,Battle.FARM_SLOT),fr,Battle.FARM_SLOT)
 	var tag := Rect2(farm_rect.position.x+farm_rect.size.x/2-24,farm_rect.end.y-22,48,18)
 	draw_rect(tag,Color("3f5a2c"))
 	draw_string(font,tag.position+Vector2(0,14),"常駐",HORIZONTAL_ALIGNMENT_CENTER,tag.size.x,13,Color("efdfb9"))
@@ -960,13 +966,13 @@ func show_deck() -> void:
 	var lord_index := 0
 	for lord_kind: String in B.LORDS:
 		var choice := lord_kind
-		var b := button(lord_rect(lord_index),"",func(): player_lord = choice; save_choice(); show_deck())
+		var b := button(lord_rect(lord_index),"",func(): choose_lord(choice))
 		b.tooltip_text = lord_tooltip(lord_kind)
 		b.modulate = Color(1,1,1,0.01)
 		lord_index += 1
 	var index := 0
 	for kind: String in B.CARDS:
-		if B.CARDS[kind].type != deck_tab or kind == "farm": continue
+		if B.CARDS[kind].type != deck_tab or not kind in DeckStore.pool(player_lord): continue
 		if index/8 != deck_page:
 			index += 1
 			continue
@@ -978,13 +984,13 @@ func show_deck() -> void:
 		index += 1
 	button(Rect2(120,805,220,50),"回到標題",show_title)
 	start_button = button(Rect2(1220,805,240,50),"儲存並開戰",func(): spectating = false; start_battle())
-	start_button.disabled = not DeckStore.valid(player_deck)
+	start_button.disabled = not DeckStore.valid(player_deck,player_lord)
 	queue_redraw()
 
 func tab_size() -> int:
 	var n := 0
 	for kind: String in B.CARDS:
-		if B.CARDS[kind].type == deck_tab and kind != "farm": n += 1
+		if B.CARDS[kind].type == deck_tab and kind in DeckStore.pool(player_lord): n += 1
 	return n
 
 func lord_tooltip(kind: String) -> String:
@@ -995,13 +1001,22 @@ func lord_rect(index: int) -> Rect2:
 	return Rect2(1010+(index%2)*270,148+(index/2)*74,260,68)
 
 func save_choice() -> void:
-	if DeckStore.valid(player_deck): DeckStore.save_deck(player_deck,deck_path,player_lord)
+	if DeckStore.valid(player_deck,player_lord): DeckStore.save_deck(player_deck,deck_path,player_lord)
 
 # Card pool layout: up to eight full-size cards in a row, narrower when a tab holds more.
 func pool_rect(index: int, count: int) -> Rect2:
 	var step := minf(170.0,1380.0/maxi(1,mini(8,count)))
 	var width := minf(150.0,step-12)
 	return Rect2(120+(index%8)*step,310,width,width*190.0/150.0)
+
+# Switching lords keeps the deck but swaps out cards of the other faction.
+func choose_lord(lord: String) -> void:
+	var fitted: Array = DeckStore.fit_to_lord(player_deck,lord)
+	if fitted != player_deck: menu_notice = "已換掉%s不能用的卡牌。" % B.LORDS[lord].name
+	player_lord = lord
+	player_deck = fitted
+	save_choice()
+	show_deck()
 
 func toggle_deck_card(kind: String) -> void:
 	if kind in player_deck: player_deck.erase(kind)
@@ -1012,7 +1027,9 @@ func toggle_deck_card(kind: String) -> void:
 
 func draw_deck() -> void:
 	label_at(Vector2(120,100),"村莊牌組",48)
-	label_at(Vector2(560,100),"農田＋領主固定，再選 8 張：%d / 8 · 平均 %.1f 金幣" % [player_deck.size(),DeckStore.average(player_deck)],22)
+	var home: String = B.CARDS[B.home_card(player_lord)].name
+	label_at(Vector2(560,100),"%s＋領主固定，再選 8 張：%d / 8 · 平均 %.1f 金幣" % [home,player_deck.size(),DeckStore.average(player_deck)],22)
+	label_at(Vector2(560,128),"%s可用：%s牌與中立牌" % [B.LORDS[player_lord].name,B.FACTIONS[B.lord_faction(player_lord)]],16,Color("6f5a3e"))
 	label_at(Vector2(1010,140),"選擇領主",18)
 	var lord_index := 0
 	for lord_kind: String in B.LORDS:
@@ -1027,7 +1044,7 @@ func draw_deck() -> void:
 		lord_index += 1
 	var index := 0
 	for kind: String in B.CARDS:
-		if B.CARDS[kind].type != deck_tab or kind == "farm": continue
+		if B.CARDS[kind].type != deck_tab or not kind in DeckStore.pool(player_lord): continue
 		if index/8 != deck_page:
 			index += 1
 			continue
@@ -1035,34 +1052,34 @@ func draw_deck() -> void:
 		draw_card(kind,rect)
 		if kind in player_deck: draw_rect(rect,Color("9b3d2c"),false,4)
 		index += 1
-	label_at(Vector2(120,555),"牌組（農田固定在常駐格；點上方卡牌加入或移除）",22)
+	label_at(Vector2(120,555),"牌組（%s固定在常駐格；點上方卡牌加入或移除）" % B.CARDS[B.home_card(player_lord)].name,22)
 	var fixed := Rect2(120,585,128,162)
 	panel(fixed.grow(4),Color("cfdcae"),Color("3f5a2c"))
-	draw_card("farm",fixed)
+	draw_card(B.home_card(player_lord),fixed)
 	for i: int in range(player_deck.size()): draw_card(player_deck[i],Rect2(268+i*146,585,128,162))
-	label_at(Vector2(400,790),"需選滿 8 張不同卡牌（農田不用選）。" if not DeckStore.valid(player_deck) else menu_notice,20,RED)
+	label_at(Vector2(400,790),"需選滿 8 張不同卡牌（常駐牌不用選）。" if not DeckStore.valid(player_deck,player_lord) else menu_notice,20,RED)
 
 # Random spectate deck (rules live in DeckStore so the balance tools share them).
-static func random_deck(rng: RandomNumberGenerator) -> Array:
-	return DeckStore.random_deck(rng)
+static func random_deck(rng: RandomNumberGenerator, lord: String = "") -> Array:
+	return DeckStore.random_deck(rng,lord)
 
 func set_watch_source(team: int, source: int) -> void:
 	watch_source[team] = source
 	if source == 0:
 		var rng := RandomNumberGenerator.new()
 		rng.randomize()
-		watch_decks[team] = random_deck(rng)
 		watch_lords[team] = B.LORDS.keys()[rng.randi_range(0,B.LORDS.size()-1)]
+		watch_decks[team] = random_deck(rng,watch_lords[team])
 	elif source <= B.PRESETS.size():
 		watch_decks[team] = B.PRESETS[source-1].duplicate()
 		watch_lords[team] = B.PRESET_LORDS[source-1]
 	else:
-		watch_decks[team] = player_deck.duplicate() if DeckStore.valid(player_deck) else B.PRESETS[0].duplicate()
 		watch_lords[team] = player_lord
+		watch_decks[team] = player_deck.duplicate() if DeckStore.valid(player_deck,player_lord) else DeckStore.fit_to_lord(B.PRESETS[0],player_lord)
 
 # Clicking a card swaps it for the next card (in pool order) that this side doesn't hold yet.
 func cycle_watch_card(team: int, index: int) -> void:
-	var pool: Array = B.CARDS.keys().filter(func(k: String) -> bool: return k != "farm")
+	var pool: Array = DeckStore.pool(watch_lords[team])
 	var at: int = pool.find(watch_decks[team][index])
 	for step: int in range(1,pool.size()):
 		var next: String = pool[(at+step)%pool.size()]
@@ -1091,7 +1108,7 @@ func show_watch() -> void:
 		var index := 0
 		for lord_kind: String in B.LORDS:
 			var choice := lord_kind
-			var b := button(watch_lord_rect(team,index),"",func(): watch_lords[side] = choice; show_watch())
+			var b := button(watch_lord_rect(team,index),"",func(): watch_lords[side] = choice; watch_decks[side] = DeckStore.fit_to_lord(watch_decks[side],choice); show_watch())
 			b.tooltip_text = lord_tooltip(lord_kind)
 			b.modulate = Color(1,1,1,0.01)
 			index += 1
@@ -1136,7 +1153,7 @@ func card_description(kind: String) -> String:
 
 func help_columns() -> Array[String]:
 	return [
-		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐農田；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 有選牌時取消，沒選牌時切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩，戰鬥中按 R 不重開。\n\n[b]牌組與領主[/b]\n農田固定＋領主四選一＋自選 8 張輪轉牌。農田不輪轉、不佔 8 張名額。領主由 AI 移動，只在農田後方防守；按 Q 花 %s 金幣（冥府為 %s）發動領主技能，冷卻 %s 秒。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2，等待時間會縮短。" % [B.number(B.SKILL_COST),B.number(B.skill_cost("underworld")),B.number(B.SKILL_COOLDOWN),B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
+		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐農田；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 有選牌時取消，沒選牌時切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩，戰鬥中按 R 不重開。\n\n[b]牌組與領主[/b]\n常駐牌＋領主四選一＋自選 8 張輪轉牌；常駐牌（農田，冥府為墓碑）不輪轉、不佔名額。普通領主帶普通與中立牌，冥府領主帶黑暗與中立牌。領主由 AI 移動，只在農田後方防守；按 Q 花 %s 金幣（冥府 %s）發動技能，冷卻 %s 秒。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2，等待時間會縮短。" % [B.number(B.SKILL_COST),B.number(B.skill_cost("underworld")),B.number(B.SKILL_COOLDOWN),B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
 		"[b]種田與防守[/b]\n農田自己產金幣；農民從田後方出發，順路耕田加速並回血。相同建築覆蓋自己的舊建築可補滿生命。\n部隊只往前走，不追身後範圍外的敵人；城門不反擊，靠領主、部隊與建築防守。\n\n[b]破門與勝負[/b]\n建築與部隊限己方領地：建築、城牆周圍八格先佔先得，失去所有己方建築覆蓋就釋出。敵兵破門後需停下拆殘垣 %s 秒，再向家門前進。\n任何敵兵走進家門就輸，沒有時間限制。\n\n[b]觀戰模式[/b]\n開戰前調整雙方牌組與領主（預設隨機），AI 出牌；1–4 切換 ×1／×2／×4／×8，＋／－ 逐級調速。空白鍵暫停。" % B.number(B.RUBBLE_TIME)
 	]
 

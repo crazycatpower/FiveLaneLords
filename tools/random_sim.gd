@@ -44,8 +44,8 @@ func _initialize() -> void:
 	for seed_value: int in range(start,start+count):
 		var rng := RandomNumberGenerator.new()
 		rng.seed = seed_value
-		var decks: Array = [DeckStore.random_deck(rng),DeckStore.random_deck(rng)]
 		var picks: Array = [lords[rng.randi_range(0,lords.size()-1)],lords[rng.randi_range(0,lords.size()-1)]]
+		var decks: Array = [DeckStore.random_deck(rng,picks[0]),DeckStore.random_deck(rng,picks[1])]
 		if mirror:
 			decks[1] = decks[0].duplicate()
 			picks[1] = picks[0]

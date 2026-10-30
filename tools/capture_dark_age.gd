@@ -2,7 +2,7 @@ extends SceneTree
 const B = preload("res://balance.gd")
 const L = preload("res://layout.gd")
 const Battle = preload("res://battle.gd")
-const DECK := ["grave","skeleton","ghoul","necromancer","reaper","raven","plague","bonewall"]
+const DECK := ["militia","skeleton","ghoul","necromancer","reaper","raven","plague","bonewall"] # the tombstone is the underworld lord's home card, not one of the eight
 func _initialize() -> void:
 	call_deferred("run")
 func shot(game: Node, name: String) -> void:
@@ -18,6 +18,7 @@ func run() -> void:
 	game.set_physics_process(false)
 	game.set_process(false)
 	game.sound.enabled = false
+	game.deck_path = "user://capture-dark-deck.json" # never overwrite the player's saved deck
 	game.player_deck = DECK.duplicate()
 	game.player_lord = "underworld"
 	for tab: String in ["unit","building","spell"]:

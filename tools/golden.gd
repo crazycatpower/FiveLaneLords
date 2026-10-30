@@ -14,9 +14,9 @@ const CAP := 150.0 # seconds of game time per match; long enough for fights, ski
 static func fingerprint(seed_value: int) -> Dictionary:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
-	var decks: Array = [DeckStore.random_deck(rng),DeckStore.random_deck(rng)]
 	var lords: Array = B.LORDS.keys()
 	var picks: Array = [lords[rng.randi_range(0,lords.size()-1)],lords[rng.randi_range(0,lords.size()-1)]]
+	var decks: Array = [DeckStore.random_deck(rng,picks[0]),DeckStore.random_deck(rng,picks[1])]
 	var m := Battle.new(seed_value,decks[0].duplicate(),decks[1].duplicate(),picks[0],picks[1])
 	m.difficulty = seed_value%3
 	m.record_events = false
