@@ -43,6 +43,8 @@ func run() -> void:
 	test_feel()
 	test_overlap()
 	test_opening_hand()
+	test_frontier_deployment()
+	check(finished.has("frontier_deployment"),"frontier deployment tests completed")
 	test_territory()
 	check(finished.has("territory"),"territory tests completed")
 	test_battlefield_input()
@@ -1045,3 +1047,25 @@ func test_territory() -> void:
 	m.cast_skill(0)
 	check(m.units.is_empty(),"lion cannot summon onto neutral or enemy land after losing all territory")
 	finished["territory"] = true
+
+func test_frontier_deployment() -> void:
+	for team: int in range(2):
+		var m := Battle.new(11)
+		for distance: int in range(1,4):
+			m.add_building(team,Vector2i(distance if team == 0 else 8-distance,2),"farm")
+		var target := Vector2i(4,2)
+		offer(m,"militia",team)
+		check(m.play(team,0,L.cell_center(target)),"owned fifth column accepts infantry for team %d" % team)
+		check(m.units.all(func(u: Dictionary) -> bool: return u.pos == L.cell_center(target)),"infantry actually spawns in selected fifth column")
+		m.units.clear()
+		offer(m,"mob",team)
+		check(m.play(team,0,L.cell_center(target)),"three-lane squad can deploy at expanded frontier")
+		check(m.units.all(func(u: Dictionary) -> bool: return is_equal_approx(u.pos.x,L.cell_center(target).x)),"three-lane squad no longer snaps to third column")
+		m.units.clear()
+		m.territory.fill(-1)
+		m.territory[2*9+4] = team
+		m.territory[1*9+(1 if team == 0 else 7)] = team
+		offer(m,"mob",team)
+		m.play(team,0,L.cell_center(target))
+		check(m.units.all(func(u: Dictionary) -> bool: return m.territory_owner(m.cell_at(u.pos)) == team),"side lanes fall back to owned land and skip landless lanes")
+	finished["frontier_deployment"] = true

@@ -20,6 +20,12 @@ func run() -> void:
      push_error("Frontier fixture failed")
      quit(1)
      return
+  game.model.decks[first][0] = "militia"
+  game.model.hand_cd[first][0] = 0
+  game.model.ink[first] = 50
+  if not game.model.play(first,0,game.L.cell_center(Vector2i(4,2))):
+   quit(1)
+   return
   game.notice = "First claim: " + ("red" if first == 0 else "blue")
   game.queue_redraw()
   await process_frame

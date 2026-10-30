@@ -281,6 +281,14 @@ func refresh_building(b: Dictionary) -> void:
 
 # Fields a unit card: one troop type, a mixed legion ("members"), or the same squad in three
 # adjacent lanes ("spread"; shifted inward at the edge lanes). Troops behind the front stand back.
+func deployment_column(team: int, lane: int, requested: int) -> int:
+	var direction := -1 if team == 0 else 1
+	var col := requested
+	while col >= 0 and col < L.GRID_COLUMNS:
+		if territory_owner(Vector2i(col,lane)) == team: return col
+		col += direction
+	return front_column(team,lane)
+
 func deploy(team: int, kind: String, cell: Vector2i) -> void:
 	var card: Dictionary = B.CARDS[kind]
 	var groups: Array = card.get("members",[[kind,card.get("count",1),0.0]])
@@ -295,9 +303,9 @@ func deploy(team: int, kind: String, cell: Vector2i) -> void:
 	if groups.size() > 1:
 		for group: Array in groups: march = minf(march,B.CARDS[group[0]].speed)
 	for lane: int in lanes:
-		var col := cell.x if team == 0 else 8-cell.x
-		col = mini(col,(6 if gates[1-team][lane] <= 0 else 3)-1) # side lanes may not be breached
-		var spot := L.cell_center(Vector2i(col if team == 0 else 8-col,lane))
+		var col := deployment_column(team,lane,cell.x)
+		if col < 0: continue
+		var spot := L.cell_center(Vector2i(col,lane))
 		for group: Array in groups:
 			for i: int in range(group[1]):
 				var u := spawn_unit(team,lane,group[0],spot-Vector2(forward*group[2],0))

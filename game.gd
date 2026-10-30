@@ -737,7 +737,9 @@ func draw_preview() -> void:
 			if data.get("spread",false):
 				var middle := clampi(cell.y,1,3)
 				lanes = [middle-1,middle,middle+1]
-			for lane: int in lanes: draw_line(Vector2(L.cell_center(cell).x,L.cell_center(Vector2i(0,lane)).y),Vector2(L.gate_stop(1),L.cell_center(Vector2i(0,lane)).y),color,3)
+			for lane: int in lanes:
+				var col: int = model.deployment_column(0,lane,cell.x)
+				if col >= 0: draw_line(L.cell_center(Vector2i(col,lane)),Vector2(L.gate_stop(1),L.cell_center(Vector2i(0,lane)).y),color,3)
 			if kind == "farmer":
 				for b: Dictionary in model.buildings:
 					if b.kind == "farm" and b.team == 0 and b.cell.y == cell.y and b.cell.x >= cell.x: draw_circle(b.pos,40,color,false,3)
