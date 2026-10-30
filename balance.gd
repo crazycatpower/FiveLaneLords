@@ -44,12 +44,12 @@ const LORD_HYSTERESIS := 1.5
 # "cooldown": seconds a card must wait after it enters the hand before it can be played (0..30).
 const CARDS := {
 	"grave":{"name":"墓碑","role":"死亡·經濟","faction":"dark","series":"dark","type":"building","cost":5,"cooldown":30.0,"hp":400.0,"expires":-1.0,"period":60.0,"income":6.0,"death_advance":5.0},
-	"skeleton":{"name":"骷髏兵","role":"廉價·纏鬥","faction":"dark","series":"dark","type":"unit","cost":5,"cooldown":2.0,"count":4,"hp":50.0,"damage":12.0,"interval":0.85,"range":47.0,"speed":45.0},
+	"skeleton":{"name":"骷髏兵","role":"廉價·纏鬥","faction":"dark","series":"dark","type":"unit","cost":5,"cooldown":2.0,"count":4,"hp":50.0,"damage":12.0,"interval":0.6,"range":47.0,"speed":70.0},
 	"ghoul":{"name":"食屍鬼","role":"吞噬·成長","faction":"dark","series":"dark","type":"unit","cost":9,"cooldown":6.0,"count":2,"hp":200.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":70.0,"radius":110.0,"devour_heal":50.0,"max_damage_tier":1},
-	"necromancer":{"name":"死靈法師","role":"三路·招魂","faction":"dark","series":"dark","type":"unit","projectile":true,"cost":13,"cooldown":12.0,"count":1,"hp":200.0,"damage":12.0,"interval":1.2,"range":145.0,"speed":30.0,"summon_interval":15.0},
-	"reaper":{"name":"收割者","role":"收割·老兵","series":"dark","type":"unit","target_rule":"lowest_serial","cost":10,"cooldown":10.0,"count":1,"hp":400.0,"damage":90.0,"interval":1.7,"range":100.0,"speed":45.0},
+	"necromancer":{"name":"死靈法師","role":"三路·招魂","faction":"dark","series":"dark","type":"unit","projectile":true,"cost":13,"cooldown":12.0,"count":1,"hp":200.0,"damage":12.0,"interval":1.2,"range":145.0,"speed":30.0,"summon_interval":10.0},
+	"reaper":{"name":"收割者","role":"直劈·三路","series":"dark","type":"unit","splash":"column","cost":10,"cooldown":10.0,"count":1,"hp":400.0,"damage":90.0,"interval":1.7,"range":100.0,"speed":45.0},
 	"raven":{"name":"烏鴉群","role":"飛行·拆田","series":"dark","type":"unit","hits":"buildings","prefers":"farm","cost":8,"cooldown":6.0,"count":6,"hp":50.0,"damage":6.0,"interval":0.6,"range":47.0,"speed":105.0,"flying":true},
-	"plague":{"name":"瘟疫","role":"毒霧·擴散","series":"dark","type":"spell","ai":["defend_spell"],"cost":6,"cooldown":10.0,"radius":110.0,"tick_damage":20.0,"tick_interval":1.0,"duration":6.0,"spread_duration":3.0,"spread_radius":68.0},
+	"plague":{"name":"瘟疫","role":"毒霧·擴散","series":"dark","type":"spell","ai":["defend_spell"],"cost":6,"cooldown":10.0,"radius":110.0,"tick_damage":20.0,"tick_interval":1.0,"duration":10.0,"spread_duration":3.0,"spread_radius":68.0},
 	"bonewall":{"name":"骨牆","role":"阻擋·反擊","series":"dark","type":"building","ai":["defend_building"],"cost":5,"cooldown":8.0,"hp":750.0,"expires":-1.0,"explosion_damage":150.0,"radius":110.0},
 	"farmer":{"name":"農民","role":"經濟·耕田","faction":"normal","type":"unit","ai":["no_defend"],"cost":4,"cooldown":0.0,"count":3,"hp":50.0,"damage":6.0,"interval":1.2,"range":47.0,"speed":45.0},
 	"militia":{"name":"民兵隊","role":"循環·擋路","type":"unit","cost":11,"cooldown":2.0,"count":5,"hp":100.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":45.0},
@@ -64,10 +64,10 @@ const CARDS := {
 	"healer":{"name":"草藥婆","role":"支援·治療","type":"unit","ai":["no_defend","hold"],"cost":5,"cooldown":8.0,"count":1,"hp":200.0,"damage":6.0,"interval":1.2,"range":145.0,"speed":30.0},
 	"ox":{"name":"耕牛","role":"衝鋒·拆建","type":"unit","ai":["raid"],"cost":12,"cooldown":10.0,"count":2,"hp":400.0,"damage":24.0,"interval":1.7,"range":47.0,"speed":105.0},
 	"fire":{"name":"火罐","role":"燒田法術","type":"spell","ai":["defend_spell","wave_spell","raid"],"cost":9,"cooldown":15.0,"radius":110.0,"damage":300.0,"building_damage":600.0,"gate_damage":150.0},
-	"knight":{"name":"騎士","role":"主坦","type":"unit","ai":["big"],"cost":23,"cooldown":15.0,"count":2,"hp":750.0,"damage":90.0,"interval":1.7,"range":47.0,"speed":20.0},
+	"knight":{"name":"騎士","role":"主坦","type":"unit","cost":23,"cooldown":15.0,"count":2,"hp":750.0,"damage":90.0,"interval":1.7,"range":47.0,"speed":20.0},
 	"guard":{"name":"聖堂護衛","role":"重裝軍團","type":"unit","cost":30,"cooldown":18.0,"members":[["knight",2,0.0],["healer",2,50.0]],"art":["knight","healer"]},
 	"mill":{"name":"磨坊","role":"大型經濟","faction":"normal","type":"building","ai":["obstacle"],"cost":17,"cooldown":20.0,"hp":900.0,"expires":-1.0},
-	"ram":{"name":"攻城槌","role":"終結·破門","type":"unit","hits":"buildings","ai":["hold","big"],"cost":23,"cooldown":30.0,"members":[["ram",1,0.0],["militia",4,-40.0]],"art":["ram","militia"],"count":1,"hp":1500.0,"damage":180.0,"interval":2.4,"range":47.0,"speed":20.0}
+	"ram":{"name":"攻城槌","role":"終結·破門","type":"unit","hits":"buildings","ai":["hold"],"cost":23,"cooldown":30.0,"members":[["ram",1,0.0],["militia",4,-40.0]],"art":["ram","militia"],"count":1,"hp":1500.0,"damage":180.0,"interval":2.4,"range":47.0,"speed":20.0}
 }
 
 # Behaviour fields a card may carry (read by battle.gd; a new card only needs the fields):
@@ -75,13 +75,14 @@ const CARDS := {
 #   "hits": "buildings"           ignores troops and lords; only attacks buildings and gates
 #   "prefers": "farm"             walks to and attacks enemy farms in its lane first
 #   "target_rule": "lowest_serial" attacks the lowest serial in reach instead of the nearest
+#   "splash": "column"            each hit also strikes every enemy troop in the target's column,
+#                                 in this lane and the two next to it (a vertical slash)
 #   "flying": true                melee troops and buildings cannot hit it
 # AI tags in "ai" (read by enemy_ai.gd):
 #   defend_spell   cast on attackers near our gate      wave_spell   cast on enemy clusters while attacking
 #   raid           sent at the lane with most enemy farms  guard      one per farm lane, early
 #   defend_building placed in front of attackers        obstacle     counts as an enemy wall when choosing a lane
 #   no_defend      never sent to stop an attack          hold         only played with gold to spare (or at 45+)
-#   big            a target worth the reaper
 # Each lord's permanent card in the F slot (and its two starting buildings): farmland, except the
 # underworld lord, whose tombstones replace farms (producer 2026-10-30). Home cards never go in the
 # chosen eight.
@@ -114,8 +115,8 @@ static func has_tag(kind: String, tag: String) -> bool:
 const CARD_TYPES := ["unit","building","spell"]
 # Area effects use the "area_damage" tiers (a spell's "damage" too); troops use "damage".
 const AREA_DAMAGE_KEYS := ["damage","building_damage","gate_damage","tick_damage","explosion_damage"]
-const BEHAVIOUR_VALUES := {"hits":["buildings"],"prefers":["farm"],"target_rule":["lowest_serial"]}
-const AI_TAGS := ["defend_spell","wave_spell","raid","guard","defend_building","obstacle","no_defend","hold","big"]
+const BEHAVIOUR_VALUES := {"hits":["buildings"],"prefers":["farm"],"target_rule":["lowest_serial"],"splash":["column"]}
+const AI_TAGS := ["defend_spell","wave_spell","raid","guard","defend_building","obstacle","no_defend","hold"]
 const NEEDS := {"unit":["count","hp","damage","interval","range","speed"],"building":["hp","expires"],"spell":["radius"]}
 const LORD_NEEDS := ["name","role","hp","damage","speed","skill","skill_desc"]
 
@@ -259,8 +260,8 @@ static func card_description(kind: String, cards: Dictionary = CARDS) -> String:
 	match kind:
 		"grave": lines.append("每 %s 秒產出 %s 金幣；本路每名敵我部隊死亡，提前 %s 秒，超出的時間不保留。" % [number(d.period),number(d.income),number(d.death_advance)])
 		"ghoul": lines.append("半徑 %s 內每名部隊死亡，回復 %s 生命，攻擊升一檔，最高 A 檔 %s。" % [number(d.radius),number(d.devour_heal),number(TIERS.damage[d.max_damage_tier])])
-		"necromancer": lines.append("每 %s 秒，在本路與相鄰路同一欄各召喚一名骷髏兵。" % number(d.summon_interval))
-		"reaper": lines.append("優先攻擊射程內序號最低的敵人；序號釋放後會被重新使用。")
+		"necromancer": lines.append("上場時與之後每 %s 秒，在本路與相鄰路同一欄各召喚一名骷髏兵。" % number(d.summon_interval))
+		"reaper": lines.append("揮鐮直劈：每次攻擊也打中目標那一欄、本路與上下相鄰兩路的所有敵兵。")
 		"raven": lines.append("飛越近戰部隊，只攻擊建築與城門，優先本路農田；遠程與領主仍可攻擊它。")
 		"plague": lines.append("毒霧持續 %s 秒，每 %s 秒對敵兵造成 %s 傷害；毒死的敵兵產生半徑 %s、持續 %s 秒的小毒霧。" % [number(d.duration),number(d.tick_interval),number(d.tick_damage),number(d.spread_radius),number(d.spread_duration)])
 		"bonewall": lines.append("摧毀時對半徑 %s 內敵兵造成 %s 傷害。" % [number(d.radius),number(d.explosion_damage)])

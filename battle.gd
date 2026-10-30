@@ -314,7 +314,6 @@ func deploy(team: int, kind: String, cell: Vector2i) -> void:
 		var middle := clampi(cell.y,1,3)
 		lanes = [middle-1,middle,middle+1]
 	var forward := 1.0 if team == 0 else -1.0
-	var n := 0
 	# A mixed legion keeps formation: everyone marches at the slowest member's pace.
 	var march := INF
 	if groups.size() > 1:
@@ -323,6 +322,8 @@ func deploy(team: int, kind: String, cell: Vector2i) -> void:
 		var col := deployment_column(team,lane,cell.x)
 		if col < 0: continue
 		var spot := L.cell_center(Vector2i(col,lane))
+		# Each lane counts its own spawn order, so a three-lane squad steps out in all lanes at once.
+		var n := 0
 		for group: Array in groups:
 			for i: int in range(group[1]):
 				var u := spawn_unit(team,lane,group[0],spot-Vector2(forward*group[2],0))
@@ -337,7 +338,7 @@ func spawn_unit(team: int, lane: int, kind: String, pos: Vector2) -> Dictionary:
 	var u := {"id":next_id,"serial":take_serial(),"kind":kind,"team":team,"lane":lane,"pos":pos,"hp":data.hp,"max_hp":data.hp,"cd":0.0,"phase":rng.randf()*TAU,"face":1.0 if team == 0 else -1.0,"worked":[],"work_id":-1,"work_left":0.0,"spawn_delay":0.0,"charged":false,"flash":0.0,"heal_cd":0.0,"dy":rng.randf_range(-B.PLACE_JITTER,B.PLACE_JITTER)}
 	units.append(u)
 	u.flying = data.get("flying",false)
-	u.summon_left = data.get("summon_interval",0.0)
+	u.summon_left = 0.0 # a summoner raises its first skeletons as soon as it is on the field
 	return u
 
 func damage(target: Dictionary, amount: float, team: int, kind: String) -> void:
@@ -472,8 +473,7 @@ func cast_skill(team: int) -> bool:
 				var col := front_column(team,lane)
 				if col < 0: continue # No summon into neutral or enemy-owned land.
 				var u := spawn_unit(team,lane,"knight",L.cell_center(Vector2i(col,lane)))
-				u.card = "skill"
-				u.spawn_delay = lane*0.1
+				u.card = "skill" # all five knights charge at the same moment
 				if record_events: visual_targets.append(u.pos)
 		"harvest":
 			# A farm in each lane (front-most free home cell), then every farm healed and doubled.
@@ -555,7 +555,17 @@ func attack(u: Dictionary, target: Dictionary) -> void:
 		if target.has("cell"): amount *= B.OX_BUILDING_BONUS
 	if data.get("projectile",false): shoot(u,target,amount)
 	else: damage(target,amount,u.team,u.get("card",u.kind))
+	if data.get("splash","") == "column": column_slash(u,target,amount)
 	u.cd = data.interval
+
+# A vertical slash: every other enemy troop in the target's column, in this lane and the two lanes
+# next to it, takes the same hit.
+func column_slash(u: Dictionary, target: Dictionary, amount: float) -> void:
+	var x: float = target.pos.x
+	for other: Dictionary in foe_units[u.team]:
+		if other.hp <= 0 or is_same(other,target) or absi(other.lane-u.lane) > 1 or absf(other.pos.x-x) > L.CELL_SIZE.x*0.5: continue
+		damage(other,amount,u.team,u.get("card",u.kind))
+	event("slash",Vector2(x,L.cell_center(Vector2i(0,u.lane)).y),u.team,{"lane":u.lane})
 
 func shoot(source: Dictionary, target: Dictionary, amount: float) -> void:
 	projectiles.append({"pos":source.pos,"start":source.pos,"target":target,"remaining":B.ARROW_TIME,"amount":amount,"team":source.team,"kind":source.get("card",source.kind)})

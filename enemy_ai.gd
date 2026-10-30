@@ -252,8 +252,11 @@ static func dark_card_score(c: Dictionary, s: Dictionary, ours: Array, foes: Arr
 				if ahead > 0 and ahead <= B.HEAL_RADIUS: score = maxf(score,710.0-ahead*0.3)
 			return score
 		"reaper":
+			# Its slash covers three lanes: worth it where enemies crowd this lane and its neighbours.
+			var crowd := 0
 			for u: Dictionary in s.units:
-				if u.hp > 0 and u.team != s.team and u.lane == lane and B.has_tag(u.kind,"big") and (u.pos.x-c.pos.x)*forward >= 0: return 740.0-absf(u.pos.x-c.pos.x)*0.1
+				if u.hp > 0 and u.team != s.team and absi(u.lane-lane) <= 1 and (u.pos.x-c.pos.x)*forward >= 0: crowd += 1
+			if crowd >= 3: return 700.0+crowd*10.0
 		"raven":
 			for b: Dictionary in s.buildings:
 				if b.hp > 0 and b.team != s.team and b.kind == "farm" and b.cell.y == lane: return 720.0-absf(b.pos.x-c.pos.x)*0.1

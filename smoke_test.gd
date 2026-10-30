@@ -160,6 +160,7 @@ func test_lord_skills() -> void:
 	var lanes: Array = knights.map(func(u: Dictionary) -> int: return u.lane)
 	lanes.sort()
 	check(knights.size() == 5 and lanes == [0,1,2,3,4],"獅王號令 sends one knight down every lane")
+	check(knights.all(func(u: Dictionary) -> bool: return u.spawn_delay == 0.0),"獅王號令's knights all charge at once")
 	m.ink[0] = B.SKILL_COST
 	check(not m.cast_skill(0) and "冷卻" in m.skill_error(0),"the skill cannot be cast again during its cooldown")
 	tick(m,B.SKILL_COOLDOWN+0.1)
@@ -614,6 +615,8 @@ func test_cards() -> void:
 	lanes.sort()
 	var per: int = B.CARDS.mob.count
 	check(m.units.size() == 3*per and lanes.count(0) == per and lanes.count(1) == per and lanes.count(2) == per and m.units.back().spawn_delay > 0,"mob deploys a squad in each of three adjacent lanes")
+	var delays: Array = [0,1,2].map(func(lane: int) -> Array: return m.units.filter(func(u: Dictionary) -> bool: return u.lane == lane).map(func(u: Dictionary) -> float: return u.spawn_delay))
+	check(delays[0] == delays[1] and delays[1] == delays[2],"the three-lane squads step out at the same moments (they attack together)")
 	m = bare(2)
 	offer(m,"mob")
 	m.play(0,0,L.cell_center(Vector2i(1,4)))

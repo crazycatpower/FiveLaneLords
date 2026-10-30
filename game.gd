@@ -229,7 +229,7 @@ func consume_events() -> void:
 		if e.kind == "breach" and shake_enabled: shake_left = 0.25
 		if fx_enabled:
 			var copy := e.duplicate()
-			copy.life = {"burn":5.0,"death":0.35,"play":0.45,"ink":0.6,"skill":1.0,"link":0.6}.get(e.kind,0.7)
+			copy.life = {"burn":5.0,"death":0.35,"play":0.45,"ink":0.6,"skill":1.0,"link":0.6,"slash":0.35}.get(e.kind,0.7)
 			copy.duration = copy.life
 			effects.append(copy)
 	model.events.clear()
@@ -800,6 +800,17 @@ func draw_relations() -> void:
 			for u: Dictionary in model.units:
 				if u.hp > 0 and u.team != b.team and u.lane == b.cell.y and u.pos.distance_to(b.pos) <= minf(B.CARDS[u.kind].range,B.TAUNT_RADIUS): dashed(b.pos,u.draw if u.has("draw") else u.pos,Color("b34a3a",0.5))
 
+# The reaper's vertical slash: a curved blade stroke over the three lanes it hits.
+func draw_slash(x: float, lane: int, progress: float) -> void:
+	var top: float = L.GRID_ORIGIN.y+maxi(0,lane-1)*L.CELL_SIZE.y+8
+	var bottom: float = L.GRID_ORIGIN.y+mini(5,lane+2)*L.CELL_SIZE.y-8
+	var points := PackedVector2Array()
+	for i: int in range(17):
+		var t := i/16.0
+		points.append(Vector2(x+sin(t*PI)*18.0,lerpf(top,bottom,t)))
+	draw_polyline(points,Color(0.85,0.85,0.95,0.35*(1-progress)),10.0,true)
+	draw_polyline(points,Color(0.25,0.18,0.30,0.9*(1-progress)),3.0,true)
+
 func dashed(a: Vector2, b: Vector2, color: Color) -> void:
 	var length := a.distance_to(b)
 	var d := 0.0
@@ -814,6 +825,7 @@ func draw_effects() -> void:
 			"summoned", "boneburst": draw_arc(e.pos,12+progress*36,0,TAU,24,Color(0.55,0.38,0.60,1-progress),2,true)
 			"skill": draw_skill_effect(e,progress)
 			"link": draw_link(e.pos,e.to,LINK_COLORS.get(e.style,INK),progress)
+			"slash": draw_slash(e.pos.x,e.lane,progress)
 			"ink": draw_circle(e.pos.lerp(Vector2(80,765) if e.team == 0 else Vector2(1322,35),progress),7,Color("d9a62e"))
 			"spell": draw_circle(e.pos,e.get("radius",50.0)*progress,Color(0.7,0.3,0.1,e.life*0.4))
 			"cultivate", "hoe":
