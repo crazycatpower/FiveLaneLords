@@ -38,7 +38,8 @@ static func skill_plan(k: Dictionary) -> Dictionary:
 		"iron":
 			wanted = k.broken > 0 or k.gate_share < pr.get("iron_gate_share",0.6)
 			hoard = pr.get("iron_hoard",1.0) >= 0.5
-	return {"cast":wanted and k.ink >= B.SKILL_COST,"save":wanted and hoard}
+	# Hoard only once the purse is fairly full, so the AI keeps attacking while it saves up.
+	return {"cast":wanted and k.ink >= B.SKILL_COST,"save":wanted and hoard and k.ink >= pr.get("save_from",30.0)}
 
 static func decide(s: Dictionary) -> Dictionary:
 	var pr: Dictionary = weights(s)

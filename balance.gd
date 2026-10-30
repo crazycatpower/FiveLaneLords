@@ -44,8 +44,8 @@ const LORD_HYSTERESIS := 1.5
 # "cooldown": seconds a card must wait after it enters the hand before it can be played (0..30).
 const CARDS := {
 	"farmer":{"name":"農民","role":"經濟·耕田","type":"unit","cost":3,"cooldown":0.0,"count":3,"hp":50.0,"damage":6.0,"interval":1.2,"range":47.0,"speed":45.0},
-	"militia":{"name":"民兵隊","role":"循環·擋路","type":"unit","cost":8,"cooldown":2.0,"count":5,"hp":100.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":45.0},
-	"harvest":{"name":"豐收","role":"經濟·爆發","type":"spell","cost":5,"cooldown":8.0,"radius":120.0},
+	"militia":{"name":"民兵隊","role":"循環·擋路","type":"unit","cost":9,"cooldown":2.0,"count":5,"hp":100.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":45.0},
+	"harvest":{"name":"豐收","role":"經濟·爆發","type":"spell","cost":6,"cooldown":8.0,"radius":120.0},
 	"scarecrow":{"name":"稻草人","role":"誘敵·護田","type":"building","cost":3,"cooldown":3.0,"hp":400.0,"expires":-1.0},
 	"mob":{"name":"乾草叉暴民","role":"三路群攻","type":"unit","cost":11,"cooldown":6.0,"count":4,"spread":true,"hp":50.0,"damage":12.0,"interval":0.85,"range":47.0,"speed":70.0},
 	"hunter":{"name":"獵戶","role":"遠程輸出","type":"unit","cost":4,"cooldown":4.0,"count":3,"hp":50.0,"damage":12.0,"interval":1.7,"range":210.0,"speed":30.0},
@@ -54,12 +54,12 @@ const CARDS := {
 	"rain":{"name":"箭雨","role":"清群法術","type":"spell","cost":6,"cooldown":6.0,"radius":110.0,"damage":200.0,"building_damage":60.0,"gate_damage":60.0},
 	"tower":{"name":"箭樓","role":"防守","type":"building","cost":9,"cooldown":8.0,"hp":400.0,"expires":-1.0,"range":300.0,"damage":24.0,"interval":0.6},
 	"healer":{"name":"草藥婆","role":"支援·治療","type":"unit","cost":5,"cooldown":8.0,"count":1,"hp":200.0,"damage":6.0,"interval":1.2,"range":145.0,"speed":30.0},
-	"ox":{"name":"耕牛","role":"衝鋒·拆建","type":"unit","cost":14,"cooldown":10.0,"count":2,"hp":400.0,"damage":24.0,"interval":1.7,"range":47.0,"speed":105.0},
-	"fire":{"name":"火罐","role":"燒田法術","type":"spell","cost":11,"cooldown":15.0,"radius":95.0,"damage":420.0,"building_damage":840.0,"gate_damage":140.0},
-	"knight":{"name":"騎士","role":"主坦","type":"unit","cost":26,"cooldown":15.0,"count":2,"hp":750.0,"damage":90.0,"interval":1.7,"range":47.0,"speed":20.0},
+	"ox":{"name":"耕牛","role":"衝鋒·拆建","type":"unit","cost":12,"cooldown":10.0,"count":2,"hp":400.0,"damage":24.0,"interval":1.7,"range":47.0,"speed":105.0},
+	"fire":{"name":"火罐","role":"燒田法術","type":"spell","cost":10,"cooldown":15.0,"radius":95.0,"damage":420.0,"building_damage":840.0,"gate_damage":140.0},
+	"knight":{"name":"騎士","role":"主坦","type":"unit","cost":22,"cooldown":15.0,"count":2,"hp":750.0,"damage":90.0,"interval":1.7,"range":47.0,"speed":20.0},
 	"guard":{"name":"聖堂護衛","role":"重裝軍團","type":"unit","cost":30,"cooldown":18.0,"members":[["knight",2,0.0],["healer",2,50.0]],"art":["knight","healer"]},
 	"mill":{"name":"磨坊","role":"大型經濟","type":"building","cost":18,"cooldown":20.0,"hp":900.0,"expires":-1.0},
-	"ram":{"name":"攻城槌","role":"終結·破門","type":"unit","cost":27,"cooldown":30.0,"members":[["ram",1,0.0],["militia",4,-40.0]],"art":["ram","militia"],"count":1,"hp":1500.0,"damage":180.0,"interval":2.4,"range":47.0,"speed":20.0}
+	"ram":{"name":"攻城槌","role":"終結·破門","type":"unit","cost":24,"cooldown":30.0,"members":[["ram",1,0.0],["militia",4,-40.0]],"art":["ram","militia"],"count":1,"hp":1500.0,"damage":180.0,"interval":2.4,"range":47.0,"speed":20.0}
 }
 
 # Deck = farmland (always, own hand slot) + a chosen lord + 8 rotating cards (producer 2026-10-29).
@@ -72,10 +72,11 @@ const PRESETS := [
 const PRESET_LORDS := ["harvest","iron","lion"]
 # Lords are chosen on the deck screen and never enter the hand.
 # All lords have the same tier-A health (producer 2026-10-29): they differ only in attack and skill.
+# Lord speed tiers C/D/E (producer 2026-10-30): lion 45, harvest 30, iron 20.
 const LORDS := {
-	"lion":{"name":"紅獅領主","role":"進攻型","hp":750.0,"damage":90.0,"speed":105.0,"skill":"獅王號令","skill_desc":"每路有領地時各召喚一名騎士，從領地前線進攻。"},
-	"harvest":{"name":"豐收領主","role":"經濟型","hp":750.0,"damage":45.0,"speed":105.0,"skill":"豐年祭","skill_desc":"每路在己方領地空格種一塊農田，全部農田回滿血並產量加倍 %s 秒。"},
-	"iron":{"name":"鐵壁領主","role":"防守型","hp":750.0,"damage":90.0,"speed":105.0,"skill":"重築城牆","skill_desc":"五座城門回滿血，已破的城門重建，城門前拆殘垣的敵兵要重新開始。"}
+	"lion":{"name":"紅獅領主","role":"進攻型","hp":750.0,"damage":90.0,"speed":45.0,"skill":"獅王號令","skill_desc":"每路有領地時各召喚一名騎士，從領地前線進攻。"},
+	"harvest":{"name":"豐收領主","role":"經濟型","hp":750.0,"damage":45.0,"speed":30.0,"skill":"豐年祭","skill_desc":"每路在己方領地空格種一塊農田，全部農田回滿血並產量加倍 %s 秒。"},
+	"iron":{"name":"鐵壁領主","role":"防守型","hp":750.0,"damage":90.0,"speed":20.0,"skill":"重築城牆","skill_desc":"五座城門回滿血，已破的城門重建，城門前拆殘垣的敵兵要重新開始。"}
 }
 # Lord skills (producer 2026-10-29): lords have no passive effects; each has one strong skill the
 # player casts with Q (the AI casts its own). It costs a full purse and has a long cooldown.

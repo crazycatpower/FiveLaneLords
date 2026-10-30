@@ -183,6 +183,7 @@ func test_lord_skills() -> void:
 	m = bare(4,[],[],"lion","iron")
 	check(not m.AI.skill_plan(m.skill_state(1)).save,"鐵壁 AI does not hoard gold while its gates are fine")
 	m.gates[1][2] = 0.0
+	m.ink[1] = 40.0
 	check(m.AI.skill_plan(m.skill_state(1)).save,"鐵壁 AI saves for the wall once a gate falls")
 	finished["lord_skills"] = true
 
@@ -315,10 +316,10 @@ func test_lords() -> void:
 	m = bare(8)
 	m.spawn_unit(1,0,"militia",L.cell_center(Vector2i(1,0)))
 	var reached := false
-	for frame: int in range(174):
+	for frame: int in range(int(60.0*(2.0*L.CELL_SIZE.y/m.lords[0].speed+1.0))): # two lanes at the lord's own speed, plus thinking time
 		m.step(1.0/60.0)
 		reached = reached or absf(m.lords[0].pos.y-L.cell_center(Vector2i(0,0)).y) < 58
-	check(reached,"lord reaches threatened lane within three seconds, even if threat is killed")
+	check(reached,"lord reaches a threatened lane two lanes away in time for its speed, even if the threat is killed")
 	# Repro of "the lord does not really defend": a knight battering our lane-4 gate must get hit.
 	var d := bare(8)
 	d.lords[1].pos = Vector2(5000,0) # keep the blue lord out of it
