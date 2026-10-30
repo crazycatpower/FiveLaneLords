@@ -229,7 +229,7 @@ func consume_events() -> void:
 		if e.kind == "breach" and shake_enabled: shake_left = 0.25
 		if fx_enabled:
 			var copy := e.duplicate()
-			copy.life = {"burn":5.0,"death":0.35,"play":0.45,"ink":0.6,"skill":1.0}.get(e.kind,0.7)
+			copy.life = {"burn":5.0,"death":0.35,"play":0.45,"ink":0.6,"skill":1.0,"link":0.6}.get(e.kind,0.7)
 			copy.duration = copy.life
 			effects.append(copy)
 	model.events.clear()
@@ -611,6 +611,7 @@ func draw_battle() -> void:
 		elif b.kind == "grave":
 			bar(Rect2(b.pos+Vector2(-30,36),Vector2(60,5)),b.production,B.CARDS.grave.period,Color("a885af"))
 		if b.boost_until > model.elapsed: draw_arc(b.pos,37,0,TAU,20,Color.GOLD,2)
+	draw_relations()
 	for zone: Dictionary in model.zones:
 		draw_circle(zone.pos,zone.radius,Color(0.35,0.42,0.19,0.20))
 		draw_arc(zone.pos,zone.radius,0,TAU,40,Color(0.28,0.35,0.16,0.65),1.5,true)
@@ -770,12 +771,53 @@ func draw_preview() -> void:
 				for b: Dictionary in model.buildings:
 					if b.kind == "farm" and b.team == 0 and b.cell.y == cell.y and b.cell.x >= cell.x: draw_circle(b.pos,40,color,false,3)
 
+# Colours of the cause-and-effect links (battle.gd link()): one family per relation.
+const LINK_COLORS := {"soul":Color("b9a3d6"),"devour":Color("9b2f2f"),"summon":Color("7b4fa0"),"heal":Color("4f9a4a"),"harvest":Color("e2b23a")}
+
+# A light travelling from cause to effect along a shallow arc, with a fading trail and a ring where
+# it lands, so the player sees what fed what.
+func draw_link(from: Vector2, to: Vector2, color: Color, progress: float) -> void:
+	var lift := Vector2(0,-minf(40.0,from.distance_to(to)*0.25))
+	var travel := clampf(progress/0.75,0.0,1.0)
+	var points := PackedVector2Array()
+	for i: int in range(13):
+		var t := travel*i/12.0
+		points.append(from.lerp(to,t)+lift*sin(t*PI))
+	if points.size() > 1:
+		draw_polyline(points,Color(color,0.25*(1-progress)),7.0,true) # soft glow
+		draw_polyline(points,Color(color,0.75*(1-progress)),2.5,true)
+	var head: Vector2 = points[points.size()-1]
+	draw_circle(head,13.0,Color(color,0.30))
+	draw_circle(head,7.0,Color(color,0.95*(1-progress*0.4)))
+	draw_circle(head,3.0,Color(1,1,1,0.8*(1-progress)))
+	if progress > 0.75: draw_arc(to,10+(progress-0.75)*80,0,TAU,24,Color(color,(1-progress)*3.0),2.0,true)
+
+# Standing relations, drawn every frame: a mill's dashed gold line to the farms it boosts, and a
+# scarecrow's dashed red line to the enemies it is pulling in.
+func draw_relations() -> void:
+	for b: Dictionary in model.buildings:
+		if b.hp <= 0: continue
+		if b.kind == "mill":
+			for farm: Dictionary in model.buildings:
+				if farm.hp > 0 and farm.kind == "farm" and farm.team == b.team and farm.cell.y == b.cell.y: dashed(b.pos,farm.pos,Color("e2b23a",0.55))
+		elif b.kind == "scarecrow":
+			for u: Dictionary in model.units:
+				if u.hp > 0 and u.team != b.team and u.lane == b.cell.y and u.pos.distance_to(b.pos) <= minf(B.CARDS[u.kind].range,B.TAUNT_RADIUS): dashed(b.pos,u.draw if u.has("draw") else u.pos,Color("b34a3a",0.5))
+
+func dashed(a: Vector2, b: Vector2, color: Color) -> void:
+	var length := a.distance_to(b)
+	var d := 0.0
+	while d < length:
+		draw_line(a.lerp(b,d/length),a.lerp(b,minf(d+7.0,length)/length),color,1.6,true)
+		d += 12.0
+
 func draw_effects() -> void:
 	for e: Dictionary in effects:
 		var progress: float = 1-e.life/e.duration
 		match e.kind:
 			"revive", "boneburst": draw_arc(e.pos,12+progress*36,0,TAU,24,Color(0.55,0.38,0.60,1-progress),2,true)
 			"skill": draw_skill_effect(e,progress)
+			"link": draw_link(e.pos,e.to,LINK_COLORS.get(e.style,INK),progress)
 			"ink": draw_circle(e.pos.lerp(Vector2(80,765) if e.team == 0 else Vector2(1322,35),progress),7,Color("d9a62e"))
 			"spell": draw_circle(e.pos,e.get("radius",50.0)*progress,Color(0.7,0.3,0.1,e.life*0.4))
 			"cultivate", "hoe":

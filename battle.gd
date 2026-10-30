@@ -85,6 +85,11 @@ func _init(seed_value: int = 1, deck_a: Array = [], deck_b: Array = [], lord_a: 
 			add_building(team,Vector2i(cell.x if team == 0 else 8-cell.x,cell.y),home_cards[team])
 		stats[team].planted = 0
 
+# A visible tie between a cause and what it affects: a death feeding a tombstone or a ghoul, a
+# necromancer raising a skeleton, a herbalist healing, 豐收 doubling a farm. Drawing only.
+func link(from: Vector2, to: Vector2, team: int, style: String) -> void:
+	event("link",from,team,{"to":to,"style":style})
+
 func event(kind: String, pos: Vector2, team: int = 0, extra: Dictionary = {}) -> void:
 	if not record_events: return
 	var e := {"kind":kind,"pos":pos,"team":team,"time":elapsed}
@@ -414,10 +419,12 @@ func resolve_deaths() -> void:
 			continue
 		for b: Dictionary in buildings:
 			if b.hp > 0 and b.kind == "grave" and b.cell.y == dead.lane:
+				link(dead.pos,b.pos,b.team,"soul")
 				b.production += B.CARDS.grave.death_advance
 				if b.production >= B.CARDS.grave.period: grave_drop(b)
 		for u: Dictionary in units:
 			if u.hp <= 0 or u.kind != "ghoul" or u.pos.distance_to(dead.pos) > B.CARDS.ghoul.radius: continue
+			link(dead.pos,u.pos,u.team,"devour")
 			u.hp = minf(u.max_hp,u.hp+B.CARDS.ghoul.devour_heal)
 			var tier_index: int = B.TIERS.damage.find(u.get("damage",B.CARDS.ghoul.damage))
 			u.damage = B.TIERS.damage[maxi(B.CARDS.ghoul.max_damage_tier,tier_index-1)]
@@ -573,6 +580,7 @@ func heal(u: Dictionary, dt: float) -> void:
 		if ally.team == u.team and ally.hp > 0 and u.pos.distance_to(ally.pos) <= B.HEAL_RADIUS:
 			ally.hp = minf(ally.max_hp,ally.hp+B.HEAL_AMOUNT)
 			event("heal",ally.pos,u.team)
+			if not is_same(ally,u): link(u.pos,ally.pos,u.team,"heal")
 
 func cultivate(u: Dictionary, dt: float) -> bool:
 	if u.kind != "farmer": return false
@@ -709,6 +717,7 @@ func summon_skeletons(u: Dictionary, data: Dictionary, dt: float) -> void:
 		var child := spawn_unit(u.team,lane,"skeleton",L.cell_center(Vector2i(col,lane)))
 		child.card = u.get("card",u.kind)
 		event("revive",child.pos,u.team)
+		link(u.pos,child.pos,u.team,"summon")
 
 # Whom this troop attacks right now ({} = nobody in reach).
 func choose_target(u: Dictionary, data: Dictionary) -> Dictionary:
@@ -771,6 +780,7 @@ func cast_spell(s: Dictionary) -> void:
 		for b: Dictionary in buildings:
 			if b.team == s.team and b.hp > 0 and b.kind == "farm" and b.pos.distance_to(s.pos) <= data.radius:
 				b.harvest_until = elapsed+B.HARVEST_TIME
+				link(s.pos,b.pos,s.team,"harvest")
 		return
 	for u: Dictionary in units:
 		if u.team != s.team and u.pos.distance_to(s.pos) <= data.radius:

@@ -43,7 +43,7 @@ const LORD_HYSTERESIS := 1.5
 # and "spread": true to deploy "count" troops in each of three adjacent lanes.
 # "cooldown": seconds a card must wait after it enters the hand before it can be played (0..30).
 const CARDS := {
-	"grave":{"name":"墓碑","role":"死亡·經濟","faction":"dark","series":"dark","type":"building","cost":5,"cooldown":30.0,"hp":400.0,"expires":-1.0,"period":60.0,"income":6.0,"death_advance":20.0},
+	"grave":{"name":"墓碑","role":"死亡·經濟","faction":"dark","series":"dark","type":"building","cost":5,"cooldown":30.0,"hp":400.0,"expires":-1.0,"period":60.0,"income":6.0,"death_advance":5.0},
 	"skeleton":{"name":"骷髏兵","role":"復活·纏鬥","faction":"dark","series":"dark","type":"unit","cost":6,"cooldown":2.0,"count":4,"hp":50.0,"damage":12.0,"interval":0.85,"range":47.0,"speed":45.0,"revive_delay":3.0,"revive_share":0.5},
 	"ghoul":{"name":"食屍鬼","role":"吞噬·成長","faction":"dark","series":"dark","type":"unit","cost":9,"cooldown":6.0,"count":2,"hp":200.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":70.0,"radius":110.0,"devour_heal":50.0,"max_damage_tier":1},
 	"necromancer":{"name":"死靈法師","role":"三路·招魂","faction":"dark","series":"dark","type":"unit","projectile":true,"cost":14,"cooldown":12.0,"count":1,"hp":200.0,"damage":12.0,"interval":1.2,"range":145.0,"speed":30.0,"summon_interval":15.0},

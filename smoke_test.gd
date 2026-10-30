@@ -268,6 +268,19 @@ func test_factions() -> void:
 	check(m.buildings.filter(func(b: Dictionary) -> bool: return b.team == 0).all(func(b: Dictionary) -> bool: return b.kind == "grave") and m.buildings.filter(func(b: Dictionary) -> bool: return b.team == 1).all(func(b: Dictionary) -> bool: return b.kind == "farm"),"the underworld lord starts with tombstones instead of farms")
 	m.lords.clear()
 	check(m.kind_at(0,m.FARM_SLOT) == "grave","the home card does not depend on the lord staying in the list")
+	# Cause-and-effect links: a death in a tombstone's lane sends a soul to it; 豐收 marks every farm it doubles.
+	m = bare(4,[],[],"underworld","lion")
+	m.lords.clear()
+	var tomb := m.add_building(0,Vector2i(1,2),"grave")
+	var victim := m.spawn_unit(1,2,"militia",L.cell_center(Vector2i(4,2)))
+	m.events.clear()
+	m.damage(victim,9999,0,"rain")
+	m.resolve_deaths()
+	check(m.events.any(func(e: Dictionary) -> bool: return e.kind == "link" and e.style == "soul" and e.to == tomb.pos and e.pos == victim.pos),"a death sends a visible soul to the tombstone it speeds up")
+	var farm := m.add_building(0,Vector2i(0,3),"farm")
+	m.events.clear()
+	m.cast_spell({"kind":"harvest","team":0,"pos":farm.pos})
+	check(m.events.any(func(e: Dictionary) -> bool: return e.kind == "link" and e.style == "harvest" and e.to == farm.pos),"豐收 draws a link to every farm it doubles")
 	finished["factions"] = true
 
 func test_core() -> void:
