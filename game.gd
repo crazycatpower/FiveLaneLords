@@ -498,8 +498,32 @@ func _draw() -> void:
 	else: draw_title()
 
 # Flat manuscript pigments over paper; deterministic strokes never consume battle RNG.
+static func scenery_noise(index: int, salt: int) -> float:
+	return fposmod(sin(index*127.1+salt*311.7)*43758.5453,1.0)
+
+func ground_wash(center: Vector2, size: Vector2, pigment: Color, seed_value: int, opacity: float) -> void:
+	for layer: int in range(3):
+		var points := PackedVector2Array()
+		for n: int in range(20):
+			var angle := n*TAU/20
+			var radius := (1.0-layer*0.15)*(0.85+scenery_noise(n,seed_value+5)*0.15)
+			points.append(center+Vector2(cos(angle),sin(angle))*size*radius)
+		draw_colored_polygon(points,Color(pigment,opacity))
+
 func draw_battle_landscape(field: Rect2) -> void:
 	draw_rect(field,Color("81975e"))
+	# Stable pigment washes and ground details; never touch the simulation RNG.
+	for i: int in range(42):
+		var center := field.position+Vector2(60+scenery_noise(i,1)*(field.size.x-120),35+scenery_noise(i,2)*(field.size.y-70))
+		ground_wash(center,Vector2(35+scenery_noise(i,3)*65,14+scenery_noise(i,4)*22),Color("566f40") if i%3 == 0 else Color("bcc78a"),i,0.035)
+	for lane: int in range(5):
+		var path := PackedVector2Array()
+		for i: int in range(33):
+			path.append(Vector2(220+i*36.25,L.cell_center(Vector2i(0,lane)).y+25+sin(i*0.34+lane)*5))
+		draw_polyline(path,Color(0.68,0.60,0.40,0.09),20,true)
+		draw_polyline(path,Color(0.74,0.67,0.45,0.07),9,true)
+	for b: Dictionary in model.buildings:
+		if b.hp > 0: ground_wash(b.pos+Vector2(0,26),Vector2(53,17),Color("8f7952"),int(b.cell.x+b.cell.y*9),0.13)
 	draw_texture_rect(PAPER,field,false,Color(1,1,1,0.08))
 
 func draw_landscape(rect: Rect2, horizon: float) -> void:
@@ -552,7 +576,7 @@ func draw_battle() -> void:
 				if model.territory_owner(cell+delta) == owner: continue
 				var corners := [r.position,Vector2(r.end.x,r.position.y),r.end,Vector2(r.position.x,r.end.y)]
 				var edge: int = [3,0,1,2][side]
-				draw_line(corners[edge],corners[(edge+1)%4],color,2.5,true)
+				ink_line(corners[edge],corners[(edge+1)%4],row*37+col*11+side,color,1.7)
 	if selected >= 0:
 		for row: int in range(5):
 			for col: int in range(9):
@@ -649,16 +673,20 @@ func draw_ground(grid: Rect2) -> void:
 	for lane: int in range(5):
 		var row := Rect2(grid.position+Vector2(0,lane*ch),Vector2(grid.size.x,ch))
 		if lane % 2 == 1: draw_rect(row,Color(0.25,0.16,0.06,0.06))
-	for row: int in range(5):
-		for col: int in range(9):
-			var origin: Vector2 = grid.position+Vector2(col*cw,row*ch)
-			var middle: bool = col >= 3 and col <= 5
-			for i: int in range(2 if middle else 3):
-				var h: float = fposmod(sin(row*12.9898+col*78.233+i*37.719)*43758.5453,1.0)
-				var k: float = fposmod(sin(row*39.346+col*11.135+i*93.989)*24634.6345,1.0)
-				var p: Vector2 = origin+Vector2(10+h*(cw-20),10+k*(ch-20))
-				if middle and i == 1: draw_circle(p,1.6+h*1.4,Color(0.35,0.25,0.15,0.28)) # pebble
-				else: tuft(p,Color(0.27,0.33,0.12,0.42) if col < 3 or col > 5 else Color(0.40,0.32,0.15,0.30),6.0+h*4.0)
+	# Irregular clumps rather than identical decorations in every grid cell.
+	for i: int in range(175):
+		var p := grid.position+Vector2(10+scenery_noise(i,11)*(grid.size.x-20),14+scenery_noise(i,12)*(grid.size.y-28))
+		var lane_y := fposmod(p.y-grid.position.y,ch)
+		if absf(lane_y-ch*0.5-25) < 14: continue # leave worn paths sparse
+		var height := 3.5+scenery_noise(i,13)*6
+		var shade := Color("4f683b") if i%3 == 0 else Color("c2cb8d")
+		tuft(p,Color(shade,0.36),height)
+		if i%4 == 0:
+			tuft(p+Vector2(5,-2),Color(shade,0.30),height*0.65)
+		if i%19 == 0:
+			draw_circle(p-Vector2(0,height),1.5,Color(0.92,0.86,0.62,0.7))
+		elif i%13 == 0:
+			draw_line(p+Vector2(8,2),p+Vector2(12,1),Color(0.39,0.38,0.28,0.35),2,true)
 	draw_texture_rect(vignette,L.FIELD_FRAME.grow(-4),false)
 
 # Three ink strokes fanning up from one point: a grass tuft.
