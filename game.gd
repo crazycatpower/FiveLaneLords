@@ -798,7 +798,7 @@ func draw_relations() -> void:
 				if farm.hp > 0 and farm.kind == "farm" and farm.team == b.team and farm.cell.y == b.cell.y: dashed(b.pos,farm.pos,Color("e2b23a",0.55))
 		elif b.kind == "scarecrow":
 			for u: Dictionary in model.units:
-				if u.hp > 0 and u.team != b.team and u.lane == b.cell.y and u.pos.distance_to(b.pos) <= minf(B.CARDS[u.kind].range,B.TAUNT_RADIUS): dashed(b.pos,u.draw if u.has("draw") else u.pos,Color("b34a3a",0.5))
+				if u.hp > 0 and u.team != b.team and is_same(model.taunting_scarecrow(u),b): dashed(b.pos,u.draw if u.has("draw") else u.pos,Color("b34a3a",0.5))
 
 # The reaper's vertical slash: a curved blade stroke over the three lanes it hits.
 func draw_slash(x: float, lane: int, progress: float) -> void:

@@ -711,13 +711,33 @@ func summon_skeletons(u: Dictionary, data: Dictionary, dt: float) -> void:
 	u.summon_left += data.summon_interval
 	var col := clampi(floori((u.pos.x-L.GRID_ORIGIN.x)/L.CELL_SIZE.x),0,L.GRID_COLUMNS-1)
 	for lane: int in range(maxi(0,u.lane-1),mini(5,u.lane+2)):
-		var child := spawn_unit(u.team,lane,"skeleton",L.cell_center(Vector2i(col,lane)))
-		child.card = u.get("card",u.kind)
-		event("summoned",child.pos,u.team)
-		link(u.pos,child.pos,u.team,"summon")
+		for i: int in range(data.get("summon_per_lane",1)):
+			var child := spawn_unit(u.team,lane,"skeleton",L.cell_center(Vector2i(col,lane)))
+			child.card = u.get("card",u.kind)
+			event("summoned",child.pos,u.team)
+			link(u.pos,child.pos,u.team,"summon")
+
+# 稻草人: an enemy scarecrow whose 3 x 3 block (its lane and the two next to it, its column and the
+# two next to it) holds this troop draws all of its attacks, from wherever it stands - ravens and
+# rams included. The nearest such scarecrow wins; level ones go by the higher serial.
+func taunting_scarecrow(u: Dictionary) -> Dictionary:
+	var col := clampi(floori((u.pos.x-L.GRID_ORIGIN.x)/L.CELL_SIZE.x),0,L.GRID_COLUMNS-1)
+	var found: Dictionary = {}
+	for lane: int in range(maxi(0,u.lane-1),mini(5,u.lane+2)):
+		for b: Dictionary in lane_foe_taunts[u.team][lane]:
+			if b.hp <= 0 or absi(b.cell.x-col) > 1: continue
+			if found.is_empty():
+				found = b
+				continue
+			var d: float = u.pos.distance_to(b.pos)
+			var best: float = u.pos.distance_to(found.pos)
+			if d < best-SERIAL_TIE or (d <= best+SERIAL_TIE and b.serial > found.serial): found = b
+	return found
 
 # Whom this troop attacks right now ({} = nobody in reach).
 func choose_target(u: Dictionary, data: Dictionary) -> Dictionary:
+	var taunt := taunting_scarecrow(u)
+	if not taunt.is_empty(): return taunt
 	var target: Dictionary = {} if data.get("hits","") == "buildings" else nearest(u.pos,u.team,data.range,lane_foes[u.team][u.lane],-1,data.range > B.MELEE_RANGE)
 	var building := nearest(u.pos,u.team,data.range,lane_foe_buildings[u.team][u.lane])
 	if data.get("prefers","") == "farm":
@@ -727,10 +747,7 @@ func choose_target(u: Dictionary, data: Dictionary) -> Dictionary:
 			building = farm if u.pos.distance_to(farm.pos) <= data.range else {}
 	if not building.is_empty() and (target.is_empty() or u.pos.distance_to(building.pos) < u.pos.distance_to(target.pos)): target = building
 	if data.get("target_rule","") == "lowest_serial": target = reaper_target(u)
-	elif data.get("hits","") != "buildings":
-		var taunt := nearest(u.pos,u.team,minf(data.range,B.TAUNT_RADIUS),lane_foe_taunts[u.team][u.lane])
-		if not taunt.is_empty(): target = taunt
-		if target.is_empty(): target = nearest(u.pos,u.team,54.0,lords)
+	elif data.get("hits","") != "buildings" and target.is_empty(): target = nearest(u.pos,u.team,54.0,lords)
 	return target
 
 # Nothing to hit: walk to the enemy gate, batter it, clear its rubble, walk in. True = match won.

@@ -54,7 +54,7 @@ static func run(t: SceneTree) -> void:
 		m = fixture(t)
 		var necro := m.spawn_unit(0,lane,"necromancer",L.cell_center(Vector2i(2,lane)))
 		necro.march = 0.0
-		var per_wave := 3 if lane == 2 else 2
+		var per_wave: int = (3 if lane == 2 else 2)*B.CARDS.necromancer.summon_per_lane
 		t.tick(m,0.1)
 		var children: Array = m.units.filter(func(u: Dictionary) -> bool: return u.kind == "skeleton")
 		t.check(children.size() == per_wave and children.all(func(u: Dictionary) -> bool: return absi(u.lane-lane) <= 1 and m.cell_at(u.pos).x == 2),"necromancer summons at once, in the correct lanes and column "+str(lane))

@@ -282,6 +282,17 @@ func test_factions() -> void:
 	m.events.clear()
 	m.cast_spell({"kind":"harvest","team":0,"pos":farm.pos})
 	check(m.events.any(func(e: Dictionary) -> bool: return e.kind == "link" and e.style == "harvest" and e.to == farm.pos),"豐收 draws a link to every farm it doubles")
+	# 稻草人 draws every enemy in its 3 x 3 block, ravens included, from where they stand.
+	m = bare(6)
+	m.lords.clear()
+	var straw := m.add_building(0,Vector2i(2,2),"scarecrow")
+	var crow := m.spawn_unit(1,1,"raven",L.cell_center(Vector2i(3,1)))
+	var raider := m.spawn_unit(1,3,"militia",L.cell_center(Vector2i(1,3)))
+	var far := m.spawn_unit(1,2,"militia",L.cell_center(Vector2i(4,2)))
+	var other_lane := m.spawn_unit(1,0,"militia",L.cell_center(Vector2i(2,0)))
+	m.build_lookups()
+	check(is_same(m.choose_target(crow,B.CARDS.raven),straw) and is_same(m.choose_target(raider,B.CARDS.militia),straw),"a scarecrow draws enemies in the lanes and columns next to it, ravens too")
+	check(not is_same(m.choose_target(far,B.CARDS.militia),straw) and not is_same(m.choose_target(other_lane,B.CARDS.militia),straw),"enemies two columns or two lanes away are not drawn")
 	finished["factions"] = true
 
 func test_core() -> void:
@@ -607,7 +618,7 @@ func test_cards() -> void:
 	knight = m.spawn_unit(1,0,"knight",Vector2(1140,162))
 	var scarecrow := m.add_building(1,Vector2i(7,0),"scarecrow")
 	m.step(0.01)
-	check(scarecrow.hp < 400 and knight.hp == B.CARDS.knight.hp,"scarecrow takes priority over nearer troops")
+	check(scarecrow.hp < scarecrow.max_hp and knight.hp == B.CARDS.knight.hp,"scarecrow takes priority over nearer troops")
 	m = bare(2)
 	offer(m,"mob")
 	m.play(0,0,L.cell_center(Vector2i(1,1)))
@@ -869,7 +880,7 @@ func test_tutorial() -> void:
 		check(game.tutorial.stage == stage+1,"tutorial step %d completes (%s)" % [i+1,card])
 	check(game.tutorial.complete and m.lord_active[1] and m.ai_start < 1e8,"after the tutorial the blue side wakes up")
 	var frames := 0
-	while not m.ended and frames < 60*30:
+	while not m.ended and frames < 60*60: # the slow tier-E knight needs about 30 s to walk in
 		game._physics_process(1.0/60.0)
 		frames += 1
 	check(m.ended and m.winner == 0,"the tutorial knight walks through the broken gate and wins")
