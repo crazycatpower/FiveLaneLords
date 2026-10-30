@@ -68,6 +68,7 @@ func _ready() -> void:
 		bundled.fallbacks = [sf]
 		font = bundled
 	else: font = sf
+	for problem: String in B.validate(): push_error("balance.gd: "+problem) # see docs/新增卡牌指南.md
 	for pair: Array in [["militia","manuscript-v1/militia-red.png"],["farmer","farmer.png"],["farm","farmland.png"],["castle_red","manuscript-v1/castle-red.png"],["castle_blue","manuscript-v1/castle-red.png"]]:
 		textures[pair[0]] = load("res://assets/"+pair[1])
 	for kind: String in B.CARDS:

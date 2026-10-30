@@ -220,6 +220,14 @@ static func spend_score(c: Dictionary, s: Dictionary, team: int, lane: int, col:
 	# sit in hand forever and stop the deck rotating.
 	if B.has_tag(c.kind,"hold") and s.ink < 45.0: return -INF
 	if data.type == "unit": return 480.0+(30.0 if lane == target_lane else 0.0)+col*3-data.cost*0.5
+	# Any other building or spell (a new card without its own rule above): use it rather than let it
+	# sit in hand forever, which would stop the deck rotating.
+	if data.type == "building": return 495.0+my_farms[lane]*5-col*4
+	if data.type == "spell":
+		var hits := 0
+		for u: Dictionary in s.units:
+			if u.team != team and u.hp > 0 and u.pos.distance_to(c.pos) <= data.radius: hits += 1
+		return 490.0+hits*60.0 if hits > 0 else 300.0-data.cost
 	return -INF
 
 static func own_building(buildings: Array, team: int, cell: Vector2i) -> Dictionary:

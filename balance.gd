@@ -85,6 +85,48 @@ const CARDS := {
 static func has_tag(kind: String, tag: String) -> bool:
 	return tag in CARDS[kind].get("ai",[])
 
+const CARD_TYPES := ["unit","building","spell"]
+const BEHAVIOUR_VALUES := {"hits":["buildings"],"prefers":["farm"],"target_rule":["lowest_serial"]}
+const AI_TAGS := ["defend_spell","wave_spell","raid","guard","defend_building","obstacle","no_defend","hold","big"]
+const NEEDS := {"unit":["count","hp","damage","interval","range","speed"],"building":["hp","expires"],"spell":["radius"]}
+const LORD_NEEDS := ["name","role","hp","damage","speed","skill","skill_desc"]
+
+# Everything wrong with the card and lord tables ([] = fine). smoke_test.gd fails on any problem and
+# the game prints them at start, so a new card with a typo or a missing field is caught at once.
+static func validate() -> Array[String]:
+	var problems: Array[String] = []
+	for kind: String in CARDS:
+		var c: Dictionary = CARDS[kind]
+		var before := problems.size()
+		for key: String in ["name","role","type","cost","cooldown"]:
+			if not c.has(key): problems.append("%s: missing %s" % [kind,key])
+		var type: String = c.get("type","")
+		if not type in CARD_TYPES:
+			problems.append("%s: type must be one of %s" % [kind,str(CARD_TYPES)])
+			continue
+		if c.get("cost",0) < 1 or c.get("cost",0) > 30: problems.append("%s: cost must be 1-30" % kind)
+		if c.get("cooldown",0.0) < 0 or c.get("cooldown",0.0) > 30: problems.append("%s: cooldown must be 0-30 s" % kind)
+		if c.has("members"):
+			for group: Array in c.members:
+				if not CARDS.has(group[0]) or not CARDS[group[0]].has("hp"): problems.append("%s: legion member %s is not a troop card" % [kind,str(group[0])])
+		else:
+			for key: String in NEEDS[type]:
+				if not c.has(key): problems.append("%s: a %s needs %s" % [kind,type,key])
+		for stat: String in TIERS:
+			if c.has(stat) and (type == "unit" or c.has("range")) and tier(stat,c[stat]).is_empty(): problems.append("%s: %s %s is not an S-E tier value" % [kind,stat,str(c[stat])])
+		for key: String in BEHAVIOUR_VALUES:
+			if c.has(key) and not c[key] in BEHAVIOUR_VALUES[key]: problems.append("%s: %s must be one of %s" % [kind,key,str(BEHAVIOUR_VALUES[key])])
+		for tag in c.get("ai",[]):
+			if not tag in AI_TAGS: problems.append("%s: unknown AI tag %s" % [kind,str(tag)])
+		# The description reads the fields above, so only build it once they are all present.
+		if problems.size() == before and card_description(kind).is_empty(): problems.append("%s: no description" % kind)
+	for kind: String in LORDS:
+		for key: String in LORD_NEEDS:
+			if not LORDS[kind].has(key): problems.append("lord %s: missing %s" % [kind,key])
+		for stat: String in ["hp","damage","speed"]:
+			if LORDS[kind].has(stat) and tier(stat,LORDS[kind][stat]).is_empty(): problems.append("lord %s: %s is not an S-E tier value" % [kind,stat])
+	return problems
+
 # Deck = farmland (always, own hand slot) + a chosen lord + 8 rotating cards (producer 2026-10-29).
 const PRESET_NAMES := ["向日葵流","穩健農莊","劫掠隊"]
 const PRESETS := [

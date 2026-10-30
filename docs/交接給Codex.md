@@ -31,6 +31,9 @@
 
 ## 3. 工作流程（每次改動都要做）
 
+> **新增卡牌或領主**：照 [新增卡牌指南](新增卡牌指南.md) 做。大部分的牌只要在 `balance.gd` 加一筆資料（行為欄位、AI 標籤），`B.validate()` 會檢查缺漏。
+> **黃金對局**：`tools/golden_matches.json` 記錄 8 場固定種子對局的結局，測試會逐項比對。只改程式結構時它**必須**不變；有意改玩法（含新增卡牌）時，用 `godot_console --headless --path . -s tools/make_golden.gd` 重錄，和改動一起 commit。
+
 1. 數值只改 `balance.gd`，不要寫死在函式裡。
 2. 跑測試：`godot_console --headless --path . -s smoke_test.gd`，**回傳 0 才算完成**。
 3. 新規則在 `smoke_test.gd` 用 `check(條件, "說明")` 加測試；測試從 `B.CARDS`、`B.LORDS` 等常數讀數值，不要寫死。
@@ -41,6 +44,9 @@
 8. 每個改動一個 git commit，訊息寫清楚改了什麼、為什麼（附上量測前後數字）。
 
 ## 4. 已知陷阱
+
+- **不要在程式裡用卡牌名稱列清單**（例如 `kind in ["ram","raven"]`）：改用卡牌資料的行為欄位或 `ai` 標籤（見 `balance.gd` 的說明與 `B.has_tag()`），新牌才會自動套用。
+- **出牌規則只有 `play_check()` 一份**：`can_play()`、`play_error()` 都讀它，不要再各寫一份。
 
 - **測試裡換手牌後要把冷卻歸零**：`m.hand_cd[team] = [0.0,0.0,0.0,0.0]`；常駐農田是 `m.farm_cd[team]`。
 - **測試要空棋盤就用 `bare()`**（清掉開局的兩塊田）；要測開局狀態才用 `Battle.new()`。

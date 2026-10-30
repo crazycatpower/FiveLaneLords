@@ -142,6 +142,8 @@ func test_ai_cards() -> void:
 	for i: int in range(3): m.spawn_unit(1,2,"militia",L.cell_center(Vector2i(6,2)))
 	c = m.AI.decide(m.snapshot(1))
 	check(c.get("kind","") == "healer" and c.cell.y == 2 and (c.pos.x-L.cell_center(Vector2i(6,2)).x) <= B.HEAL_RADIUS,"the herbalist goes right behind our troops")
+	m = ai_hand("bonewall",40)
+	check(m.AI.decide(m.snapshot(1)).get("kind","") == "bonewall","a building without its own AI rule is still played once gold piles up (no stuck hand)")
 	m = ai_hand("healer",46)
 	check(m.AI.decide(m.snapshot(1)).get("kind","") == "healer","near the gold cap a stuck herbalist is spent anyway")
 	finished["ai_cards"] = true
@@ -489,7 +491,12 @@ func test_ai() -> void:
 
 
 func test_cards() -> void:
-	check(B.CARDS.size() == 25,"twenty-five card pool including eight dark age cards")
+	check(B.CARDS.size() >= 25,"card pool still holds the 25 base and dark age cards")
+	var problems: Array[String] = B.validate()
+	check(problems.is_empty(),"card and lord tables pass B.validate(): %s" % "; ".join(problems))
+	var no_art: Array = B.CARDS.keys().filter(func(k: String) -> bool: return not (k in ["militia","farmer","farm"] or B.CARDS[k].has("art") or ResourceLoader.exists("res://assets/manuscript-v1/%s.png" % k)))
+	no_art.append_array(B.LORDS.keys().filter(func(k: String) -> bool: return not ResourceLoader.exists("res://assets/manuscript-v1/lord-%s.png" % k)))
+	check(no_art.is_empty(),"every card and lord has art: missing %s" % str(no_art))
 	var off_tier: Array = []
 	for kind: String in B.CARDS:
 		var c: Dictionary = B.CARDS[kind]
@@ -602,7 +609,7 @@ func test_cards() -> void:
 func test_decks() -> void:
 	var store = preload("res://deck_store.gd")
 	for deck: Array in B.PRESETS: check(store.valid(deck) and not "farm" in deck,"preset has eight unique rotating cards (farmland is separate)")
-	check(B.PRESET_LORDS.all(func(k: String) -> bool: return B.LORDS.has(k)) and B.LORDS.size() == 4,"four lords to choose from; every preset names one")
+	check(B.PRESET_LORDS.all(func(k: String) -> bool: return B.LORDS.has(k)) and B.LORDS.size() >= 4,"at least four lords to choose from; every preset names one")
 	check(not store.valid(["militia"]),"short deck rejected")
 	var deck: Array = B.PRESETS[0].duplicate()
 	deck[0] = "farm"
