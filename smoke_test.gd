@@ -49,6 +49,8 @@ func run() -> void:
 	check(finished.has("fast_rules"),"fast rule test ran to the end")
 	test_ai_cards()
 	test_lord_skills()
+	test_skill_visuals()
+	check(finished.has("skill_visuals"),"skill visuals test completed")
 	check(finished.has("lord_skills"),"lord skill test ran to the end")
 	check(finished.has("ai_cards"),"AI card-use test ran to the end")
 	check(finished.has("repair"),"repair test ran to the end")
@@ -910,3 +912,32 @@ func test_art_regressions() -> void:
 	check(death.face == 1.0,"building death keeps unmirrored orientation")
 	game.free()
 	finished["art_regressions"] = true
+
+func test_skill_visuals() -> void:
+	var game = load("res://main.tscn").instantiate()
+	root.add_child(game)
+	game.set_physics_process(false)
+	game.sound.enabled = false
+	game.fx_enabled = true
+	for kind: String in B.LORDS:
+		for team: int in range(2):
+			game.model = Battle.new(5,[],[],kind,kind)
+			game.model.ink[team] = B.SKILL_COST
+			game.effects.clear()
+			check(game.model.cast_skill(team),"visual fixture casts "+kind+str(team))
+			var gold: float = game.model.ink[team]
+			game.consume_events()
+			var cue: Dictionary = game.effects.filter(func(e: Dictionary) -> bool: return e.kind == "skill").back()
+			check(cue.duration == 1.0 and cue.lord == kind and cue.team == team,"skill visual identity and duration")
+			var count: int = game.model.buildings.filter(func(b: Dictionary) -> bool: return b.team == team and b.kind == "farm").size() if kind == "harvest" else 5
+			check(cue.targets.size() == count,"all affected lanes or farms get a visual cue")
+			game._process(1.1)
+			check(game.effects.is_empty() and game.model.ink[team] == gold,"skill visuals expire without changing gold")
+	game.model = Battle.new(5)
+	game.fx_enabled = false
+	game.model.ink[0] = B.SKILL_COST
+	game.model.cast_skill(0)
+	game.consume_events()
+	check(game.effects.is_empty(),"effects setting disables skill visuals")
+	game.free()
+	finished["skill_visuals"] = true

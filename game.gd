@@ -217,7 +217,7 @@ func consume_events() -> void:
 		if e.kind == "breach" and shake_enabled: shake_left = 0.25
 		if fx_enabled:
 			var copy := e.duplicate()
-			copy.life = {"burn":5.0,"death":0.35,"play":0.45,"ink":0.6}.get(e.kind,0.7)
+			copy.life = {"burn":5.0,"death":0.35,"play":0.45,"ink":0.6,"skill":1.0}.get(e.kind,0.7)
 			copy.duration = copy.life
 			effects.append(copy)
 	model.events.clear()
@@ -680,6 +680,7 @@ func draw_effects() -> void:
 	for e: Dictionary in effects:
 		var progress: float = 1-e.life/e.duration
 		match e.kind:
+			"skill": draw_skill_effect(e,progress)
 			"ink": draw_circle(e.pos.lerp(Vector2(80,765) if e.team == 0 else Vector2(1322,35),progress),7,Color("d9a62e"))
 			"spell": draw_circle(e.pos,e.get("radius",50.0)*progress,Color(0.7,0.3,0.1,e.life*0.4))
 			"cultivate", "hoe":
@@ -705,6 +706,35 @@ func draw_effects() -> void:
 	for spell: Dictionary in model.spells:
 		var height: float = spell.delay/B.SPELL_DELAY*160
 		draw_texture_rect(art(spell.kind),Rect2(spell.pos-Vector2(22,30+height),Vector2(44,60)),false)
+
+# Visual-only skill cues: positions were captured at cast time, no battle state is changed.
+func draw_skill_effect(e: Dictionary, progress: float) -> void:
+	var strength := sin(clampf(progress,0.0,1.0)*PI)
+	var gold := Color(1.0,0.82,0.30,strength*0.85)
+	var direction := 1.0 if e.team == 0 else -1.0
+	for point: Vector2 in e.get("targets",[]):
+		match e.lord:
+			"lion":
+				draw_circle(point+Vector2(0,-20),18+progress*30,Color(1.0,0.85,0.45,strength*0.22))
+				draw_arc(point+Vector2(0,-20),14+progress*35,0,TAU,32,gold,2.0,true)
+				var tip := point+Vector2(direction*(25+progress*100),-18)
+				draw_line(tip-Vector2(direction*65,0),tip,gold,3.0,true)
+				draw_line(tip-Vector2(direction*14,9),tip,gold,3.0,true)
+				draw_line(tip-Vector2(direction*14,-9),tip,gold,3.0,true)
+			"harvest":
+				draw_circle(point,42,Color(1.0,0.76,0.20,strength*0.22))
+				draw_arc(point,27+progress*18,0,TAU,32,gold,2.5,true)
+				for i: int in range(5):
+					var spark := point+Vector2((i-2)*14,-12-progress*36-sin(i*2.0)*9)
+					draw_line(spark-Vector2(3,0),spark+Vector2(3,0),gold,2.0,true)
+					draw_line(spark-Vector2(0,5),spark+Vector2(0,5),gold,2.0,true)
+			"iron":
+				var frame := Rect2(point-Vector2(33,38),Vector2(66,66))
+				draw_rect(frame,Color(1.0,0.86,0.48,strength*0.20))
+				draw_rect(frame,gold,false,3.0)
+				for i: int in range(4):
+					var y := point.y+25-progress*60-i*7
+					draw_line(Vector2(point.x-24,y),Vector2(point.x+24,y),Color(gold,strength*(1.0-i*0.2)),2.0,true)
 
 func draw_hud() -> void:
 	panel(L.HUD_FRAME)

@@ -317,6 +317,7 @@ func cast_skill(team: int) -> bool:
 	skill_cd[team] = B.SKILL_COOLDOWN
 	var kind: String = lords[team].lord
 	stats[team].skills = stats[team].get("skills",0)+1
+	var visual_targets: Array[Vector2] = []
 	match kind:
 		"lion":
 			# One knight per lane at the front-most deploy column of that lane.
@@ -325,6 +326,7 @@ func cast_skill(team: int) -> bool:
 				var u := spawn_unit(team,lane,"knight",L.cell_center(Vector2i(col if team == 0 else 8-col,lane)))
 				u.card = "skill"
 				u.spawn_delay = lane*0.1
+				if record_events: visual_targets.append(u.pos)
 		"harvest":
 			# A farm in each lane (front-most free home cell), then every farm healed and doubled.
 			for lane: int in range(5):
@@ -337,12 +339,15 @@ func cast_skill(team: int) -> bool:
 				if b.team == team and b.kind == "farm" and b.hp > 0:
 					b.hp = b.max_hp
 					b.boost_until = maxf(b.boost_until,elapsed+B.FEAST_BOOST)
+					if record_events: visual_targets.append(b.pos)
 		"iron":
 			# Every gate back to full; attackers already clearing rubble must start over.
-			for lane: int in range(5): gates[team][lane] = B.GATE_HP
+			for lane: int in range(5):
+				gates[team][lane] = B.GATE_HP
+				if record_events: visual_targets.append(Vector2(L.gate_icon_x(team),L.cell_center(Vector2i(0,lane)).y))
 			for u: Dictionary in units:
 				if u.team != team: u.climb = 0.0
-	event("skill",lords[team].pos,team,{"lord":kind})
+	event("skill",lords[team].pos,team,{"lord":kind,"targets":visual_targets})
 	return true
 
 func finish(side: int) -> void:
