@@ -64,9 +64,12 @@ def main():
     p.add_argument("--seed", type=int, default=700_000)
     p.add_argument("--sandbox", default=os.path.join(tempfile.gettempdir(), "five_lane_online_tune"))
     p.add_argument("--apply", action="store_true", help="write the rounded expected costs into balance.gd")
+    p.add_argument("--worktree-balance", action="store_true", help="start from balance.gd as it is in the working tree (uncommitted costs), not git HEAD")
     args = p.parse_args()
 
     make_sandbox(args.sandbox)
+    if args.worktree_balance:
+        shutil.copy(ab.BALANCE, os.path.join(args.sandbox, "balance.gd"))
     runs = os.path.join(args.sandbox, "runs")
     os.makedirs(runs)
     real_balance = ab.BALANCE
