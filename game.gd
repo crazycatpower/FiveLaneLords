@@ -1059,9 +1059,35 @@ func try_skill() -> bool:
 func show_title() -> void:
 	screen = "title"
 	clear_ui()
-	var items: Array = [["開始對戰",func(): spectating = false; start_battle()],["新手教學",start_tutorial],["觀戰模式",show_watch],["牌組編成",show_deck],["操作說明",show_help],["難度："+["簡單","普通","困難"][difficulty],func(): difficulty = (difficulty+1)%3; show_title()],["設定",show_settings],["離開",func(): get_tree().quit()]]
-	for i: int in range(items.size()): button(Rect2(650,292+i*56,300,48),items[i][0],items[i][1])
+	title_button(Rect2(118,354,450,70),"開始對戰",func(): spectating = false; start_battle(),true)
+	title_button(Rect2(118,442,216,54),"新手教學",start_tutorial)
+	title_button(Rect2(352,442,216,54),"牌組編成",show_deck)
+	title_button(Rect2(118,512,216,54),"觀戰模式",show_watch)
+	title_button(Rect2(352,512,216,54),"操作說明",show_help)
+	title_button(Rect2(118,594,450,44),"難度："+["簡單","普通","困難"][difficulty],func(): difficulty = (difficulty+1)%3; show_title())
+	title_button(Rect2(118,770,216,44),"設定",show_settings)
+	title_button(Rect2(352,770,216,44),"離開",func(): get_tree().quit())
 	queue_redraw()
+
+# Title controls have their own parchment / vermilion states and keyboard focus.
+func title_button(rect: Rect2, caption: String, action: Callable, primary: bool = false) -> Button:
+	var control := button(rect,caption,action)
+	control.focus_mode = Control.FOCUS_ALL
+	control.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	control.add_theme_font_size_override("font_size",28 if primary else 21)
+	for state: String in ["normal","hover","pressed","focus"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color("963f30") if primary else Color("e8d6af")
+		if state == "hover": style.bg_color = Color("b1533b") if primary else Color("f6e8c9")
+		if state == "pressed": style.bg_color = Color("733426") if primary else Color("cdb88f")
+		if state == "focus": style.bg_color = Color.TRANSPARENT
+		style.border_color = Color("d2ad58") if primary or state == "focus" else Color("92734b")
+		style.set_border_width_all(3 if state == "focus" else 2)
+		style.set_corner_radius_all(2)
+		control.add_theme_stylebox_override(state,style)
+	for state: String in ["font_color","font_hover_color","font_pressed_color","font_focus_color"]:
+		control.add_theme_color_override(state,Color("fff0ca") if primary else INK)
+	return control
 
 # The blue castle faces the red one: draw it flipped left-right inside the same rect.
 func draw_mirrored(tex: Texture2D, r: Rect2) -> void:
@@ -1070,11 +1096,55 @@ func draw_mirrored(tex: Texture2D, r: Rect2) -> void:
 	draw_set_transform(Vector2.ZERO)
 
 func draw_title() -> void:
-	draw_texture_rect(textures.castle_red,Rect2(100,290,350,480),false)
-	draw_mirrored(art("castle_blue",1),Rect2(1150,290,350,480))
-	draw_string(font,Vector2(0,190),"羊皮紙戰記",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,76,INK)
-	draw_string(font,Vector2(0,240),"種下村莊，寫下你的戰史。",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,28,INK)
-	draw_string(font,Vector2(0,808),"農田＋領主＋八張村莊牌 · 五路戰線 · 城門一破，敵兵進家就輸",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,23,INK)
+	# An illuminated opening page: quiet parchment on the left, a full landscape on the right.
+	panel(Rect2(72,58,542,784),Color("e9d8b2"),Color("80643e"))
+	draw_texture_rect(PAPER,Rect2(80,66,526,768),false,Color(1,1,1,0.17))
+	draw_fitted(ART.ornament(4),Rect2(166,86,354,56))
+	draw_string(font,Vector2(102,224),"羊皮紙戰記",HORIZONTAL_ALIGNMENT_CENTER,482,66,INK)
+	draw_string(font,Vector2(118,274),"種下村莊，寫下你的戰史。",HORIZONTAL_ALIGNMENT_CENTER,450,23,INK)
+	ink_line(Vector2(136,310),Vector2(550,310),8,Color("ac8b50"))
+	draw_circle(Vector2(343,310),4,Color("963f30"))
+	ink_line(Vector2(118,665),Vector2(568,665),3,Color(INK,0.3))
+	label_at(Vector2(122,700),"出征領主",16,Color("80643e"))
+	label_at(Vector2(122,735),B.LORDS[player_lord].name,25,RED)
+	draw_string(font,Vector2(330,733),"農田＋領主＋八張牌",HORIZONTAL_ALIGNMENT_RIGHT,232,17,INK)
+	# Two opposing hosts: farmland behind the human army, graves behind the undead.
+	ground_wash(Vector2(835,625),Vector2(180,160),Color("b7b97b"),72,0.10)
+	ground_wash(Vector2(1410,625),Vector2(145,160),Color("655a70"),81,0.12)
+	for row: int in range(3):
+		var y := 440.0+row*113
+		draw_fitted(art("farm"),Rect2(678+row*8,y-30,128,88),Color.WHITE,true)
+		draw_fitted(art("grave",1),Rect2(1440-row*8,y-35,90,100),Color.WHITE,true)
+	# Back ranks first, then the larger vanguard: depth without hiding either army.
+	for row: int in range(3):
+		var y := 482.0+row*108
+		title_soldier("hunter",Vector2(839,y-18),0,0.98)
+		title_soldier("militia",Vector2(923,y),0,1.12)
+		title_soldier("militia",Vector2(1015,y+20),0,1.23)
+		title_soldier("necromancer" if row == 1 else "skeleton",Vector2(1390,y-18),1,1.02)
+		title_soldier("skeleton",Vector2(1310,y),1,1.12)
+		title_soldier("ghoul",Vector2(1210,y+20),1,1.23)
+	title_soldier("lord_lion",Vector2(1058,772),0,1.55)
+	title_soldier("reaper",Vector2(1200,772),1,1.55)
+	# Small manuscript ink strokes emphasize the meeting fronts.
+	for row: int in range(3):
+		var center := Vector2(1125,472+row*108)
+		ink_line(center+Vector2(-15,-12),center+Vector2(8,10),row,Color(INK,0.65),2)
+		ink_line(center+Vector2(-9,12),center+Vector2(13,-14),row+2,Color(INK,0.65),2)
+	draw_fitted(ART.ornament(0),Rect2(668,80,100,105))
+	draw_fitted(ART.ornament(1),Rect2(1454,75,100,105))
+	panel(Rect2(743,89,666,58),Color("e9d8b2"),Color("80643e"))
+	draw_string(font,Vector2(743,128),"五路戰線 · 一卷戰史",HORIZONTAL_ALIGNMENT_CENTER,666,26,INK)
+	draw_string(font,Vector2(685,842),"農田與墓碑之間，戰線已然展開。",HORIZONTAL_ALIGNMENT_CENTER,820,22,INK)
+
+func title_soldier(kind: String, pos: Vector2, team: int, size_scale: float) -> void:
+	ground_wash(pos+Vector2(0,14),Vector2(25*size_scale,7*size_scale),Color("3f442e"),int(pos.x),0.13)
+	var facing := 1.0 if team == 0 else -1.0
+	draw_set_transform(pos,-0.09*facing,Vector2(facing,1)*size_scale)
+	draw_texture_rect(art(kind,team),actor_rect(kind),false)
+	draw_set_transform(Vector2.ZERO)
+	for i: int in range(2):
+		draw_line(pos+Vector2(-facing*(32+i*8),-8+i*9),pos+Vector2(-facing*(47+i*8),-8+i*9),Color(INK,0.3),1.4,true)
 
 func show_deck() -> void:
 	screen = "deck"
