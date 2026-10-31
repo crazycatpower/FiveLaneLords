@@ -74,14 +74,14 @@ func _ready() -> void:
 	for kind: String in B.CARDS:
 		var file := "res://assets/manuscript-v1/"+kind+".png"
 		if ResourceLoader.exists(file): textures[kind] = load(file)
-	for pair: Array in [["gate","gate"],["crest","crown"]]:
+	for pair: Array in [["gate","gate"],["crest","crown"],["castle_wall","castle-wall"]]:
 		textures[pair[0]] = load("res://assets/manuscript-v1/"+pair[1]+".png")
 	for lord_kind: String in B.LORDS:
 		textures["lord_"+lord_kind] = load("res://assets/manuscript-v1/lord-"+lord_kind+".png")
 	# One shared art set (producer decision): the blue side is made by swapping red cloth to blue,
 	# not by tinting the whole picture (that turned red into purple and darkened the fields).
 	for kind: String in textures:
-		if kind != "castle_blue": blue_art[kind] = recolor_blue(textures[kind],0 if kind == "castle_red" else 384,kind)
+		if kind != "castle_blue": blue_art[kind] = recolor_blue(textures[kind],0 if kind in ["castle_red","castle_wall"] else 384,kind)
 	textures.castle_blue = textures.castle_red
 	# Darkened field edges pull the eye to the middle of the battle.
 	var shade := Gradient.new()
@@ -396,13 +396,14 @@ func lord_art(kind: String, team: int = 0) -> Texture2D:
 # Recolour only designated team materials. Natural fields/skin/wood are not team ink.
 # Ox cloth additionally has a spatial mask so its brown coat never enters the palette swap.
 static func team_material(kind: String, uv: Vector2, c: Color) -> bool:
+	if kind == "castle_wall" and Rect2(0.48,0.55,0.26,0.45).has_point(uv): return false # recessed timber gate
 	if kind == "catapult": return uv.x > 0.73 and uv.y < 0.28 and c.a >= 0.05 and c.s >= 0.35 and c.v >= 0.20 and (c.h <= 0.08 or c.h >= 0.95)
 	if kind == "bonewall": return (uv.x < 0.30 or uv.x > 0.80) and c.a >= 0.05 and c.s >= 0.60 and c.v >= 0.30 and (c.h <= 0.075 or c.h >= 0.95)
 	if kind in ["farm","farmer","harvest","rain","fire"]: return false
 	if kind == "ox" and not Rect2(0.30,0.20,0.26,0.36).has_point(uv): return false
 	if kind == "ram" and uv.y > 0.55: return false
 	# Architecture's weathered red paint is less saturated than character cloth.
-	if kind in ["castle_red","castle_blue"]:
+	if kind in ["castle_red","castle_blue","castle_wall"]:
 		return c.a >= 0.05 and c.s >= 0.33 and c.v >= 0.18 and (c.h <= 0.07 or c.h >= 0.93)
 	return c.a >= 0.05 and c.s >= 0.55 and c.v >= 0.25 and (c.h <= 0.035 or c.h >= 0.965)
 
@@ -572,8 +573,8 @@ func draw_battle() -> void:
 	draw_texture_rect(ART.ornament(1),Rect2(Vector2(field.end.x-8-corner.x,field.position.y+8),corner),false,Color(1,1,1,0.85))
 	draw_texture_rect(ART.ornament(2),Rect2(Vector2(field.position.x+8,field.end.y-8-corner.y),corner),false,Color(1,1,1,0.85))
 	draw_texture_rect(ART.ornament(3),Rect2(field.end-Vector2(8,8)-corner,corner),false,Color(1,1,1,0.85))
-	draw_texture_rect(art("castle_red",0),L.CASTLE_RECTS[0],false)
-	draw_mirrored(art("castle_blue",1),L.CASTLE_RECTS[1])
+	draw_texture_rect(art("castle_wall",0),L.CASTLE_RECTS[0],false)
+	draw_mirrored(art("castle_wall",1),L.CASTLE_RECTS[1])
 	var grid := Rect2(L.GRID_ORIGIN,L.GRID_SIZE)
 	draw_ground(grid)
 	for row: int in range(L.GRID_ROWS):
