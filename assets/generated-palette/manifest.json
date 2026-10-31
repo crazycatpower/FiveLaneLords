@@ -1,0 +1,188 @@
+{
+	"bonewall": {
+		"revision": "team-material-v1",
+		"sha256": "51ada8d64139a4e516b09fada2b4fb097edbfa6a448d76f1275c162ec7a7af37",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/bonewall.png"
+	},
+	"castle_red": {
+		"revision": "team-material-v1",
+		"sha256": "7eb5ca488585f478e47e0f1e91362f72342505323e23b57db3d6c1ea7c63f7e7",
+		"size": 0.0,
+		"source": "res://assets/manuscript-v1/castle-red.png"
+	},
+	"castle_wall": {
+		"revision": "team-material-v1",
+		"sha256": "d7a4fa8b4c28c3fbcb6dab1b63422c84c7d13979b3d599cd073e43c05fe9a578",
+		"size": 0.0,
+		"source": "res://assets/manuscript-v1/castle-wall.png"
+	},
+	"catapult": {
+		"revision": "team-material-v1",
+		"sha256": "2c19102c43e4256ad7171444f4e572612c94b99e5d5c190913cc770734347ab8",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/catapult.png"
+	},
+	"corpse_giant": {
+		"revision": "team-material-v1",
+		"sha256": "13a24fbba72b1db51ed75451bd79779332cdab1fa3cd2a25d02ec266d3fd0996",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/corpse_giant.png"
+	},
+	"crest": {
+		"revision": "team-material-v1",
+		"sha256": "abc1f26850533b820446a82a04a8fcd5a95d51d55a41a356f8f05a5b325a7f92",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/crown.png"
+	},
+	"curse": {
+		"revision": "team-material-v1",
+		"sha256": "449656a773acb7336e5166d4446696c834a4abcde7ea6ff252c6f4da3b2c498f",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/curse.png"
+	},
+	"drummer": {
+		"revision": "team-material-v1",
+		"sha256": "f2ccb18793983c4adc8b0d1e29658f96ec52e46fab48eab375de110abb28d6a1",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/drummer.png"
+	},
+	"gate": {
+		"revision": "team-material-v1",
+		"sha256": "fb91135f3f8119c243cb5b6445b5f2ccb29814ee0c5588261835ad89230516a0",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/gate.png"
+	},
+	"ghoul": {
+		"revision": "team-material-v1",
+		"sha256": "86391128659a9e649124872fa0c2b4fde44ca17e8e4e59417e8fc13d1ae7339f",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/ghoul.png"
+	},
+	"grave": {
+		"revision": "team-material-v1",
+		"sha256": "5a1a4457183d0df7441719b4441bf420ae9d8baed917b15d6cd358a161ed7fd0",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/grave.png"
+	},
+	"healer": {
+		"revision": "team-material-v1",
+		"sha256": "25f38d2748ca89cd2c648d93d2a1f16f81b7bf5be6ab92ca806be344f58bdbd9",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/healer.png"
+	},
+	"hunter": {
+		"revision": "team-material-v1",
+		"sha256": "1e90cf682f13ff80f4ca8dd9360ecfd67bb62d97885fdf964ca81cc2837d5c73",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/hunter.png"
+	},
+	"knight": {
+		"revision": "team-material-v1",
+		"sha256": "e57e2ed795728af5b153d9536881cb73ef36b79dd564988a27056e90ac64a662",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/knight.png"
+	},
+	"lord_harvest": {
+		"revision": "team-material-v1",
+		"sha256": "fcbfae5357965af9afce29202f9292912ce9d41403e3d112109f1c32fc9a958a",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/lord-harvest.png"
+	},
+	"lord_iron": {
+		"revision": "team-material-v1",
+		"sha256": "6aac8bcb953794ad7d16af304b8c8ffaa430c63da699c3a88ee0a90adb513044",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/lord-iron.png"
+	},
+	"lord_lion": {
+		"revision": "team-material-v1",
+		"sha256": "74f5b6468418940aa8d414e014ff01830235b4ab55137b61ad2af60d5f6c6079",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/lord-lion.png"
+	},
+	"lord_underworld": {
+		"revision": "team-material-v1",
+		"sha256": "4fb3147177caaafc6c858554d8c361ec4b52b7ef9a998275ef8ff38c808751fa",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/lord-underworld.png"
+	},
+	"militia": {
+		"revision": "team-material-v1",
+		"sha256": "a3493881af632dc739f5f904dd78c0cd47e7b60e56cf37a4ce6ce3cb9fd23a07",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/militia-red.png"
+	},
+	"mill": {
+		"revision": "team-material-v1",
+		"sha256": "fdbc537f5bfc0f5eead32233b5027bdd91bb464ec10864f07b7ebc80ecad1cad",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/mill.png"
+	},
+	"mob": {
+		"revision": "team-material-v1",
+		"sha256": "733cbded8b62c1342aed90393128a1d7eb6f397dce4606adc3124eae1d0cbc7d",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/mob.png"
+	},
+	"necromancer": {
+		"revision": "team-material-v1",
+		"sha256": "54d3c3145e308976e15b9a1dbe4dbde7b5edfae150146223428b58f3bcd5f608",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/necromancer.png"
+	},
+	"ox": {
+		"revision": "team-material-v1",
+		"sha256": "ddf95614796724f27e553c9de0187ea0bc94b614095ce0552b82e607b31c6f19",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/ox.png"
+	},
+	"plague": {
+		"revision": "team-material-v1",
+		"sha256": "e39dff40c00d3d81a83c2c91e9b54c917180cba560c341c77ee35b29ec3d6695",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/plague.png"
+	},
+	"ram": {
+		"revision": "team-material-v1",
+		"sha256": "e532d53758029867ebcb4f93f5d297195d38e7ea26adbe4eca3c825516a043be",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/ram.png"
+	},
+	"raven": {
+		"revision": "team-material-v1",
+		"sha256": "5650732b97feb1c5993f8a59dd559e3e435748583dd3687d2534caef7d0f1a62",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/raven.png"
+	},
+	"reaper": {
+		"revision": "team-material-v1",
+		"sha256": "a4778772d341050d31162cce87d062d690c86d131ac9a2f6c4cd20422c9d8898",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/reaper.png"
+	},
+	"scarecrow": {
+		"revision": "team-material-v1",
+		"sha256": "f411343e3f3950241393e34f527f608ae9d66a0a635828bd04b0edf72ddd13cc",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/scarecrow.png"
+	},
+	"shieldguard": {
+		"revision": "team-material-v1",
+		"sha256": "e8e0aee12ee396f67db38b57aac470eb2f52301ffed4206df791ea1b7ac86324",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/shieldguard.png"
+	},
+	"skeleton": {
+		"revision": "team-material-v1",
+		"sha256": "e9fbc70e07d6a545aae1bc93f88725221099c095331618a7305516999782bc37",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/skeleton.png"
+	},
+	"tower": {
+		"revision": "team-material-v1",
+		"sha256": "4976d6450247d438955ed3c790c71932265b447357c09366246eaf7fc5ab1774",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/tower.png"
+	}
+}

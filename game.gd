@@ -23,6 +23,10 @@ var font: Font
 var textures: Dictionary = {}
 var blue_art: Dictionary = {}
 static var recolor_cache: Dictionary = {}
+static var prepared_art: Dictionary = {}
+static var palette_manifest: Dictionary = {}
+# Bump only when team_material or palette conversion changes, not for UI/gameplay edits.
+const PALETTE_REVISION := "team-material-v1"
 const ROMAN := ["I","II","III","IV","V"]
 var selected := -1
 var notice := "1–4 選牌 · 點戰場放置 · 右鍵取消 · 空白鍵暫停"
@@ -61,6 +65,29 @@ const SPEED_RECTS := [Rect2(1360,736,46,32),Rect2(1412,736,46,32),Rect2(1464,736
 const NEXT_RECT := Rect2(1102,748,96,128)
 const SKILL_RECT := Rect2(1212,734,356,54)
 
+# Shared by the asset preflight and the game; prepared palettes load directly at launch.
+static func prepare_art(progress: Callable = Callable()) -> void:
+	if not prepared_art.is_empty(): return
+	var textures: Dictionary = {}
+	var blue_art: Dictionary = {}
+	for pair: Array in [["militia","manuscript-v1/militia-red.png"],["farmer","farmer.png"],["farm","farmland.png"],["castle_red","manuscript-v1/castle-red.png"],["castle_blue","manuscript-v1/castle-red.png"]]:
+		textures[pair[0]] = load("res://assets/"+pair[1])
+	for kind: String in B.CARDS:
+		var file := "res://assets/manuscript-v1/"+kind+".png"
+		if ResourceLoader.exists(file): textures[kind] = load(file)
+	for pair: Array in [["gate","gate"],["crest","crown"],["castle_wall","castle-wall"]]:
+		textures[pair[0]] = load("res://assets/manuscript-v1/"+pair[1]+".png")
+	for lord_kind: String in B.LORDS:
+		textures["lord_"+lord_kind] = load("res://assets/manuscript-v1/lord-"+lord_kind+".png")
+	var done := 0
+	for kind: String in textures:
+		if kind != "castle_blue": blue_art[kind] = recolor_blue(textures[kind],0 if kind in ["castle_red","castle_wall"] else 384,kind)
+		done += 1
+		if progress.is_valid(): progress.call(done,textures.size())
+	textures.castle_blue = textures.castle_red
+	blue_art.castle_blue = blue_art.castle_red
+	prepared_art = {"textures":textures,"blue":blue_art}
+
 func _ready() -> void:
 	var sf := SystemFont.new()
 	sf.font_names = PackedStringArray(["Noto Serif TC","PMingLiU","Microsoft JhengHei"])
@@ -71,20 +98,9 @@ func _ready() -> void:
 		font = bundled
 	else: font = sf
 	for problem: String in B.validate(): push_error("balance.gd: "+problem) # see docs/新增卡牌指南.md
-	for pair: Array in [["militia","manuscript-v1/militia-red.png"],["farmer","farmer.png"],["farm","farmland.png"],["castle_red","manuscript-v1/castle-red.png"],["castle_blue","manuscript-v1/castle-red.png"]]:
-		textures[pair[0]] = load("res://assets/"+pair[1])
-	for kind: String in B.CARDS:
-		var file := "res://assets/manuscript-v1/"+kind+".png"
-		if ResourceLoader.exists(file): textures[kind] = load(file)
-	for pair: Array in [["gate","gate"],["crest","crown"],["castle_wall","castle-wall"]]:
-		textures[pair[0]] = load("res://assets/manuscript-v1/"+pair[1]+".png")
-	for lord_kind: String in B.LORDS:
-		textures["lord_"+lord_kind] = load("res://assets/manuscript-v1/lord-"+lord_kind+".png")
-	# One shared art set (producer decision): the blue side is made by swapping red cloth to blue,
-	# not by tinting the whole picture (that turned red into purple and darkened the fields).
-	for kind: String in textures:
-		if kind != "castle_blue": blue_art[kind] = recolor_blue(textures[kind],0 if kind in ["castle_red","castle_wall"] else 384,kind)
-	textures.castle_blue = textures.castle_red
+	if prepared_art.is_empty(): prepare_art()
+	textures = prepared_art.textures.duplicate()
+	blue_art = prepared_art.blue.duplicate()
 	# Darkened field edges pull the eye to the middle of the battle.
 	var shade := Gradient.new()
 	shade.set_color(0,Color(0.2,0.12,0.04,0.0))
@@ -416,6 +432,18 @@ static func recolor_blue(source: Texture2D, max_size: int, kind: String = "") ->
 	if kind in ["farm","farmer","harvest","rain","fire"]: return source
 	var key := str(source.get_instance_id())+":"+str(max_size)+":"+kind
 	if recolor_cache.has(key): return recolor_cache[key]
+	# Build-time derivatives of the single source set; no per-pixel work on normal startup.
+	if palette_manifest.is_empty() and FileAccess.file_exists("res://assets/generated-palette/manifest.json"):
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string("res://assets/generated-palette/manifest.json"))
+		if parsed is Dictionary: palette_manifest = parsed
+	var entry: Dictionary = palette_manifest.get(kind,{})
+	var generated := "res://assets/generated-palette/"+kind+".png"
+	if entry.get("revision","") == PALETTE_REVISION and entry.get("source","") == source.resource_path and int(entry.get("size",-1)) == max_size and ResourceLoader.exists(generated):
+		# Original source files can be remapped inside exports; the build manifest remains valid there.
+		if not FileAccess.file_exists(source.resource_path) or entry.get("sha256","") == FileAccess.get_sha256(source.resource_path):
+			var texture: Texture2D = load(generated)
+			recolor_cache[key] = texture
+			return texture
 	var img := source.get_image()
 	if img.is_compressed(): img.decompress()
 	img.convert(Image.FORMAT_RGBA8)
