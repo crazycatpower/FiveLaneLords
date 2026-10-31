@@ -158,7 +158,7 @@ func production_rate(team: int) -> float:
 	var rate := 1.0/B.BASE_INTERVAL
 	for b: Dictionary in buildings:
 		if b.team == team and b.hp > 0 and b.kind == "farm": rate += B.FARM_DROP/B.FARM_INTERVAL*farm_speed(b)
-	return rate*multiplier()
+	return rate*multiplier()+count_buildings(team,"grave")*B.CARDS.grave.income/B.CARDS.grave.period
 
 func gain_ink(team: int, amount: float) -> void:
 	stats[team].produced += amount
@@ -338,11 +338,14 @@ func spawn_unit(team: int, lane: int, kind: String, pos: Vector2) -> Dictionary:
 	var u := {"id":next_id,"serial":take_serial(),"kind":kind,"team":team,"lane":lane,"pos":pos,"hp":data.hp,"max_hp":data.hp,"cd":0.0,"phase":rng.randf()*TAU,"face":1.0 if team == 0 else -1.0,"worked":[],"work_id":-1,"work_left":0.0,"spawn_delay":0.0,"charged":false,"flash":0.0,"heal_cd":0.0,"dy":rng.randf_range(-B.PLACE_JITTER,B.PLACE_JITTER)}
 	units.append(u)
 	u.flying = data.get("flying",false)
+	u.armor = data.get("armor",0.0)
 	u.summon_left = 0.0 # a summoner raises its first skeletons as soon as it is on the field
 	return u
 
 func damage(target: Dictionary, amount: float, team: int, kind: String) -> void:
 	if target.hp <= 0: return
+	if amount <= 0: return
+	if target.get("armor",0.0) > 0: amount = maxf(1.0,amount-target.armor)
 	var dealt := minf(amount,target.hp)
 	target.hp -= amount
 	if target.kind == "lord":
@@ -359,7 +362,7 @@ func damage(target: Dictionary, amount: float, team: int, kind: String) -> void:
 			var old_serial: int = target.serial
 			target.serial = 0
 			if not target.has("cell"):
-				death_queue.append({"lane":target.lane,"pos":target.pos,"team":target.team,"kind":target.kind,"serial":old_serial,"poison_team":team if kind == "plague" else -1})
+				death_queue.append({"lane":target.lane,"pos":target.pos,"team":target.team,"kind":target.kind,"serial":old_serial,"poison_team":team if kind == "plague" else -1,"curse_team":target.get("curse_team",-1) if target.get("cursed_until",0.0) > elapsed else -1,"spawn":B.CARDS[target.kind].get("on_death_spawn",[]),"card":target.get("card",target.kind)})
 			elif target.kind == "bonewall":
 				death_queue.append({"explosion":true,"pos":target.pos,"team":target.team})
 		if target.has("cell"): refresh_territory()
@@ -429,6 +432,16 @@ func resolve_deaths() -> void:
 			event("heal",u.pos,u.team)
 		if dead.poison_team >= 0:
 			add_zone(dead.pos,dead.poison_team,B.CARDS.plague.spread_radius,B.CARDS.plague.spread_duration)
+		# Resolve after the original death fed the economy; the new troops are independent.
+		if not dead.spawn.is_empty():
+			for i: int in range(dead.spawn[1]):
+				var child := spawn_unit(dead.team,dead.lane,dead.spawn[0],dead.pos)
+				child.card = dead.card
+				event("summoned",child.pos,child.team)
+		if dead.curse_team >= 0:
+			var child := spawn_unit(dead.curse_team,dead.lane,"skeleton",dead.pos)
+			child.card = "curse"
+			event("summoned",child.pos,child.team)
 	death_queue.clear()
 
 func reaper_target(u: Dictionary) -> Dictionary:
@@ -574,6 +587,13 @@ func shoot(source: Dictionary, target: Dictionary, amount: float) -> void:
 func update_projectiles(dt: float) -> void:
 	for arrow: Dictionary in projectiles:
 		arrow.remaining -= dt
+		if arrow.has("impact"):
+			arrow.pos = arrow.start.lerp(arrow.impact,clampf(1-arrow.remaining/arrow.flight,0,1))
+			if arrow.remaining <= 0:
+				for u: Dictionary in units:
+					if u.hp > 0 and u.team != arrow.team and u.pos.distance_to(arrow.impact) <= arrow.radius: damage(u,arrow.amount,arrow.team,arrow.kind)
+				event("stone_impact",arrow.impact,arrow.team,{"radius":arrow.radius})
+			continue
 		arrow.pos = arrow.start.lerp(arrow.target.pos,clampf(1-arrow.remaining/B.ARROW_TIME,0,1))
 		if arrow.remaining <= 0 and arrow.target.hp > 0: damage(arrow.target,arrow.amount,arrow.team,arrow.kind)
 	projectiles = projectiles.filter(func(a: Dictionary) -> bool: return a.remaining > 0)
@@ -675,6 +695,42 @@ func update_buildings(dt: float) -> void:
 			if not target.is_empty() and b.cd <= 0:
 				shoot(b,target,B.CARDS.tower.damage)
 				b.cd = B.CARDS.tower.interval
+		elif b.kind == "catapult":
+			b.cd -= dt
+			var data: Dictionary = B.CARDS[b.kind]
+			var target := catapult_target(b)
+			if not target.is_empty() and b.cd <= 0:
+				projectiles.append({"pos":b.pos,"start":b.pos,"impact":target.pos,"flight":data.flight_time,"remaining":data.flight_time,"amount":data.area_damage,"radius":data.radius,"team":b.team,"kind":b.kind})
+				b.cd = data.interval
+
+func catapult_target(b: Dictionary) -> Dictionary:
+	var data: Dictionary = B.CARDS[b.kind]
+	var found: Dictionary = {}
+	var best := -1.0
+	for u: Dictionary in foe_units[b.team]:
+		if u.hp <= 0: continue
+		var distance: float = b.pos.distance_to(u.pos)
+		if distance < data.min_range or distance > data.range: continue
+		if distance > best or (is_equal_approx(distance,best) and u.serial > found.get("serial",0)):
+			best = distance
+			found = u
+	return found
+
+# Buff the actual marching speed (including a legion's formation or a slowed ox), once only.
+func movement_speed(u: Dictionary) -> float:
+	var data: Dictionary = B.CARDS[u.kind]
+	var base: float = B.OX_SLOW_SPEED if u.kind == "ox" and u.charged else u.get("march",data.speed)
+	u.inspired = false
+	for ally: Dictionary in units:
+		if ally.hp <= 0 or ally.spawn_delay > 0 or ally.team != u.team or ally.lane != u.lane: continue
+		var cells: float = B.CARDS[ally.kind].get("inspire_cells",0)
+		if cells <= 0: continue
+		var ahead: float = (u.pos.x-ally.pos.x)*u.face
+		if ahead > 0 and ahead <= cells*L.CELL_SIZE.x:
+			u.inspired = true
+			var index: int = B.TIERS.speed.find(base)
+			return B.TIERS.speed[maxi(0,index-1)] if index >= 0 else base
+	return base
 
 func update_spells(dt: float) -> void:
 	for spell: Dictionary in spells:
@@ -758,7 +814,7 @@ func march(u: Dictionary, data: Dictionary, dt: float) -> bool:
 	var stop: float = L.gate_icon_x(enemy) if open and climbed else L.gate_stop(enemy)
 	var forward := 1.0 if u.team == 0 else -1.0
 	if (stop-u.pos.x)*forward > 0.001:
-		u.pos.x = move_toward(u.pos.x,stop,(B.OX_SLOW_SPEED if u.kind == "ox" and u.charged else u.get("march",data.speed))*dt)
+		u.pos.x = move_toward(u.pos.x,stop,movement_speed(u)*dt)
 	elif open and not climbed:
 		u.climb = u.get("climb",0.0)+dt
 		if enemy == 0: alarm[u.lane] = 1.5
@@ -787,6 +843,13 @@ func remove_dead() -> void:
 func cast_spell(s: Dictionary) -> void:
 	var data: Dictionary = B.CARDS[s.kind]
 	event("spell",s.pos,s.team,{"card":s.kind,"radius":data.radius})
+	if s.kind == "curse":
+		for u: Dictionary in units:
+			if u.hp > 0 and u.team != s.team and u.pos.distance_to(s.pos) <= data.radius:
+				u.cursed_until = elapsed+data.curse_duration
+				u.curse_team = s.team
+				link(s.pos,u.pos,s.team,"curse")
+		return
 	if s.kind == "plague":
 		add_zone(s.pos,s.team,data.radius,data.duration)
 		return

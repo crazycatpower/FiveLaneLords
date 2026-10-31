@@ -396,6 +396,7 @@ func lord_art(kind: String, team: int = 0) -> Texture2D:
 # Recolour only designated team materials. Natural fields/skin/wood are not team ink.
 # Ox cloth additionally has a spatial mask so its brown coat never enters the palette swap.
 static func team_material(kind: String, uv: Vector2, c: Color) -> bool:
+	if kind == "catapult": return uv.x > 0.73 and uv.y < 0.28 and c.a >= 0.05 and c.s >= 0.35 and c.v >= 0.20 and (c.h <= 0.08 or c.h >= 0.95)
 	if kind in ["farm","farmer","harvest","rain","fire"]: return false
 	if kind == "ox" and not Rect2(0.30,0.20,0.26,0.36).has_point(uv): return false
 	if kind == "ram" and uv.y > 0.55: return false
@@ -436,8 +437,9 @@ func draw_fitted(texture: Texture2D, box: Rect2, shade: Color = Color.WHITE, bot
 	draw_texture_rect(texture,fitted_rect(texture.get_size(),box,bottom),false,shade)
 
 func actor_rect(kind: String) -> Rect2:
+	if kind == "corpse_giant": return fitted_rect(art(kind).get_size(),Rect2(-52,-85,104,104),true)
 	if kind.begins_with("lord_"): return fitted_rect(art(kind).get_size(),Rect2(-47,-67,94,94),true)
-	if kind in ["farm","mill","tower","scarecrow","grave","bonewall"]: return fitted_rect(art(kind).get_size(),Rect2(-45,-39,90,78),true)
+	if kind in ["farm","mill","tower","scarecrow","grave","bonewall","catapult"]: return fitted_rect(art(kind).get_size(),Rect2(-45,-39,90,78),true)
 	var width := 112.0 if kind in ["ox","ram"] else 80.0
 	return fitted_rect(art(kind).get_size(),Rect2(-width/2,-63,width,80),true)
 
@@ -637,7 +639,12 @@ func draw_battle() -> void:
 		if model.alarm[lane] > 0: draw_arc(Vector2(gx,y-4),34+4*pulse,0,TAU,28,Color(RED,0.5+0.4*pulse),3)
 		elif model.building_alarm[lane] > 0: draw_arc(Vector2(gx,y-4),34,0,TAU,28,Color(0.85,0.6,0.1,0.7),2)
 	for arrow: Dictionary in model.projectiles:
-		draw_line(arrow.pos-Vector2(12,0),arrow.pos,INK,2)
+		if arrow.has("impact"):
+			var flight: float = clampf(1-arrow.remaining/arrow.flight,0,1)
+			var stone: Vector2 = arrow.pos-Vector2(0,sin(flight*PI)*65)
+			draw_circle(stone,6,Color("86745c"))
+			draw_arc(stone,6,0,TAU,12,INK,1.5,true)
+		else: draw_line(arrow.pos-Vector2(12,0),arrow.pos,INK,2)
 	draw_preview()
 	draw_effects()
 	draw_hud()
@@ -724,9 +731,13 @@ func draw_unit(u: Dictionary) -> void:
 	if u.hp <= 0: return
 	var pos: Vector2 = u.draw-Vector2(u.face*4,0) if fx_enabled and u.flash > 0 else u.draw # small knockback on hit
 	var bounce := sin(model.elapsed*8+u.phase)*2
+	if u.kind == "corpse_giant": pos.y = maxf(pos.y,L.GRID_ORIGIN.y-actor_rect(u.kind).position.y+6-bounce)
 	if u.get("flying",false): bounce = -20+sin(model.elapsed*10+u.phase)*5
 	team_base(pos+Vector2(0,16),24,RED if u.team == 0 else BLUE)
 	draw_actor(u.kind,u.team,pos+Vector2(0,bounce),u.face,Color(1.6,1.6,1.6) if fx_enabled and u.flash > 0 else Color.WHITE)
+	if u.get("cursed_until",0.0) > model.elapsed:
+		draw_arc(pos-Vector2(0,50),13,0,TAU,20,Color("926c9d"),2,true)
+		bar(Rect2(pos-Vector2(17,83),Vector2(34,3)),u.cursed_until-model.elapsed,B.CARDS.curse.curse_duration,Color("926c9d"))
 	if u.hp < u.max_hp: bar(Rect2(pos-Vector2(24,68),Vector2(48,5)),u.hp,u.max_hp,RED if u.team == 0 else BLUE)
 	var climb: float = u.get("climb",0.0)
 	if climb > 0 and climb < B.RUBBLE_TIME: bar(Rect2(pos-Vector2(24,75),Vector2(48,4)),climb,B.RUBBLE_TIME,Color.GOLD) # clearing the rubble
@@ -791,6 +802,12 @@ func draw_link(from: Vector2, to: Vector2, color: Color, progress: float) -> voi
 # Standing relations, drawn every frame: a mill's dashed gold line to the farms it boosts, and a
 # scarecrow's dashed red line to the enemies it is pulling in.
 func draw_relations() -> void:
+	for drummer: Dictionary in model.units:
+		if drummer.hp <= 0 or drummer.kind != "drummer" or drummer.spawn_delay > 0: continue
+		for u: Dictionary in model.units:
+			var ahead: float = (u.pos.x-drummer.pos.x)*drummer.face
+			if u.hp > 0 and u.team == drummer.team and u.lane == drummer.lane and ahead > 0 and ahead <= B.CARDS.drummer.inspire_cells*L.CELL_SIZE.x:
+				dashed(drummer.pos,u.pos,Color(0.72,0.53,0.20,0.42))
 	for b: Dictionary in model.buildings:
 		if b.hp <= 0: continue
 		if b.kind == "mill":
@@ -822,6 +839,7 @@ func draw_effects() -> void:
 	for e: Dictionary in effects:
 		var progress: float = 1-e.life/e.duration
 		match e.kind:
+			"stone_impact": draw_arc(e.pos,e.radius*progress,0,TAU,28,Color(0.40,0.30,0.18,1-progress),3,true)
 			"summoned", "boneburst": draw_arc(e.pos,12+progress*36,0,TAU,24,Color(0.55,0.38,0.60,1-progress),2,true)
 			"skill": draw_skill_effect(e,progress)
 			"link": draw_link(e.pos,e.to,LINK_COLORS.get(e.style,INK),progress)
@@ -917,7 +935,8 @@ func draw_hud() -> void:
 		var fill: float = clampf((model.ink[0]-i*5)/5.0,0,1)
 		if fill > 0: draw_rect(Rect2(seg.position+Vector2(1,1),Vector2((seg.size.x-2)*fill,seg.size.y-2)),Color("c79a2e"))
 		if need > i*5: draw_rect(seg.grow(2),Color("6b4a14") if model.ink[0] >= need else RED,false,2)
-	label_at(Vector2(65,840),"每秒 +%.1f · 農田 %d" % [model.production_rate(0),model.count_buildings(0)],20)
+	var home: String = model.home_cards[0]
+	label_at(Vector2(65,840),"每秒 +%.1f · %s %d" % [model.production_rate(0),B.CARDS[home].name,model.count_buildings(0,home)],20)
 	# Permanent farmland slot: green-washed frame and a "常駐" tag so it reads apart from the hand.
 	var farm_rect := card_rect(Battle.FARM_SLOT)
 	panel(farm_rect.grow(6),Color("cfdcae"),Color("3f5a2c"))

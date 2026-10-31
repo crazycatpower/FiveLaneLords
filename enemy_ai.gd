@@ -239,6 +239,26 @@ static func dark_card_score(c: Dictionary, s: Dictionary, ours: Array, foes: Arr
 	var lane: int = c.cell.y
 	var forward := 1.0 if s.team == 0 else -1.0
 	match c.kind:
+		"catapult":
+			var data: Dictionary = B.CARDS[c.kind]
+			var targets := 0
+			for u: Dictionary in s.units:
+				if u.hp <= 0 or u.team == s.team: continue
+				var distance: float = c.pos.distance_to(u.pos)
+				if distance < data.min_range: return -INF
+				if distance <= data.range: targets += 1
+			if targets > 0: return 700.0+targets*15
+		"drummer":
+			var count := 0
+			for x: float in troop_x[lane]:
+				var ahead: float = (x-c.pos.x)*forward
+				if ahead > 0 and ahead <= B.CARDS.drummer.inspire_cells*L.CELL_SIZE.x: count += 1
+			if count >= 2: return 700.0+count*12
+		"curse":
+			var count := 0
+			for u: Dictionary in s.units:
+				if u.hp > 0 and u.team != s.team and u.pos.distance_to(c.pos) <= B.CARDS.curse.radius and u.get("cursed_until",0.0) <= s.elapsed: count += 1
+			if count >= 2: return 670.0+count*25
 		"grave":
 			var activity: float = ours[lane]+foes[lane]
 			var existing := 0

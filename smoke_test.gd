@@ -30,6 +30,8 @@ func offer(m: RefCounted, kind: String, team: int = 0) -> void:
 	m.ink[team] = 50.0
 	m.hand_cd[team] = [0.0,0.0,0.0,0.0]
 func run() -> void:
+	preload("res://tools/test_faction_expansion.gd").run(self)
+	check(finished.has("faction_expansion"),"faction expansion tests completed")
 	test_golden()
 	check(finished.has("golden"),"golden match test ran to the end")
 	preload("res://tools/test_dark_age.gd").run(self)

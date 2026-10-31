@@ -43,6 +43,11 @@ const LORD_HYSTERESIS := 1.5
 # and "spread": true to deploy "count" troops in each of three adjacent lanes.
 # "cooldown": seconds a card must wait after it enters the hand before it can be played (0..30).
 const CARDS := {
+	"corpse_giant":{"name":"腐屍巨人","role":"重裝·屍爆","faction":"dark","series":"dark","type":"unit","cost":20,"cooldown":12.0,"count":1,"hp":1500.0,"damage":45.0,"interval":1.2,"range":47.0,"speed":20.0,"on_death_spawn":["skeleton",4]},
+	"curse":{"name":"詛咒","role":"死後·為奴","faction":"dark","series":"dark","type":"spell","ai":["defend_spell","wave_spell"],"cost":6,"cooldown":10.0,"radius":110.0,"curse_duration":10.0},
+	"catapult":{"name":"投石車","role":"遠程·拋射","type":"building","ai":["guard","obstacle"],"cost":16,"cooldown":12.0,"hp":400.0,"expires":-1.0,"area_damage":80.0,"interval":1.7,"range":300.0,"min_range":100.0,"radius":68.0,"flight_time":0.8},
+	"drummer":{"name":"戰鼓手","role":"鼓舞·進軍","type":"unit","ai":["no_defend"],"cost":7,"cooldown":8.0,"count":1,"hp":200.0,"damage":6.0,"interval":1.2,"range":100.0,"speed":30.0,"inspire_cells":2},
+	"shieldguard":{"name":"盾衛","role":"盾牆·減傷","type":"unit","cost":9,"cooldown":4.0,"count":3,"hp":200.0,"damage":12.0,"interval":1.2,"range":47.0,"speed":30.0,"armor":10.0},
 	"grave":{"name":"墓碑","role":"死亡·經濟","faction":"dark","series":"dark","type":"building","cost":5,"cooldown":30.0,"hp":400.0,"expires":-1.0,"period":60.0,"income":6.0,"death_advance":5.0},
 	"skeleton":{"name":"骷髏兵","role":"廉價·纏鬥","faction":"dark","series":"dark","type":"unit","cost":5,"cooldown":2.0,"count":4,"hp":50.0,"damage":12.0,"interval":0.6,"range":47.0,"speed":70.0},
 	"ghoul":{"name":"食屍鬼","role":"吞噬·成長","faction":"dark","series":"dark","type":"unit","cost":10,"cooldown":6.0,"count":2,"hp":200.0,"damage":24.0,"interval":0.85,"range":47.0,"speed":70.0,"radius":110.0,"devour_heal":50.0,"max_damage_tier":1},
@@ -152,6 +157,11 @@ static func validate() -> Array[String]:
 		if not c.get("faction","") in FACTIONS: problems.append("%s: faction must be normal, dark or absent (neutral)" % kind)
 		for tag in c.get("ai",[]):
 			if not tag in AI_TAGS: problems.append("%s: unknown AI tag %s" % [kind,str(tag)])
+		if c.has("on_death_spawn"):
+			var spawn: Array = c.on_death_spawn
+			if spawn.size() != 2 or not CARDS.has(spawn[0]) or CARDS[spawn[0]].type != "unit" or spawn[1] <= 0: problems.append("%s: invalid on_death_spawn" % kind)
+		if c.get("armor",0.0) < 0: problems.append("%s: armor must be nonnegative" % kind)
+		if c.has("min_range") and (c.min_range < 0 or c.min_range >= c.get("range",0)): problems.append("%s: invalid minimum range" % kind)
 		# The description reads the fields above, so only build it once they are all present.
 		if problems.size() == before and card_description(kind).is_empty(): problems.append("%s: no description" % kind)
 	for pair: Array in [["HEAL_RADIUS",HEAL_RADIUS]]:
@@ -257,6 +267,11 @@ static func card_description(kind: String, cards: Dictionary = CARDS) -> String:
 		lines.append("範圍半徑 %s；落下時間 %s 秒。" % [number(d.radius),number(SPELL_DELAY)])
 		if d.has("damage"): lines.append("部隊傷害 %s、建築傷害 %s、城門傷害 %s。" % [number(d.damage),number(d.building_damage),number(d.gate_damage)])
 	match kind:
+		"corpse_giant": lines.append("死亡時在原地召喚 %d 名%s；自身死亡仍會加速墓碑並觸發吞噬。" % [d.on_death_spawn[1],cards[d.on_death_spawn[0]].name])
+		"curse": lines.append("範圍內敵兵被詛咒 %s 秒；期間死亡，在原地變成我方骷髏兵。再次施放刷新時間，不疊加。" % number(d.curse_duration))
+		"catapult": lines.append("攻擊距離 %s～%s 內最遠敵兵；每 %s 秒拋射，%s 秒後落地，對半徑 %s 內敵兵造成 %s 範圍傷害。落點不追蹤移動。" % [number(d.min_range),number(d.range),number(d.interval),number(d.flight_time),number(d.radius),number(d.area_damage)])
+		"drummer": lines.append("同一路前方 %s 格內友軍部隊移速升一檔，最高 S；多名戰鼓手不疊加，離開範圍立即失效。" % number(d.inspire_cells))
+		"shieldguard": lines.append("每次受到傷害減少 %s，最低仍受 1 傷害。" % number(d.armor))
 		"grave": lines.append("每 %s 秒產出 %s 金幣；本路每名敵我部隊死亡，提前 %s 秒，超出的時間不保留。" % [number(d.period),number(d.income),number(d.death_advance)])
 		"ghoul": lines.append("半徑 %s 內每名部隊死亡，回復 %s 生命，攻擊升一檔，最高 A 檔 %s。" % [number(d.radius),number(d.devour_heal),number(TIERS.damage[d.max_damage_tier])])
 		"necromancer": lines.append("上場時與之後每 %s 秒，在本路與相鄰路同一欄各召喚 %d 名骷髏兵。" % [number(d.summon_interval),d.summon_per_lane])
