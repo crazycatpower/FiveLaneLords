@@ -473,7 +473,7 @@ func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 		# Outside battle the top-left corner shows the card's cooldown (in battle it shows the hand slot).
 		draw_rect(Rect2(rect.position+Vector2(7,7),Vector2(34,20)),Color("725138"))
 		draw_string(font,rect.position+Vector2(7,22),"%ds" % int(data.cooldown),HORIZONTAL_ALIGNMENT_CENTER,34,13,Color("efdfb9"))
-		# Faction tag (普通／黑暗／中立) between the cooldown and the cost.
+		# Faction tag (經典／黑暗／中立) between the cooldown and the cost.
 		var faction: String = B.card_faction(kind)
 		var tag := Rect2(rect.position+Vector2(s.x*0.5-18,8),Vector2(36,17))
 		draw_rect(tag,{"normal":Color("5f7a3a"),"dark":Color("5b4366")}.get(faction,Color("7d7466")))
@@ -1203,7 +1203,7 @@ func card_description(kind: String) -> String:
 
 func help_columns() -> Array[String]:
 	return [
-		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐農田；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 有選牌時取消，沒選牌時切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩，戰鬥中按 R 不重開。\n\n[b]牌組與領主[/b]\n常駐牌＋領主四選一＋自選 8 張輪轉牌；常駐牌（農田，冥府為墓碑）不輪轉、不佔名額。普通領主帶普通與中立牌，冥府領主帶黑暗與中立牌。領主由 AI 移動，只在農田後方防守；按 Q 花 %s 金幣（冥府 %s）發動技能，冷卻 %s 秒。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2，等待時間會縮短。" % [B.number(B.SKILL_COST),B.number(B.skill_cost("underworld")),B.number(B.SKILL_COOLDOWN),B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
+		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐農田；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 有選牌時取消，沒選牌時切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩，戰鬥中按 R 不重開。\n\n[b]牌組與領主[/b]\n常駐牌＋領主四選一＋自選 8 張輪轉牌；常駐牌（農田，冥府為墓碑）不輪轉、不佔名額。經典領主帶經典與中立牌，冥府領主帶黑暗與中立牌。領主由 AI 移動，只在農田後方防守；按 Q 花 %s 金幣（冥府 %s）發動技能，冷卻 %s 秒。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2，等待時間會縮短。" % [B.number(B.SKILL_COST),B.number(B.skill_cost("underworld")),B.number(B.SKILL_COOLDOWN),B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
 		"[b]種田與防守[/b]\n農田自己產金幣；農民從田後方出發，順路耕田加速並回血。相同建築覆蓋自己的舊建築可補滿生命。\n部隊只往前走，不追身後範圍外的敵人；城門不反擊，靠領主、部隊與建築防守。\n\n[b]破門與勝負[/b]\n建築與部隊限己方領地：建築、城牆周圍八格先佔先得，失去所有己方建築覆蓋就釋出。敵兵破門後需停下拆殘垣 %s 秒，再向家門前進。\n任何敵兵走進家門就輸，沒有時間限制。\n\n[b]觀戰模式[/b]\n開戰前調整雙方牌組與領主（預設隨機），AI 出牌；1–4 切換 ×1／×2／×4／×8，＋／－ 逐級調速。空白鍵暫停。" % B.number(B.RUBBLE_TIME)
 	]
 

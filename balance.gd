@@ -97,7 +97,7 @@ static func is_home_card(kind: String) -> bool:
 
 # Factions (producer 2026-10-30): a card with "faction" can only be taken by lords of that faction;
 # a card without one is neutral (中立) and fits every deck. Lords carry their faction too.
-const FACTIONS := {"normal":"普通","dark":"黑暗","":"中立"}
+const FACTIONS := {"normal":"經典","dark":"黑暗","":"中立"} # internal key "normal" = 經典
 
 static func card_faction(kind: String) -> String:
 	return CARDS[kind].get("faction","")

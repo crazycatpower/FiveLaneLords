@@ -244,7 +244,7 @@ func test_golden() -> void:
 		check(diff.is_empty(),"golden match seed %s unchanged%s" % [row.seed,"" if diff.is_empty() else " (differs: %s)" % ", ".join(diff.map(func(k: String) -> String: return "%s %s -> %s" % [k,row[k],got.get(k,"?")]))])
 	finished["golden"] = true
 
-# 普通／黑暗／中立: lords take their own faction plus neutral cards; the underworld lord's home card
+# 經典／黑暗／中立: lords take their own faction plus neutral cards; the underworld lord's home card
 # is the tombstone (it replaces the farm, including the two starting buildings).
 func test_factions() -> void:
 	var dark_cards: Array = B.CARDS.keys().filter(func(k: String) -> bool: return B.card_faction(k) == "dark")
