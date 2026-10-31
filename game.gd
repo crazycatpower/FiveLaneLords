@@ -397,12 +397,12 @@ func lord_art(kind: String, team: int = 0) -> Texture2D:
 # Ox cloth additionally has a spatial mask so its brown coat never enters the palette swap.
 static func team_material(kind: String, uv: Vector2, c: Color) -> bool:
 	if kind == "catapult": return uv.x > 0.73 and uv.y < 0.28 and c.a >= 0.05 and c.s >= 0.35 and c.v >= 0.20 and (c.h <= 0.08 or c.h >= 0.95)
+	if kind == "bonewall": return (uv.x < 0.30 or uv.x > 0.80) and c.a >= 0.05 and c.s >= 0.60 and c.v >= 0.30 and (c.h <= 0.075 or c.h >= 0.95)
 	if kind in ["farm","farmer","harvest","rain","fire"]: return false
 	if kind == "ox" and not Rect2(0.30,0.20,0.26,0.36).has_point(uv): return false
 	if kind == "ram" and uv.y > 0.55: return false
 	# Architecture's weathered red paint is less saturated than character cloth.
 	if kind in ["castle_red","castle_blue"]:
-		if Rect2(0.45,0.65,0.27,0.35).has_point(uv): return false # wooden gate, not painted team cloth
 		return c.a >= 0.05 and c.s >= 0.33 and c.v >= 0.18 and (c.h <= 0.07 or c.h >= 0.93)
 	return c.a >= 0.05 and c.s >= 0.55 and c.v >= 0.25 and (c.h <= 0.035 or c.h >= 0.965)
 
@@ -604,7 +604,7 @@ func draw_battle() -> void:
 		draw_string(font,Vector2(grid.position.x+6,grid.position.y+lane*L.CELL_SIZE.y+20),ROMAN[lane],HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color(INK,0.6))
 	for b: Dictionary in model.buildings:
 		team_shadow(b.pos+Vector2(0,30),40,Color(0.25,0.17,0.08))
-		draw_actor(b.kind,b.team,b.pos,1.0)
+		draw_actor(b.kind,b.team,b.pos,1.0 if b.team == 0 else -1.0)
 		if b.hp < b.max_hp: bar(Rect2(b.pos-Vector2(30,43),Vector2(60,5)),b.hp,b.max_hp,RED if b.team == 0 else BLUE)
 		# Farm progress toward the next gold drop; brighter while doubled (farmer or 豐收).
 		if b.kind == "farm":
@@ -731,8 +731,11 @@ func draw_unit(u: Dictionary) -> void:
 	if u.hp <= 0: return
 	var pos: Vector2 = u.draw-Vector2(u.face*4,0) if fx_enabled and u.flash > 0 else u.draw # small knockback on hit
 	var bounce := sin(model.elapsed*8+u.phase)*2
-	if u.kind == "corpse_giant": pos.y = maxf(pos.y,L.GRID_ORIGIN.y-actor_rect(u.kind).position.y+6-bounce)
 	if u.get("flying",false): bounce = -20+sin(model.elapsed*10+u.phase)*5
+	var top: float = actor_rect(u.kind).position.y+bounce
+	if u.get("cursed_until",0.0) > model.elapsed: top = minf(top,-84)
+	if u.hp < u.max_hp: top = minf(top,-69)
+	pos.y = maxf(pos.y,L.GRID_ORIGIN.y-top+6)
 	team_base(pos+Vector2(0,16),24,RED if u.team == 0 else BLUE)
 	draw_actor(u.kind,u.team,pos+Vector2(0,bounce),u.face,Color(1.6,1.6,1.6) if fx_enabled and u.flash > 0 else Color.WHITE)
 	if u.get("cursed_until",0.0) > model.elapsed:
@@ -818,13 +821,13 @@ func draw_relations() -> void:
 				if u.hp > 0 and u.team != b.team and is_same(model.taunting_scarecrow(u),b): dashed(b.pos,u.draw if u.has("draw") else u.pos,Color("b34a3a",0.5))
 
 # The reaper's vertical slash: a curved blade stroke over the three lanes it hits.
-func draw_slash(x: float, lane: int, progress: float) -> void:
+func draw_slash(x: float, lane: int, progress: float, team: int) -> void:
 	var top: float = L.GRID_ORIGIN.y+maxi(0,lane-1)*L.CELL_SIZE.y+8
 	var bottom: float = L.GRID_ORIGIN.y+mini(5,lane+2)*L.CELL_SIZE.y-8
 	var points := PackedVector2Array()
 	for i: int in range(17):
 		var t := i/16.0
-		points.append(Vector2(x+sin(t*PI)*18.0,lerpf(top,bottom,t)))
+		points.append(Vector2(x+sin(t*PI)*18.0*(1.0 if team == 0 else -1.0),lerpf(top,bottom,t)))
 	draw_polyline(points,Color(0.85,0.85,0.95,0.35*(1-progress)),10.0,true)
 	draw_polyline(points,Color(0.25,0.18,0.30,0.9*(1-progress)),3.0,true)
 
@@ -843,7 +846,7 @@ func draw_effects() -> void:
 			"summoned", "boneburst": draw_arc(e.pos,12+progress*36,0,TAU,24,Color(0.55,0.38,0.60,1-progress),2,true)
 			"skill": draw_skill_effect(e,progress)
 			"link": draw_link(e.pos,e.to,LINK_COLORS.get(e.style,INK),progress)
-			"slash": draw_slash(e.pos.x,e.lane,progress)
+			"slash": draw_slash(e.pos.x,e.lane,progress,e.team)
 			"ink": draw_circle(e.pos.lerp(Vector2(80,765) if e.team == 0 else Vector2(1322,35),progress),7,Color("d9a62e"))
 			"spell": draw_circle(e.pos,e.get("radius",50.0)*progress,Color(0.7,0.3,0.1,e.life*0.4))
 			"cultivate", "hoe":
@@ -853,7 +856,12 @@ func draw_effects() -> void:
 				if progress < 0.6: draw_card_art(e.card,Rect2(source.lerp(e.pos,progress/0.6)-Vector2(35,30),Vector2(70,60)),e.team,Color(1,1,1,0.75))
 				else: draw_circle(e.pos,(progress-0.6)*90,Color(0.2,0.15,0.1,(1-progress)*0.3))
 			"death":
-				draw_actor(e.get("art_kind",e.card),e.team,e.pos,e.get("face",1.0 if e.team == 0 else -1.0),Color(1,1,1,1-progress))
+				var kind: String = e.get("art_kind",e.card)
+				var death_pos: Vector2 = e.pos
+				death_pos.y = maxf(death_pos.y,L.GRID_ORIGIN.y-actor_rect(kind).position.y+6)
+				var face: float = e.get("face",1.0 if e.team == 0 else -1.0)
+				if B.CARDS.has(kind) and B.CARDS[kind].type == "building": face = 1.0 if e.team == 0 else -1.0
+				draw_actor(kind,e.team,death_pos,face,Color(1,1,1,1-progress))
 				for i: int in range(5): draw_circle(e.pos+Vector2(cos(i*2),sin(i*2))*progress*24,3*(1-progress),INK)
 			"burn":
 				draw_circle(e.pos,35,Color(0.15,0.07,0.02,0.35*(1-progress)))

@@ -1024,7 +1024,7 @@ func test_art_regressions() -> void:
 	game.set_physics_process(false)
 	check(game.art("castle_red",1).get_size() == game.art("castle_red",0).get_size(),"blue castle keeps source resolution")
 	check(game.team_material("castle_red",Vector2(0.4,0.2),Color.from_hsv(0.055,0.5,0.6)),"weathered castle paint stays in team palette")
-	check(not game.team_material("castle_red",Vector2(0.6,0.8),Color("bf3720")),"castle wooden door is protected from team paint")
+	check(not game.team_material("castle_red",Vector2(0.6,0.8),Color("89552d")),"castle neutral timber is protected from team paint")
 	check(game.art("farm",1) == game.art("farm",0),"farm soil and crops are never recoloured")
 	check(not game.team_material("ox",Vector2(0.75,0.4),Color("bf3720")),"ox coat stays protected even with a red-brown pixel")
 	check(game.team_material("ox",Vector2(0.42,0.35),Color("bf3720")),"ox blanket accepts team red")
