@@ -30,6 +30,8 @@ func offer(m: RefCounted, kind: String, team: int = 0) -> void:
 	m.ink[team] = 50.0
 	m.hand_cd[team] = [0.0,0.0,0.0,0.0]
 func run() -> void:
+	preload("res://tools/test_attack_animation.gd").run(self)
+	check(finished.has("attack_animation"),"attack animation tests completed")
 	preload("res://tools/test_faction_expansion.gd").run(self)
 	check(finished.has("faction_expansion"),"faction expansion tests completed")
 	test_golden()
@@ -847,6 +849,7 @@ func test_tutorial() -> void:
 	game.deck_path = "user://test-ui-deck.json"
 	game.player_lord = "lion" # tests use normal-faction decks, whatever lord the saved deck has
 	game.set_physics_process(false)
+	game.seed_value = 1 # deterministic fixture, independent of wall-clock launch time
 	game.start_tutorial()
 	var m = game.model
 	check(m.decks[0] == game.Tutorial.DECK or m.decks[0].size() == 8,"tutorial uses its own deck")
@@ -881,6 +884,9 @@ func test_tutorial() -> void:
 			frames += 1
 		check(game.tutorial.stage == stage+1,"tutorial step %d completes (%s)" % [i+1,card])
 	check(game.tutorial.complete and m.lord_active[1] and m.ai_start < 1e8,"after the tutorial the blue side wakes up")
+	# Activation was checked above. Isolate walking through rubble from a random counterattack.
+	m.ai_enabled[1] = false
+	m.lord_active[1] = false
 	var frames := 0
 	while not m.ended and frames < 60*60: # the slow tier-E knight needs about 30 s to walk in
 		game._physics_process(1.0/60.0)

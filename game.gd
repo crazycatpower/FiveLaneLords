@@ -5,6 +5,8 @@ const DeckStore = preload("res://deck_store.gd")
 const Battle = preload("res://battle.gd")
 const Tutorial = preload("res://tutorial.gd")
 const ART = preload("res://manuscript_art.gd")
+const AttackAnimation = preload("res://attack_animation.gd")
+var attack_animation := AttackAnimation.new()
 const PAPER = preload("res://assets/parchment-background.png")
 const INK := Color("463529")
 const RED := Color("9c3d30")
@@ -174,6 +176,7 @@ func restart() -> void:
 	else: start_battle()
 
 func enter_battle(message: String) -> void:
+	attack_animation.clear()
 	selected = -1
 	dragging = false
 	speed = 1
@@ -214,7 +217,9 @@ func _physics_process(dt: float) -> void:
 	if screen != "battle": return
 	# Spectate mode can fast-forward: several fixed steps per frame, so results match 1x exactly.
 	for i: int in range(speed if spectating else 1):
+		attack_animation.observe(model)
 		model.step(dt)
+		attack_animation.observe(model)
 		var advanced: bool = tutorial != null and tutorial.observe(model.events)
 		consume_events()
 		if advanced: prepare_tutorial_step()
@@ -449,6 +454,48 @@ func draw_actor(kind: String, team: int, pos: Vector2, face: float, shade: Color
 	draw_texture_rect(art(kind,team),actor_rect(kind),false,shade)
 	draw_set_transform(Vector2.ZERO)
 
+func draw_combat_actor(kind: String, actor: Dictionary, pos: Vector2, face: float, shade: Color = Color.WHITE) -> void:
+	var pose: Dictionary = attack_animation.pose(actor,model.elapsed) if fx_enabled else {}
+	if pose.is_empty():
+		draw_actor(kind,actor.team,pos,face,shade)
+		return
+	var offset: Vector2 = pose.offset
+	offset.x *= face
+	var rect := actor_rect(kind)
+	var center := rect.get_center()
+	var angle: float = pose.angle*face
+	var scale: Vector2 = pose.scale
+	# Pivot around the sprite centre; keep large actors inside the battlefield's top edge.
+	var pivot := pos+Vector2(center.x*face,center.y)+offset
+	var extent: float = absf(sin(angle))*rect.size.x*scale.x/2+absf(cos(angle))*rect.size.y*scale.y/2
+	pivot.y = maxf(pivot.y,L.GRID_ORIGIN.y+6+extent)
+	draw_set_transform(pivot,angle,Vector2(face,1)*scale)
+	draw_texture_rect(art(kind,actor.team),Rect2(-rect.size/2,rect.size),false,shade)
+	draw_set_transform(pos,0,Vector2(face,1))
+	var ink := Color(INK,pose.strength*0.8)
+	match pose.style:
+		"heavy", "thrust":
+			var radius := 28.0 if pose.style == "heavy" else 17.0
+			draw_arc(Vector2(18,-25),radius,-1.15,0.9,12,ink,2.2,true)
+			draw_line(Vector2(15,-25),Vector2(34+12*pose.strength,-25),ink,2,true)
+		"bow", "tower":
+			for i: int in range(3): draw_line(Vector2(12,-28+i*5),Vector2(27+8*pose.progress,-28+i*5),Color(INK,pose.strength*(0.6-i*0.1)),1.5,true)
+		"cast":
+			var magic := Color("a28cba")
+			magic.a = pose.strength
+			draw_arc(Vector2(22,-35),9+pose.progress*17,0,TAU,18,magic,2,true)
+			for i: int in range(4):
+				var p: Vector2 = Vector2(22,-35)+Vector2.from_angle(i*PI/2+pose.progress)*(13+pose.progress*20)
+				draw_line(p-Vector2(3,0),p+Vector2(3,0),magic,1.5,true)
+		"ram", "siege":
+			for i: int in range(4): draw_circle(Vector2(-15-i*7,19-pose.progress*9),2.5*pose.strength,Color(0.48,0.37,0.23,pose.strength*0.6))
+		"peck":
+			draw_line(Vector2(19,-20),Vector2(30,-14),ink,2,true)
+			draw_line(Vector2(20,-12),Vector2(31,-8),ink,1.5,true)
+		"drum":
+			draw_arc(Vector2(15,-18),10+pose.progress*18,-1.4,1.4,12,Color(0.8,0.6,0.2,pose.strength),2,true)
+	draw_set_transform(Vector2.ZERO)
+
 func card_art_kinds(kind: String) -> Array:
 	return B.CARDS[kind].get("art",[kind])
 
@@ -605,7 +652,7 @@ func draw_battle() -> void:
 		draw_string(font,Vector2(grid.position.x+6,grid.position.y+lane*L.CELL_SIZE.y+20),ROMAN[lane],HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color(INK,0.6))
 	for b: Dictionary in model.buildings:
 		team_shadow(b.pos+Vector2(0,30),40,Color(0.25,0.17,0.08))
-		draw_actor(b.kind,b.team,b.pos,1.0 if b.team == 0 else -1.0)
+		draw_combat_actor(b.kind,b,b.pos,1.0 if b.team == 0 else -1.0)
 		if b.hp < b.max_hp: bar(Rect2(b.pos-Vector2(30,43),Vector2(60,5)),b.hp,b.max_hp,RED if b.team == 0 else BLUE)
 		# Farm progress toward the next gold drop; brighter while doubled (farmer or 豐收).
 		if b.kind == "farm":
@@ -738,7 +785,7 @@ func draw_unit(u: Dictionary) -> void:
 	if u.hp < u.max_hp: top = minf(top,-69)
 	pos.y = maxf(pos.y,L.GRID_ORIGIN.y-top+6)
 	team_base(pos+Vector2(0,16),24,RED if u.team == 0 else BLUE)
-	draw_actor(u.kind,u.team,pos+Vector2(0,bounce),u.face,Color(1.6,1.6,1.6) if fx_enabled and u.flash > 0 else Color.WHITE)
+	draw_combat_actor(u.kind,u,pos+Vector2(0,bounce),u.face,Color(1.6,1.6,1.6) if fx_enabled and u.flash > 0 else Color.WHITE)
 	if u.get("cursed_until",0.0) > model.elapsed:
 		draw_arc(pos-Vector2(0,50),13,0,TAU,20,Color("926c9d"),2,true)
 		bar(Rect2(pos-Vector2(17,83),Vector2(34,3)),u.cursed_until-model.elapsed,B.CARDS.curse.curse_duration,Color("926c9d"))
@@ -751,7 +798,7 @@ func draw_lord(lord: Dictionary) -> void:
 	team_shadow(lord.pos+Vector2(0,24),30,Color(0.25,0.17,0.08))
 	draw_arc(lord.pos+Vector2(0,24),30,0,TAU,32,Color(0.8,0.6,0.15,0.8),2) # gold ring marks the lords
 	# The art faces right; the blue lord is mirrored so both lords face the enemy.
-	draw_actor("lord_"+lord.lord,lord.team,lord.pos,1.0 if lord.team == 0 else -1.0)
+	draw_combat_actor("lord_"+lord.lord,lord,lord.pos,1.0 if lord.team == 0 else -1.0)
 	if lord.hp < lord.max_hp: bar(Rect2(lord.pos-Vector2(30,72),Vector2(60,4)),lord.hp,lord.max_hp,RED if lord.team == 0 else BLUE)
 
 func layout_formations() -> void:
