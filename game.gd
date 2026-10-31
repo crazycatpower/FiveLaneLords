@@ -7,6 +7,7 @@ const Tutorial = preload("res://tutorial.gd")
 const ART = preload("res://manuscript_art.gd")
 const AttackAnimation = preload("res://attack_animation.gd")
 var attack_animation := AttackAnimation.new()
+var library = preload("res://card_library.gd").new(self)
 const PAPER = preload("res://assets/parchment-background.png")
 const INK := Color("463529")
 const RED := Color("9c3d30")
@@ -300,7 +301,15 @@ func try_play(slot: int, pos: Vector2) -> bool:
 	return false
 
 func _unhandled_input(event: InputEvent) -> void:
+	if screen in ["codex","battle_info"]:
+		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+			if screen == "codex": library.back()
+			else: library.close_battle_info()
+		return
 	if screen != "battle": return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT and library.INFO_RECT.has_point(event.position):
+		library.show_battle_info()
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode >= KEY_1 and event.keycode <= KEY_4:
 			var index: int = event.keycode-KEY_1
@@ -578,6 +587,8 @@ func _draw() -> void:
 	if screen != "battle": draw_landscape(L.PAGE_FRAME.grow(-7),0.46)
 	panel(L.PAGE_FRAME,Color(0.85,0.74,0.53,0.15))
 	if screen == "battle": draw_battle()
+	elif screen == "codex": library.draw_catalog()
+	elif screen == "battle_info": library.draw_battle_info()
 	elif screen == "deck": draw_deck()
 	elif screen == "watch": draw_watch()
 	elif screen == "help": draw_help()
@@ -727,6 +738,8 @@ func draw_battle() -> void:
 	if tutorial != null and not model.ended:
 		panel(Rect2(290,98,1020,34),Color("f6ead0"))
 		draw_string(font,Vector2(290,121),tutorial.caption(),HORIZONTAL_ALIGNMENT_CENTER,1020,18,INK)
+	panel(library.INFO_RECT,Color("ecdcb6"))
+	draw_string(font,library.INFO_RECT.position+Vector2(0,30),["簡單","普通","困難"][model.difficulty]+" · 戰局資料",HORIZONTAL_ALIGNMENT_CENTER,library.INFO_RECT.size.x,20,INK)
 	if model.ended: draw_result()
 	elif model.paused:
 		panel(L.OVERLAY_RECT,Color("efe0bd"))
@@ -1092,7 +1105,8 @@ func show_title() -> void:
 	title_button(Rect2(352,442,216,54),"牌組編成",show_deck)
 	title_button(Rect2(118,512,216,54),"觀戰模式",show_watch)
 	title_button(Rect2(352,512,216,54),"操作說明",show_help)
-	title_button(Rect2(118,594,450,44),"難度："+["簡單","普通","困難"][difficulty],func(): difficulty = (difficulty+1)%3; show_title())
+	title_button(Rect2(118,594,216,44),"難度："+["簡單","普通","困難"][difficulty],func(): difficulty = (difficulty+1)%3; show_title())
+	title_button(Rect2(352,594,216,44),"卡牌圖鑑",func(): library.open())
 	title_button(Rect2(118,770,216,44),"設定",show_settings)
 	title_button(Rect2(352,770,216,44),"離開",func(): get_tree().quit())
 	queue_redraw()
