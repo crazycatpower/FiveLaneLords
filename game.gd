@@ -975,20 +975,7 @@ func draw_hud() -> void:
 	panel(L.PAUSE_RECT)
 	label_at(L.PAUSE_RECT.position+Vector2(10,27),"Ⅱ",23)
 	panel(L.COMMAND_FRAME)
-	label_at(Vector2(50,723),notice,16)
-	draw_texture_rect(ART.object_icon(0),Rect2(56,740,46,48),false)
-	label_at(Vector2(110,780),"金幣 %d / 50" % model.ink[0],29)
-	# Smooth gold bar; the selected (or hovered) card's cost is outlined: gold = affordable, red = not yet.
-	var focus := selected if selected >= 0 else hover_slot
-	var need: float = B.CARDS[model.kind_at(0,focus)].cost if focus >= 0 and not spectating else 0.0
-	for i: int in range(10):
-		var seg := Rect2(65+i*29,797,22,12)
-		panel(seg,Color("b9a57e"))
-		var fill: float = clampf((model.ink[0]-i*5)/5.0,0,1)
-		if fill > 0: draw_rect(Rect2(seg.position+Vector2(1,1),Vector2((seg.size.x-2)*fill,seg.size.y-2)),Color("c79a2e"))
-		if need > i*5: draw_rect(seg.grow(2),Color("6b4a14") if model.ink[0] >= need else RED,false,2)
-	var home: String = model.home_cards[0]
-	label_at(Vector2(65,840),"每秒 +%.1f · %s %d" % [model.production_rate(0),B.CARDS[home].name,model.count_buildings(0,home)],20)
+	preload("res://economy_hud.gd").draw(self)
 	# Permanent farmland slot: green-washed frame and a "常駐" tag so it reads apart from the hand.
 	var farm_rect := card_rect(Battle.FARM_SLOT)
 	panel(farm_rect.grow(6),Color("cfdcae"),Color("3f5a2c"))
