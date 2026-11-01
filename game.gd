@@ -3,13 +3,12 @@ const B = preload("res://balance.gd")
 const L = preload("res://layout.gd")
 const DeckStore = preload("res://deck_store.gd")
 const Battle = preload("res://battle.gd")
-const Tutorial = preload("res://tutorial.gd")
 const ART = preload("res://manuscript_art.gd")
 const AttackAnimation = preload("res://attack_animation.gd")
 var attack_animation := AttackAnimation.new()
 var library = preload("res://card_library.gd").new(self)
 var review := preload("res://battle_review.gd").new()
-var challenge := preload("res://challenges.gd").new()
+var adventure := preload("res://adventure.gd").new()
 const PAPER = preload("res://assets/parchment-background.png")
 const INK := Color("463529")
 const RED := Color("9c3d30")
@@ -61,7 +60,6 @@ var dragging := false
 var press_pos := Vector2.ZERO
 var press_was_selected := false
 var speed := 1
-var tutorial: RefCounted = null
 const RESULT_RECT := Rect2(380,170,840,380)
 const SPEEDS := [1,2,4,8]
 const SPEED_RECTS := [Rect2(1360,736,46,32),Rect2(1412,736,46,32),Rect2(1464,736,46,32),Rect2(1516,736,46,32)]
@@ -131,7 +129,7 @@ func _ready() -> void:
 	show_title()
 
 func start_battle() -> void:
-	challenge.index = -1
+	adventure.index = -1
 	if spectating:
 		for team: int in range(2):
 			if not DeckStore.valid(watch_decks[team],watch_lords[team]): watch_decks[team] = DeckStore.fit_to_lord(watch_decks[team],watch_lords[team])
@@ -145,58 +143,10 @@ func start_battle() -> void:
 		model = Battle.new(seed_value,player_deck,B.PRESETS[difficulty],player_lord,B.PRESET_LORDS[difficulty])
 	model.difficulty = difficulty
 	model.ai_enabled = [spectating,true]
-	tutorial = null
 	enter_battle("觀戰中：AI 操控雙方。1–4 或 + / − 調整速度，空白鍵暫停。" if spectating else "拖曳卡牌到戰場，或按 1–4／F 選牌再點格子 · 右鍵取消 · 空白鍵暫停")
 
-# T10: scripted first match with a fixed deck; the blue side stays idle until the last step.
-func start_tutorial() -> void:
-	challenge.index = -1
-	spectating = false
-	model = Battle.new(seed_value,Tutorial.DECK.duplicate(),B.PRESETS[0].duplicate())
-	model.difficulty = 0
-	model.ai_enabled = [false,true]
-	model.ai_start = 1e9
-	model.lord_active[1] = false
-	model.add_building(1,Vector2i(7,2),"farm") # practice target for the fire step
-	tutorial = Tutorial.new()
-	enter_battle(tutorial.caption())
-	prepare_tutorial_step()
-
-func prepare_tutorial_step() -> void:
-	if tutorial == null: return
-	if tutorial.complete:
-		model.ai_start = model.elapsed+5.0
-		model.lord_active[1] = true
-		notice = tutorial.caption()
-		return
-	var step: Dictionary = tutorial.current()
-	if step.done == "skill":
-		model.ink[0] = maxf(model.ink[0],B.SKILL_COST)
-		model.skill_cd[0] = 0.0
-		model.lords[0].hp = model.lords[0].max_hp
-		model.lords[0].respawn = 0.0
-		selected = -1
-		dragging = false
-		notice = tutorial.caption()
-		return
-	if step.card == "farm": model.farm_cd[0] = 0.0
-	else:
-		var deck: Array = model.decks[0]
-		var index := deck.find(step.card)
-		if index >= 4:
-			deck[index] = deck[0]
-			deck[0] = step.card
-			index = 0
-		model.hand_cd[0][index] = 0.0 # the tutorial never makes the player wait for the card it asks for
-	model.ink[0] = maxf(model.ink[0],B.CARDS[step.card].cost+2.0)
-	if step.done == "breach": model.gates[1][2] = minf(model.gates[1][2],40.0)
-	notice = tutorial.caption()
-
 func restart() -> void:
-	if challenge.index >= 0:
-		challenge.start(self,challenge.index)
-		return
-	if tutorial != null: start_tutorial()
+	if adventure.index >= 0: adventure.start(self,adventure.index)
 	else: start_battle()
 
 func enter_battle(message: String) -> void:
@@ -245,10 +195,8 @@ func _physics_process(dt: float) -> void:
 		attack_animation.observe(model)
 		model.step(dt)
 		attack_animation.observe(model)
-		var advanced: bool = tutorial != null and tutorial.observe(model.events)
 		consume_events()
-		challenge.update(self)
-		if advanced: prepare_tutorial_step()
+		adventure.update(self)
 
 func consume_events() -> void:
 	review.observe(model)
@@ -298,7 +246,7 @@ func overlay_buttons() -> Array:
 	if not model.ended: items.append([Rect2(490,y,190,40),"繼續",toggle_pause])
 	else: items.append([Rect2(490,y,190,40),"戰局復盤",show_review])
 	items.append([Rect2(700,y,190,40),"重新開始",restart])
-	items.append([Rect2(910,y,190,40),"回到標題",show_title])
+	items.append([Rect2(910,y,190,40),"冒險地圖",show_adventure] if adventure.index >= 0 else [Rect2(910,y,190,40),"回到標題",show_title])
 	return items
 
 func try_play(slot: int, pos: Vector2) -> bool:
@@ -601,7 +549,7 @@ func _draw() -> void:
 	if screen != "battle": draw_landscape(L.PAGE_FRAME.grow(-7),0.46)
 	panel(L.PAGE_FRAME,Color(0.85,0.74,0.53,0.15))
 	if screen == "battle": draw_battle()
-	elif screen == "challenges": draw_challenges()
+	elif screen == "adventure": adventure.paint(self)
 	elif screen == "recap":
 		panel(Rect2(100,70,1400,700))
 		label_at(Vector2(140,128),"戰局復盤",38)
@@ -670,7 +618,7 @@ func draw_landscape(rect: Rect2, horizon: float) -> void:
 func draw_battle() -> void:
 	var field: Rect2 = L.FIELD_FRAME
 	draw_texture_rect_region(PAPER,field,Rect2(field.position*0.6,field.size*0.6),FIELD_TINT)
-	if tutorial == null: draw_battle_landscape(field.grow(-7))
+	draw_battle_landscape(field.grow(-7))
 	ink_frame(field)
 	var corner := Vector2(96,86)
 	draw_texture_rect(ART.ornament(0),Rect2(field.position+Vector2(8,8),corner),false,Color(1,1,1,0.85))
@@ -753,9 +701,6 @@ func draw_battle() -> void:
 	draw_preview()
 	draw_effects()
 	draw_hud()
-	if tutorial != null and not model.ended:
-		panel(Rect2(290,98,1020,34),Color("f6ead0"))
-		draw_string(font,Vector2(290,121),tutorial.caption(),HORIZONTAL_ALIGNMENT_CENTER,1020,18,INK)
 	review.draw_pressure(self)
 	panel(library.INFO_RECT,Color("ecdcb6"))
 	draw_string(font,library.INFO_RECT.position+Vector2(0,30),["簡單","普通","困難"][model.difficulty]+" · 戰局資料",HORIZONTAL_ALIGNMENT_CENTER,library.INFO_RECT.size.x,20,INK)
@@ -772,7 +717,7 @@ func draw_result() -> void:
 	var r := RESULT_RECT
 	panel(r,Color("efe0bd"))
 	ink_frame(r.grow(-8))
-	var title := challenge.outcome if challenge.index >= 0 else ("紅獅勝利！我軍攻進藍旗主堡" if model.winner == 0 else "敗北：藍旗士兵攻進了我方主堡")
+	var title := adventure.outcome if adventure.index >= 0 else ("紅獅勝利！我軍攻進藍旗主堡" if model.winner == 0 else "敗北：藍旗士兵攻進了我方主堡")
 	draw_string(font,r.position+Vector2(0,62),title,HORIZONTAL_ALIGNMENT_CENTER,r.size.x,32,RED if model.winner == 0 else BLUE)
 	var t := int(model.elapsed)
 	draw_string(font,r.position+Vector2(0,96),"戰鬥時間 %02d:%02d" % [t/60,t%60],HORIZONTAL_ALIGNMENT_CENTER,r.size.x,18,INK)
@@ -803,7 +748,6 @@ func team_base(center: Vector2, radius: float, color: Color) -> void:
 
 # The battlefield floor: tinted zones, alternating lane shade, grass and pebbles, darker edges.
 func draw_ground(grid: Rect2) -> void:
-	if tutorial != null: return # The tutorial keeps an undecorated parchment field.
 	var cw: float = L.CELL_SIZE.x
 	var ch: float = L.CELL_SIZE.y
 	for lane: int in range(5):
@@ -1011,14 +955,11 @@ func draw_skill_effect(e: Dictionary, progress: float) -> void:
 					draw_line(Vector2(point.x-24,y),Vector2(point.x+24,y),Color(gold,strength*(1.0-i*0.2)),2.0,true)
 
 func draw_hud() -> void:
-	if tutorial != null:
-		panel(L.HUD_FRAME)
-	else:
-		draw_rect(L.HUD_FRAME,Color("a6c9dc"))
-		for x: int in range(48,1550,58):
-			draw_polyline(PackedVector2Array([Vector2(x,24),Vector2(x+16,34),Vector2(x,44),Vector2(x-16,34),Vector2(x,24)]),Color(0.92,0.97,1,0.23),1.2,true)
-		draw_texture_rect(PAPER,L.HUD_FRAME,false,Color(1,1,1,0.06))
-		ink_frame(L.HUD_FRAME)
+	draw_rect(L.HUD_FRAME,Color("a6c9dc"))
+	for x: int in range(48,1550,58):
+		draw_polyline(PackedVector2Array([Vector2(x,24),Vector2(x+16,34),Vector2(x,44),Vector2(x-16,34),Vector2(x,24)]),Color(0.92,0.97,1,0.23),1.2,true)
+	draw_texture_rect(PAPER,L.HUD_FRAME,false,Color(1,1,1,0.06))
+	ink_frame(L.HUD_FRAME)
 	for team: int in range(2):
 		var x := 95.0 if team == 0 else 1070.0
 		draw_texture_rect(art("crest",team),Rect2(x-58,21,48,50),false)
@@ -1415,7 +1356,7 @@ func show_review() -> void:
 	clear_ui()
 	library.text_box(Rect2(140,161,1320,555),review.report(model),24)
 	title_button(Rect2(100,804,250,48),"返回結算",close_review)
-	title_button(Rect2(1250,804,250,48),"再次挑戰" if challenge.index >= 0 else "再戰一局",restart)
+	title_button(Rect2(1250,804,250,48),"再次挑戰" if adventure.index >= 0 else "再戰一局",restart)
 	queue_redraw()
 
 func close_review() -> void:
@@ -1423,21 +1364,5 @@ func close_review() -> void:
 	screen = "battle"
 	queue_redraw()
 
-func show_challenges() -> void:
-	screen = "challenges"
-	clear_ui()
-	for i: int in range(challenge.DATA.size()):
-		var choice := i
-		var d: Dictionary = challenge.DATA[i]
-		library.text_box(Rect2(115+i*480,330,390,175),d.story+"\n\n"+d.goal,24)
-		title_button(Rect2(135+i*480,640,350,58),"開始挑戰",func(): challenge.start(self,choice),true)
-	title_button(Rect2(100,805,230,48),"返回標題",show_title)
-	queue_redraw()
-
-func draw_challenges() -> void:
-	label_at(Vector2(100,116),"挑戰關卡",44)
-	label_at(Vector2(100,160),"固定牌組與攻勢 · 重試相同戰局 · 不改動你的自選牌組",23)
-	for i: int in range(challenge.DATA.size()):
-		panel(Rect2(90+i*480,210,430,540))
-		label_at(Vector2(115+i*480,285),challenge.DATA[i].name,34)
-		draw_fitted(lord_art(challenge.DATA[i].lord),Rect2(370+i*480,505,100,122))
+func show_adventure() -> void:
+	adventure.show(self)

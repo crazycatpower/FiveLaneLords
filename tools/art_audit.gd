@@ -94,8 +94,9 @@ func run() -> void:
  await shot("lord-death")
  game.model.finish(0)
  await shot("result")
- game.start_tutorial()
- await shot("tutorial")
+ game.adventure.progress_path = "user://audit-adventure.json"
+ game.show_adventure()
+ await shot("adventure")
  game.start_battle()
  game.model.ai_enabled = [false,false]
  game.model.events.clear()

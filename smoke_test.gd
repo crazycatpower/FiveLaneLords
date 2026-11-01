@@ -59,7 +59,7 @@ func run() -> void:
 	test_territory()
 	check(finished.has("territory"),"territory tests completed")
 	test_battlefield_input()
-	test_tutorial()
+	test_adventure()
 	test_card_cooldowns()
 	test_repair()
 	test_start_farms()
@@ -78,7 +78,7 @@ func run() -> void:
 	check(finished.has("ai_cards"),"AI card-use test ran to the end")
 	check(finished.has("repair"),"repair test ran to the end")
 	check(finished.has("card_cd"),"card cooldown test ran to the end")
-	check(finished.has("tutorial"),"tutorial test ran to the end")
+	check(finished.has("adventure"),"adventure test ran to the end")
 	check(finished.has("opening"),"opening hand test ran to the end")
 	check(finished.has("overlap"),"overlap test ran to the end")
 	check(finished.has("feel"),"feel test ran to the end")
@@ -691,7 +691,7 @@ func test_screens() -> void:
 	game.set_physics_process(false)
 	check(game.screen == "title","game opens on the title screen")
 	var labels: Array = game.ui.map(func(b: Button) -> String: return b.text)
-	check("開始對戰" in labels and "觀戰模式" in labels and "牌組編成" in labels and "操作說明" in labels,"title offers battle, spectate, deck and help")
+	check("冒險模式" in labels and "自由對戰" in labels and "觀戰模式" in labels and "牌組編成" in labels and "操作說明" in labels,"title offers adventure, battle, spectate, deck and help")
 	game.player_deck = B.PRESETS[1].duplicate()
 	var lord_paths: Array[String] = []
 	for kind: String in B.LORDS:
@@ -845,59 +845,87 @@ func test_opening_hand() -> void:
 	check(a.decks == b.decks,"the shuffle stays reproducible per seed")
 	finished["opening"] = true
 
-func test_tutorial() -> void:
+func test_adventure() -> void:
 	var game = load("res://main.tscn").instantiate()
 	root.add_child(game)
 	game.deck_path = "user://test-ui-deck.json"
-	game.player_lord = "lion" # tests use normal-faction decks, whatever lord the saved deck has
+	game.player_lord = "lion"
+	game.player_deck = B.PRESETS[1].duplicate()
 	game.set_physics_process(false)
-	game.seed_value = 1 # deterministic fixture, independent of wall-clock launch time
-	game.start_tutorial()
+	game.seed_value = 1
+	var a = game.adventure
+	a.progress_path = "user://test-adventure.json" # never touch the player's own progress
+	DirAccess.remove_absolute(a.progress_path)
+	a.load_progress()
+	var ids := {}
+	for i: int in range(a.STAGES.size()):
+		var d: Dictionary = a.STAGES[i]
+		check(not ids.has(d.id),"adventure stage ids are unique (%s)" % d.id)
+		ids[d.id] = true
+		check(d.kind in a.KIND_NAMES and d.chapter < a.CHAPTERS.size() and a.MAP.has_point(d.map),"stage %d has a known kind, chapter and map point" % (i+1))
+		if d.deck is Array: check(game.DeckStore.valid(d.deck,d.lord),"stage %d deck fits its lord" % (i+1))
+		if d.kind == "conquer":
+			check(B.LORDS.has(d.enemy_lord) and game.DeckStore.valid(d.get("enemy_deck",B.PRESETS[d.ai]),d.enemy_lord),"stage %d enemy deck fits the enemy lord" % (i+1))
+		else: check(d.limit > 0,"scripted stage %d has a time limit" % (i+1))
+		for w: Array in d.get("waves",[]): check(B.CARDS.has(w[2]) and B.CARDS[w[2]].type == "unit" and w[1] >= 0 and w[1] < 5,"stage %d waves spawn real units in real lanes" % (i+1))
+	check(a.unlocked(0) and not a.unlocked(1) and a.frontier() == 0,"a fresh adventure opens only the first stage")
+	game.show_title()
+	check(game.ui.any(func(c) -> bool: return c is Button and c.text == "冒險模式") and not game.ui.any(func(c) -> bool: return c is Button and c.text in ["新手教學","挑戰關卡"]),"title offers the adventure instead of tutorial and challenges")
+	game.show_adventure()
+	check(game.screen == "adventure" and game.ui.any(func(c) -> bool: return c is Button and c.text == "出征"),"the map offers the first stage")
+	a.selected = 3
+	game.show_adventure()
+	check(a.selected == 0,"a locked stage cannot stay selected")
+	# Survive: holding until the limit clears the stage and unlocks the next one.
+	var survive: int = a.STAGES.map(func(d: Dictionary) -> String: return d.kind).find("survive")
+	a.start(game,survive)
 	var m = game.model
-	check(m.decks[0] == game.Tutorial.DECK or m.decks[0].size() == 8,"tutorial uses its own deck")
-	var plan := [["farm",Vector2i(1,2)],["farmer",Vector2i(0,2)],["militia",Vector2i(2,1)],["tower",Vector2i(1,3)],["fire",Vector2i(7,2)],["knight",Vector2i(2,2)]]
-	for i: int in range(plan.size()):
-		if game.tutorial.current().done == "skill":
-			var skill_stage: int = game.tutorial.stage
-			check(not game.tutorial.observe([{"kind":"skill","team":1}]),"enemy skill cannot complete player tutorial")
-			var deck_before: Array = m.decks[0].duplicate()
-			m.ink[0] = 0
-			m.skill_cd[0] = B.SKILL_COOLDOWN
-			m.lords[0].hp = 0
-			m.lords[0].respawn = 60.0
-			game.prepare_tutorial_step()
-			check(m.ink[0] >= B.SKILL_COST and m.skill_cd[0] == 0 and m.lords[0].hp > 0,"tutorial prepares gold cooldown and living lord")
-			check(m.decks[0] == deck_before,"skill preparation preserves the deck")
-			var key := InputEventKey.new()
-			key.keycode = KEY_Q
-			key.pressed = true
-			game._unhandled_input(key)
-			game._physics_process(1.0/60.0)
-			check(m.stats[0].skills == 1 and game.tutorial.stage == skill_stage+1,"actual Q input casts and advances the tutorial")
-		var stage: int = game.tutorial.stage
-		var card: String = plan[i][0]
-		var slot: int = m.FARM_SLOT if card == "farm" else m.decks[0].find(card)
-		check((slot == m.FARM_SLOT or slot >= 0 and slot < 4) and m.ink[0] >= B.CARDS[card].cost,"tutorial step %d puts %s in hand with enough gold" % [i+1,card])
-		m.hand_cd[0] = [0.0,0.0,0.0,0.0]
-		check(game.try_play(slot,L.cell_center(plan[i][1])),"tutorial step %d card can be played" % [i+1])
-		var frames := 0
-		while game.tutorial.stage == stage and frames < 60*60:
-			game._physics_process(1.0/60.0)
-			frames += 1
-		check(game.tutorial.stage == stage+1,"tutorial step %d completes (%s)" % [i+1,card])
-	check(game.tutorial.complete and m.lord_active[1] and m.ai_start < 1e8,"after the tutorial the blue side wakes up")
-	# Activation was checked above. Isolate walking through rubble from a random counterattack.
-	m.ai_enabled[1] = false
-	m.lord_active[1] = false
-	var frames := 0
-	while not m.ended and frames < 60*60: # the slow tier-E knight needs about 30 s to walk in
-		game._physics_process(1.0/60.0)
-		frames += 1
-	check(m.ended and m.winner == 0,"the tutorial knight walks through the broken gate and wins")
-	check(game.result_value(0,"breaches") == m.gates[1].filter(func(hp: float) -> bool: return hp <= 0).size() and game.result_value(0,"breaches") >= 1 and game.result_value(0,"plays") == m.stats[0].plays and game.result_value(0,"planted") == 1,"result screen numbers match the match statistics")
+	check(m.ai_enabled == [false,false] and not m.lord_active[1] and m.decks[0].size() == 8,"scripted stages only fight back with waves")
+	m.elapsed = 30
+	a.update(game)
+	var count: int = m.units.size()
+	check(count > 0,"waves arrive on schedule")
+	a.update(game)
+	check(m.units.size() == count,"waves do not repeat at the same time")
+	m.elapsed = a.STAGES[survive].limit
+	a.update(game)
+	check(m.ended and m.winner == 0 and a.is_cleared(survive) and a.unlocked(survive+1),"surviving clears the stage and unlocks the next")
+	check(game.overlay_buttons().any(func(item: Array) -> bool: return item[1] == "冒險地圖"),"adventure results lead back to the map")
+	var reread = load("res://adventure.gd").new()
+	reread.progress_path = a.progress_path
+	reread.load_progress()
+	check(reread.is_cleared(survive),"progress is saved")
+	# Breach with a required lane: winning through another lane does not count.
+	var breach: int = a.STAGES.map(func(d: Dictionary) -> int: return d.get("lane",-1)).find(2)
+	a.start(game,breach)
+	check(game.model.invasion_victory[0] and game.model.buildings.any(func(b: Dictionary) -> bool: return b.team == 1 and b.kind == "tower"),"breach stage lets the player invade and builds its defences")
+	game.review.break_lane = 0
+	game.model.finish(0)
+	a.update(game)
+	check(game.model.winner == 1 and not a.is_cleared(breach),"breaking in through the wrong lane fails")
+	a.start(game,breach)
+	game.model.elapsed = a.STAGES[breach].limit
+	a.update(game)
+	check(game.model.ended and game.model.winner == 1 and a.outcome.contains("時間"),"running out of time fails")
+	# Economy: the gold (and skill) target finishes the stage.
+	var economy: int = a.STAGES.map(func(d: Dictionary) -> String: return d.kind).find("economy")
+	a.start(game,economy)
+	check(not game.model.invasion_victory[0],"economy stages cannot be won by invading")
+	game.model.stats[0].produced = a.STAGES[economy].gold
+	a.update(game)
+	check(game.model.ended and game.model.winner == 0 and a.is_cleared(economy),"reaching the gold target clears the stage")
+	# Conquer: a real AI opponent; the last page uses the player's own deck.
+	var last: int = a.STAGES.size()-1
+	a.start(game,last)
+	check(game.model.ai_enabled == [false,true] and game.model.difficulty == a.STAGES[last].ai and game.model.decks[0].size() == 8 and game.model.lords[0].lord == game.player_lord,"the final stage pits the player's deck against the AI")
+	game.restart()
+	check(a.index == last and game.model.elapsed == 0,"restart replays the same stage")
+	game.start_battle()
+	check(a.index == -1,"free battle leaves the adventure")
 	game.free()
+	DirAccess.remove_absolute(a.progress_path)
 	DirAccess.remove_absolute("user://test-ui-deck.json")
-	finished["tutorial"] = true
+	finished["adventure"] = true
 
 func test_card_cooldowns() -> void:
 	var cds: Array = B.CARDS.values().map(func(c: Dictionary) -> float: return c.cooldown)
@@ -1128,7 +1156,6 @@ func test_battlefield_input() -> void:
 	sky.position = Vector2(400,35)
 	game._unhandled_input(sky)
 	check(game.model.buildings.size() == 5,"sky cannot accept battlefield placements")
-	game.start_tutorial()
 	check(L.GRID_ORIGIN == Vector2(269,104) and L.CELL_SIZE == Vector2(118,116),"battlefield retains full original lane dimensions")
 	game.free()
 

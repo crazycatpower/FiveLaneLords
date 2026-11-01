@@ -7,13 +7,13 @@ func run() -> void:
  root.add_child(game)
  game.set_physics_process(false)
  game.set_process(false)
- for scene: String in ["title","deck","help","battle","tutorial"]:
+ for scene: String in ["title","deck","help","battle","adventure"]:
   match scene:
    "title": game.show_title()
    "deck": game.show_deck()
    "help": game.show_help()
    "battle": game.start_battle()
-   "tutorial": game.start_tutorial()
+   "adventure": game.show_adventure()
   game.queue_redraw()
   await process_frame
   await RenderingServer.frame_post_draw

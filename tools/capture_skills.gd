@@ -26,24 +26,5 @@ func run() -> void:
     push_error("Skill preview save failed")
     quit(1)
     return
- game.start_tutorial()
- for i: int in range(game.Tutorial.STEPS.size()):
-  if game.Tutorial.STEPS[i].done == "skill": game.tutorial.stage = i
- game.prepare_tutorial_step()
- for frame: int in range(2):
-  if frame == 1:
-   var key := InputEventKey.new()
-   key.keycode = KEY_Q
-   key.pressed = true
-   game._unhandled_input(key)
-   game._physics_process(1.0/60.0)
-   for e: Dictionary in game.effects: e.life = e.duration*0.65
-  game.queue_redraw()
-  await process_frame
-  await RenderingServer.frame_post_draw
-  var err := root.get_texture().get_image().save_png("res://docs/skill-preview/tutorial-q-%d.png" % frame)
-  if err != OK:
-   quit(1)
-   return
  game.free()
  quit()
