@@ -1,6 +1,41 @@
 extends RefCounted
-static func card_tint(type: String) -> Color:
-	return {"unit":Color("efbd9d"),"building":Color("b7d3aa"),"spell":Color("b5bfec")}.get(type,Color.WHITE)
+const ROLES := {
+ "economy":["farm","grave","farmer","mill","harvest"],
+ "melee":["militia","mob","knight","shieldguard","corpse_giant","skeleton","ghoul","reaper","ox","ram","spearbow","raven"],
+ "ranged":["hunter","catapult","tower","rain","fire"],
+ "support":["healer","drummer","necromancer","guard"],
+ "control":["curse","plague","bonewall","scarecrow"]
+}
+static func card_tint(kind: String) -> Color:
+	for role: String in ROLES:
+		if kind in ROLES[role]: return {"economy":Color("f3d079"),"melee":Color("e7ac9b"),"ranged":Color("a9cbe6"),"support":Color("b2d5a2"),"control":Color("cbb0df")}[role]
+	return Color.WHITE
+static func type_frame(g, r: Rect2, type: String) -> void:
+	var box := Rect2(r.position+r.size*Vector2(0.09,0.17),r.size*Vector2(0.82,0.48))
+	var p := box.position
+	var s := box.size
+	var ink := Color(0.30,0.25,0.18,0.62)
+	if type == "unit":
+		# Shield silhouette and diagonal heraldic hatching.
+		var points := PackedVector2Array([p,p+Vector2(s.x,0),p+Vector2(s.x,s.y*0.72),p+Vector2(s.x*0.5,s.y),p+Vector2(0,s.y*0.72),p])
+		g.draw_polyline(points,ink,1.5,true)
+		for i: int in range(4):
+			g.draw_line(p+Vector2(3+i*5,3),p+Vector2(3,3+i*5),Color(ink,0.35),1)
+	elif type == "building":
+		# Square masonry with a crenellated top.
+		g.draw_rect(box,ink,false,1.5)
+		for i: int in range(5):
+			g.draw_rect(Rect2(p+Vector2(i*s.x/5,-5),Vector2(s.x/10,5)),ink,false,1.2)
+		for i: int in range(3):
+			g.draw_line(p+Vector2(0,12+i*13),p+Vector2(9,12+i*13),Color(ink,0.45),1)
+	else:
+		# Oval seal with orbiting diamond marks.
+		g.draw_set_transform(box.get_center(),0,Vector2(1,s.y/s.x))
+		g.draw_arc(Vector2.ZERO,s.x*0.5,0,TAU,48,ink,1.5,true)
+		g.draw_set_transform(Vector2.ZERO)
+		for side: int in [-1,1]:
+			var c := box.get_center()+Vector2(side*s.x*0.5,0)
+			g.draw_polyline(PackedVector2Array([c+Vector2(0,-5),c+Vector2(4,0),c+Vector2(0,5),c-Vector2(4,0),c+Vector2(0,-5)]),ink,1,true)
 static func stone(g, r: Rect2) -> void:
 	g.draw_rect(r,Color("8c785c"))
 	var inner := r.grow(-5)

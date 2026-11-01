@@ -939,8 +939,8 @@ func test_card_cooldowns() -> void:
 	tick(m,B.CARDS.farm.cooldown+0.05)
 	m.ink[0] = 50
 	check(m.play(0,0,L.cell_center(Vector2i(1,1))),"it can be played once the cooldown is over")
-	check(m.decks[0][3] == "knight" and is_equal_approx(m.hand_cd[0][3],B.CARDS.knight.cooldown),"the newly drawn card starts its own cooldown")
-	check(m.hand_cd[0][0] < B.CARDS.militia.cooldown,"cards already in hand keep counting down when the hand shifts")
+	check(m.decks[0][0] == "knight" and is_equal_approx(m.hand_cd[0][0],B.CARDS.knight.cooldown),"the newly drawn card starts its own cooldown")
+	check(m.hand_cd[0][1] < B.CARDS.militia.cooldown,"cards already in hand keep their slots and cooldowns")
 	var fresh := bare(9)
 	check(fresh.hand_cd == [[0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0]],"the opening hand has no cooldown")
 	var late := bare(4)

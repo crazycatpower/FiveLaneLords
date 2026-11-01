@@ -511,8 +511,9 @@ func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 	var data: Dictionary = B.CARDS[kind]
 	var s := rect.size
 	var short: bool = screen == "battle" and model.ink[0] < data.cost
-	draw_texture_rect(ART.card(selected == slot and slot >= 0),rect,false,preload("res://command_style.gd").card_tint(data.type))
+	draw_texture_rect(ART.card(selected == slot and slot >= 0),rect,false,preload("res://command_style.gd").card_tint(kind))
 	if data.get("series","") == "dark": draw_rect(rect.grow(-3),Color("66506d"),false,2)
+	preload("res://command_style.gd").type_frame(self,rect,data.type)
 	var shade := Color(0.45,0.45,0.45) if short else Color.WHITE
 	draw_card_art(kind,Rect2(rect.position+s*Vector2(0.08,0.13),s*Vector2(0.84,0.5)),0,shade)
 	# Name and type sit above the frame's bottom corner flowers (they start ~83% down).

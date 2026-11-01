@@ -258,11 +258,11 @@ func play(team: int, slot: int, pos: Vector2) -> bool:
 	ink[team] -= card.cost
 	if slot == FARM_SLOT: farm_cd[team] = card.cooldown # the farmland slot never rotates
 	else:
-		decks[team].remove_at(slot)
+		# Replace only the played slot; the other three cards and cooldowns stay put.
+		decks[team][slot] = decks[team][4]
+		decks[team].remove_at(4)
 		decks[team].append(kind)
-		# The hand shifts left; the card drawn into the last slot starts its own cooldown.
-		hand_cd[team].remove_at(slot)
-		hand_cd[team].append(B.CARDS[decks[team][3]].cooldown)
+		hand_cd[team][slot] = B.CARDS[decks[team][slot]].cooldown
 	stats[team].plays += 1
 	stats[team].used[kind] = stats[team].used.get(kind,0)+1
 	stats[team].spent[kind] = stats[team].spent.get(kind,0.0)+card.cost
