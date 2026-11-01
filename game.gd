@@ -511,7 +511,7 @@ func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 	var data: Dictionary = B.CARDS[kind]
 	var s := rect.size
 	var short: bool = screen == "battle" and model.ink[0] < data.cost
-	draw_texture_rect(ART.card(selected == slot and slot >= 0),rect,false)
+	draw_texture_rect(ART.card(selected == slot and slot >= 0),rect,false,preload("res://command_style.gd").card_tint(data.type))
 	if data.get("series","") == "dark": draw_rect(rect.grow(-3),Color("66506d"),false,2)
 	var shade := Color(0.45,0.45,0.45) if short else Color.WHITE
 	draw_card_art(kind,Rect2(rect.position+s*Vector2(0.08,0.13),s*Vector2(0.84,0.5)),0,shade)
@@ -974,7 +974,7 @@ func draw_hud() -> void:
 	if model.multiplier() > 1: label_at(Vector2(735,76),"金幣 ×%.1f" % model.multiplier(),13,RED)
 	panel(L.PAUSE_RECT)
 	label_at(L.PAUSE_RECT.position+Vector2(10,27),"Ⅱ",23)
-	panel(L.COMMAND_FRAME)
+	preload("res://command_style.gd").stone(self,L.COMMAND_FRAME)
 	preload("res://economy_hud.gd").draw(self)
 	# Permanent farmland slot: green-washed frame and a "常駐" tag so it reads apart from the hand.
 	var farm_rect := card_rect(Battle.FARM_SLOT)
@@ -996,7 +996,7 @@ func draw_hud() -> void:
 	draw_line(Vector2(1093,728),Vector2(1093,888),Color(INK,0.35),2)
 	draw_string(font,Vector2(NEXT_RECT.position.x,742),"下一張",HORIZONTAL_ALIGNMENT_CENTER,NEXT_RECT.size.x,14,Color("6f5a3e"))
 	draw_card(model.decks[0][4],NEXT_RECT)
-	draw_rect(NEXT_RECT.grow(-4),Color(0.93,0.87,0.72,0.35))
+	draw_rect(NEXT_RECT.grow(-4),Color(0.78,0.80,0.78,0.15))
 	if spectating:
 		for i: int in range(SPEEDS.size()):
 			panel(SPEED_RECTS[i],Color("c9a96a") if speed == SPEEDS[i] else Color("e8d5ab"))

@@ -2,7 +2,7 @@ extends RefCounted
 const B = preload("res://balance.gd")
 static func draw(g) -> void:
 	var m = g.model
-	var muted := Color("796344")
+	var muted := Color("414b48")
 	if g.adventure.index >= 0:
 		var d: Dictionary = g.adventure.STAGES[g.adventure.index]
 		g.label_at(Vector2(50,727),d.name,20,g.INK)
