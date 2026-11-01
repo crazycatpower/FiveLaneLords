@@ -1,0 +1,13 @@
+{
+  "date": "2026-11-01",
+  "tool": "image_gen",
+  "transparent_background": true,
+  "bandit": {
+    "reference": "assets/farmer.png",
+    "prompt": "Single full-body medieval bandit facing left, crouched sneaking pose, short sword and visible free hand; complete limbs, brown ink outlines, muted blue and brown gouache, parchment pigment texture; no background, modern cartoon, glossy rendering or text."
+  },
+  "tent": {
+    "reference": "assets/manuscript-v1/gate.png",
+    "prompt": "Single complete patched ochre medieval bandit ridge tent, left-facing entrance, dull blue pennant, wooden poles, tied ropes and pegs, two stolen grain sacks; brown hand ink outlines, matte low-saturation gouache, parchment grain inside paint; transparent background, no masonry, people, letters or landscape."
+  }
+}

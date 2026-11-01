@@ -5,7 +5,7 @@ extends RefCounted
 #            economy: produce `gold` coins (and cast `skills` lord skills) before `limit`
 #            conquer: beat the AI (`ai` = difficulty) with no time limit
 #   deck     eight cards, or "player" for the player's own deck and lord
-#   waves    [second, lane, unit, count] scripted enemy troops (survive / breach / economy stages)
+# All opponents use the normal card-playing AI; stage 1 opens with scheduled legal card plays.
 const B = preload("res://balance.gd")
 const L = preload("res://layout.gd")
 const Battle = preload("res://battle.gd")
@@ -18,40 +18,40 @@ const CHAPTERS := [
 const KIND_NAMES := {"survive":"守城","breach":"破城","economy":"經營","conquer":"決戰"}
 const DARK_DECK := ["skeleton","ghoul","necromancer","reaper","plague","bonewall","hunter","militia"]
 const STAGES := [
-	{"id":"first_farm","chapter":0,"map":Vector2(175,650),"name":"第一塊農田","lord":"harvest","kind":"economy","gold":120,"skills":0,"limit":150.0,
-	 "story":"春耕剛開始，邊境就來了幾個探路的兵。先把田種下去，讓農民在田後面耕地。",
-	 "goal":"150 秒內累計產出 120 金幣。",
+	{"id":"first_farm","chapter":0,"map":Vector2(175,650),"name":"第一塊農田","lord":"harvest","kind":"conquer","ai":0,"enemy_lord":"iron",
+	 "story":"農民聊著今年的收成，沒有注意到麥田另一頭的腳步聲。",
+	 "goal":"守住唯一的農路，反攻並摧毀強盜帳篷。",
 	 "deck":["farmer","militia","hunter","tower","rain","scarecrow","harvest","mill"],
-	 "waves":[[30,1,"militia",2],[60,3,"militia",2],[90,2,"hunter",2],[120,0,"militia",3]]},
+	 },
 	{"id":"fifth_drum","chapter":0,"map":Vector2(275,470),"name":"第五聲鼓","lord":"iron","kind":"survive","limit":90.0,
 	 "story":"箭樓的燈還亮著。這次，你要等到所有人回來。",
 	 "goal":"守住 90 秒，不讓敵兵入城。",
 	 "deck":["shieldguard","hunter","tower","healer","militia","rain","farmer","drummer"],
-	 "waves":[[10,0,"militia",2],[25,2,"militia",3],[40,4,"hunter",2],[55,0,"knight",1],[65,2,"militia",3]]},
+	 },
 	{"id":"old_bridge","chapter":0,"map":Vector2(400,615),"name":"故鄉木橋","lord":"lion","kind":"breach","lane":2,"limit":180.0,
 	 "story":"攻城槌上的刻痕還在。城門另一邊，也有人認得。",
 	 "goal":"180 秒內從第 III 路入城；敵軍入城則失敗。",
 	 "deck":["ram","shieldguard","healer","hunter","farmer","rain","drummer","militia"],
 	 "buildings":[[7,2,"tower"]],
-	 "waves":[[15,2,"militia",2],[45,2,"shieldguard",2],[75,2,"hunter",2],[105,2,"militia",3]]},
+	 },
 	{"id":"roll_call","chapter":1,"map":Vector2(505,420),"name":"名冊錯字","lord":"underworld","kind":"economy","gold":60,"skills":1,"limit":180.0,
 	 "story":"墓園開始收帳了。先備好金幣，再核對回來的是誰。",
 	 "goal":"180 秒內累計產出 60 金幣，施放亡者大軍一次。",
 	 "deck":["skeleton","bonewall","necromancer","curse","hunter","plague","shieldguard","drummer"],
-	 "waves":[[20,1,"militia",2],[45,3,"militia",2],[80,2,"hunter",2],[115,1,"knight",1]]},
+	 },
 	{"id":"night_watch","chapter":1,"map":Vector2(615,615),"name":"守夜人","lord":"underworld","kind":"survive","limit":120.0,
 	 "story":"火把從五條路一起亮起來。骨牆擋得住一時，擋不住整夜。",
 	 "goal":"守住 120 秒，不讓敵兵入城。",
 	 "deck":["skeleton","bonewall","reaper","ghoul","plague","tower","rain","hunter"],
-	 "waves":[[10,1,"militia",3],[25,3,"hunter",3],[40,0,"knight",1],[55,2,"ox",2],[70,4,"militia",4],[85,1,"knight",1],[100,3,"militia",4],[110,2,"shieldguard",3]]},
+	 },
 	{"id":"raven_road","chapter":1,"map":Vector2(725,410),"name":"烏鴉之路","lord":"underworld","kind":"breach","lane":-1,"limit":180.0,
 	 "story":"對面的箭樓整夜沒熄。讓烏鴉先去，骨頭隨後就到。",
 	 "goal":"180 秒內從任一路入城；敵軍入城則失敗。",
 	 "deck":["raven","skeleton","ghoul","reaper","corpse_giant","curse","plague","ram"],
 	 "buildings":[[7,1,"tower"],[7,3,"tower"]],
-	 "waves":[[20,0,"militia",3],[40,2,"shieldguard",3],[60,4,"hunter",3],[90,1,"knight",1],[120,3,"militia",4],[150,2,"knight",1]]},
+	 },
 	{"id":"iron_gate","chapter":2,"map":Vector2(810,600),"name":"鐵壁之前","lord":"iron","kind":"conquer","ai":0,"enemy_lord":"harvest",
-	 "story":"豐收領主的糧倉堆得比城牆還高。這一仗，對手會自己出牌了。",
+	 "story":"豐收領主的糧倉堆得比城牆還高。對手正不斷集結兵力。",
 	 "goal":"擊敗簡單難度的豐收領主。",
 	 "deck":["shieldguard","militia","hunter","tower","knight","rain","ram","drummer"]},
 	{"id":"ash_harvest","chapter":2,"map":Vector2(880,430),"name":"豐收與骨灰","lord":"lion","kind":"conquer","ai":1,"enemy_lord":"underworld","enemy_deck":DARK_DECK,
@@ -66,7 +66,7 @@ const STAGES := [
 
 var index := -1 # the stage being played, -1 outside adventure battles
 var selected := 0 # the stage shown on the map panel
-var next_wave := 0
+var opening := preload("res://farm_opening.gd").new()
 var outcome := ""
 var cleared: Dictionary = {}
 var progress_path := "user://adventure.json"
@@ -106,7 +106,6 @@ func stage_deck(game, i: int) -> Array:
 func start(game, choice: int) -> void:
 	index = choice
 	selected = choice
-	next_wave = 0
 	outcome = ""
 	var d: Dictionary = STAGES[index]
 	var lord := stage_lord(game,index)
@@ -116,19 +115,15 @@ func start(game, choice: int) -> void:
 		game.show_deck()
 		return
 	game.spectating = false
-	if d.kind == "conquer":
-		var ai: int = d.ai
-		var enemy: Array = d.get("enemy_deck",B.PRESETS[ai]).duplicate()
-		game.model = Battle.new(game.seed_value,deck,enemy,lord,d.enemy_lord)
-		game.model.difficulty = ai
-		game.model.ai_enabled = [false,true]
-	else:
-		game.model = Battle.new(7300+index,deck,B.PRESETS[0].duplicate(),lord,"iron")
-		game.model.difficulty = 0
-		game.model.ai_enabled = [false,false]
-		game.model.lord_active[1] = false # scripted stages: only the waves fight back
-		game.model.invasion_victory[0] = d.kind == "breach"
-		for b: Array in d.get("buildings",[]): game.model.add_building(1,Vector2i(b[0],b[1]),b[2])
+	var ai: int = d.get("ai",1)
+	var enemy: Array = d.get("enemy_deck",B.PRESETS[ai]).duplicate()
+	game.model = Battle.new(7300+index,deck,enemy,lord,d.get("enemy_lord","iron"))
+	game.model.difficulty = ai
+	game.model.ai_enabled = [false,true]
+	game.model.invasion_victory[0] = d.kind in ["breach","conquer"]
+	for b: Array in d.get("buildings",[]): game.model.add_building(1,Vector2i(b[0],b[1]),"tower")
+	opening.active = false
+	if index == 0: opening.start(game)
 	game.enter_battle("%s · %s" % [d.name,d.goal])
 
 func update(game) -> void:
@@ -141,10 +136,6 @@ func update(game) -> void:
 		settle(won,"")
 		if not won: m.winner = 1
 		return
-	while next_wave < d.get("waves",[]).size() and m.elapsed >= d.waves[next_wave][0]:
-		var wave: Array = d.waves[next_wave]
-		for i: int in range(wave[3]): m.spawn_unit(1,wave[1],wave[2],L.cell_center(Vector2i(6,wave[1]))+Vector2(i*18,0))
-		next_wave += 1
 	var limit: float = d.get("limit",0.0)
 	var complete: bool = d.kind == "survive" and m.elapsed >= limit
 	if d.kind == "economy": complete = m.stats[0].produced >= d.gold and m.stats[0].get("skills",0) >= d.skills

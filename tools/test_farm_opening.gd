@@ -1,0 +1,41 @@
+extends SceneTree
+func _initialize(): call_deferred("run")
+func run():
+	var g = load("res://main.tscn").instantiate()
+	root.add_child(g)
+	g.set_physics_process(false)
+	g.sound_enabled = false
+	g.adventure.progress_path = "user://opening-test.json"
+	g.adventure.start(g,0)
+	assert(g.model.count_buildings(0,"farm") == 2)
+	assert(g.model.active_lanes == [2])
+	assert(not g.model.can_play(0,0,g.L.cell_center(Vector2i(0,1))))
+	assert(not g.try_play(0,g.L.cell_center(Vector2i(0,2))))
+	g.model.paused = true
+	g._physics_process(1.0)
+	assert(g.adventure.opening.time == 0)
+	g.model.paused = false
+	for i in range(9*60): g._physics_process(1.0/60)
+	assert(g.model.stats[0].cultivated == 6)
+	assert(g.model.stats[0].plays == 1 and g.model.stats[1].plays == 1)
+	assert(g.model.stats[1].used.get("mob",0) == 1)
+	assert(g.model.units.any(func(u): return u.team == 0 and u.kind == "farmer"))
+	for i in range(13*60): g._physics_process(1.0/60)
+	assert(g.adventure.opening.killed and g.adventure.opening.burned)
+	assert(g.model.count_buildings(0,"farm") == 1)
+	assert(not g.model.ended)
+	assert(not g.adventure.opening.active and g.adventure.opening.arrived)
+	assert(g.model.ai_enabled == [false,true])
+	for i in range(25*60): g._physics_process(1.0/60)
+	assert(g.model.stats[1].plays > 1)
+	for u in g.model.units: assert(u.lane == 2)
+	for b in g.model.buildings: assert(b.cell.y == 2)
+	g.restart()
+	assert(g.adventure.opening.active and g.model.count_buildings(0,"farm") == 2)
+	for stage in range(1,g.adventure.STAGES.size()):
+		g.adventure.start(g,stage)
+		assert(g.model.ai_enabled == [false,true])
+		assert(g.model.active_lanes.size() == 5)
+	g.free()
+	print("Opening sequence, pause, restart, single lane and normal AI: PASS")
+	quit()

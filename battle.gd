@@ -26,6 +26,7 @@ var last_dt := 0.0
 var ended := false
 # Challenge objectives can hold attackers at the far gate; normal matches keep both sides enabled.
 var invasion_victory: Array[bool] = [true,true]
+var active_lanes: Array[int] = [0,1,2,3,4]
 var winner := -2
 var paused := false
 var next_id := 0
@@ -103,6 +104,7 @@ func cell_at(pos: Vector2) -> Vector2i:
 	return Vector2i((pos-L.GRID_ORIGIN)/L.CELL_SIZE)
 
 func territory_owner(cell: Vector2i) -> int:
+	if not cell.y in active_lanes: return -1
 	if cell.x < 0 or cell.x >= L.GRID_COLUMNS or cell.y < 0 or cell.y >= L.GRID_ROWS: return -1
 	return territory[cell.y*L.GRID_COLUMNS+cell.x]
 
@@ -225,7 +227,7 @@ func play_check(team: int, slot: int, pos: Vector2) -> Refusal:
 	if slot_cd(team,slot) > 0.00001: return Refusal.COOLDOWN
 	if ink[team] < card.cost: return Refusal.GOLD
 	var cell := cell_at(pos)
-	if cell.x < 0: return Refusal.OFF_GRID
+	if cell.x < 0 or not cell.y in active_lanes: return Refusal.OFF_GRID
 	if card.type == "spell": return Refusal.OK
 	if territory_owner(cell) != team: return Refusal.NOT_OURS
 	if card.type == "building":
@@ -321,6 +323,7 @@ func deploy(team: int, kind: String, cell: Vector2i) -> void:
 	if groups.size() > 1:
 		for group: Array in groups: march = minf(march,B.CARDS[group[0]].speed)
 	for lane: int in lanes:
+		if not lane in active_lanes: continue
 		var col := deployment_column(team,lane,cell.x)
 		if col < 0: continue
 		var spot := L.cell_center(Vector2i(col,lane))
@@ -335,6 +338,9 @@ func deploy(team: int, kind: String, cell: Vector2i) -> void:
 				n += 1
 
 func spawn_unit(team: int, lane: int, kind: String, pos: Vector2) -> Dictionary:
+	if not lane in active_lanes:
+		lane = active_lanes[0]
+		pos.y = L.cell_center(Vector2i(0,lane)).y
 	next_id += 1
 	var data: Dictionary = B.CARDS[kind]
 	var u := {"id":next_id,"serial":take_serial(),"kind":kind,"team":team,"lane":lane,"pos":pos,"hp":data.hp,"max_hp":data.hp,"cd":0.0,"phase":rng.randf()*TAU,"face":1.0 if team == 0 else -1.0,"worked":[],"work_id":-1,"work_left":0.0,"spawn_delay":0.0,"charged":false,"flash":0.0,"heal_cd":0.0,"dy":rng.randf_range(-B.PLACE_JITTER,B.PLACE_JITTER)}
@@ -484,7 +490,7 @@ func cast_skill(team: int) -> bool:
 				if record_events: visual_targets.append(b.pos)
 		"lion":
 			# One knight per lane at the front-most deploy column of that lane.
-			for lane: int in range(5):
+			for lane: int in active_lanes:
 				var col := front_column(team,lane)
 				if col < 0: continue # No summon into neutral or enemy-owned land.
 				var u := spawn_unit(team,lane,"knight",L.cell_center(Vector2i(col,lane)))
@@ -492,7 +498,7 @@ func cast_skill(team: int) -> bool:
 				if record_events: visual_targets.append(u.pos)
 		"harvest":
 			# A farm in each lane (front-most free home cell), then every farm healed and doubled.
-			for lane: int in range(5):
+			for lane: int in active_lanes:
 				for col: int in range(L.GRID_COLUMNS):
 					var cell := Vector2i(col if team == 0 else 8-col,lane)
 					if territory_owner(cell) == team and building_at(cell).is_empty():
@@ -505,7 +511,7 @@ func cast_skill(team: int) -> bool:
 					if record_events: visual_targets.append(b.pos)
 		"iron":
 			# Every gate back to full; attackers already clearing rubble must start over.
-			for lane: int in range(5):
+			for lane: int in active_lanes:
 				gates[team][lane] = B.GATE_HP
 				claim_around(team,Vector2i(-1 if team == 0 else L.GRID_COLUMNS,lane))
 				if record_events: visual_targets.append(Vector2(L.gate_icon_x(team),L.cell_center(Vector2i(0,lane)).y))
@@ -651,7 +657,11 @@ func step(dt: float) -> void:
 	update_zones(dt)
 	update_projectiles(dt)
 	for lord: Dictionary in lords:
-		if lord_active[lord.team]: Lord.step(self,lord,dt)
+		if lord_active[lord.team]:
+			Lord.step(self,lord,dt)
+			if active_lanes.size() == 1:
+				lord.pos.y = L.cell_center(Vector2i(0,active_lanes[0])).y
+				lord.target.y = lord.pos.y
 	update_units(dt)
 	resolve_deaths()
 	remove_dead()
@@ -668,7 +678,7 @@ func tick_clocks(dt: float) -> void:
 		while base_clock[team] >= B.BASE_INTERVAL-0.000001:
 			base_clock[team] -= B.BASE_INTERVAL
 			gain_ink(team,1.0)
-	for lane: int in range(5):
+	for lane: int in active_lanes:
 		alarm[lane] = maxf(0,alarm[lane]-dt)
 		building_alarm[lane] = maxf(0,building_alarm[lane]-dt)
 
@@ -868,7 +878,7 @@ func cast_spell(s: Dictionary) -> void:
 			if s.kind == "fire": u.pos.x += B.FIRE_KNOCKBACK*(1 if s.team == 0 else -1)
 	for b: Dictionary in buildings:
 		if b.team != s.team and b.pos.distance_to(s.pos) <= data.radius: damage(b,data.building_damage,s.team,s.kind)
-	for lane: int in range(5):
+	for lane: int in active_lanes:
 		var gate_pos := Vector2(L.gate_stop(1-s.team),L.cell_center(Vector2i(0,lane)).y)
 		if gate_pos.distance_to(s.pos) <= data.radius: hit_gate(1-s.team,lane,data.gate_damage,s.kind)
 

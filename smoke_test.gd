@@ -880,11 +880,11 @@ func test_adventure() -> void:
 	var survive: int = a.STAGES.map(func(d: Dictionary) -> String: return d.kind).find("survive")
 	a.start(game,survive)
 	var m = game.model
-	check(m.ai_enabled == [false,false] and not m.lord_active[1] and m.decks[0].size() == 8,"scripted stages only fight back with waves")
+	check(m.ai_enabled == [false,true] and m.lord_active[1] and m.decks[0].size() == 8,"adventure stages use normal AI")
 	m.elapsed = 30
 	a.update(game)
 	var count: int = m.units.size()
-	check(count > 0,"waves arrive on schedule")
+	check(count == 0,"no timed wave spawns")
 	a.update(game)
 	check(m.units.size() == count,"waves do not repeat at the same time")
 	m.elapsed = a.STAGES[survive].limit
@@ -912,6 +912,7 @@ func test_adventure() -> void:
 	a.start(game,economy)
 	check(not game.model.invasion_victory[0],"economy stages cannot be won by invading")
 	game.model.stats[0].produced = a.STAGES[economy].gold
+	game.model.stats[0].skills = a.STAGES[economy].skills
 	a.update(game)
 	check(game.model.ended and game.model.winner == 0 and a.is_cleared(economy),"reaching the gold target clears the stage")
 	# Conquer: a real AI opponent; the last page uses the player's own deck.
