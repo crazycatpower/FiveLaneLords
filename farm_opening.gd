@@ -85,44 +85,45 @@ func paint(g) -> void:
 	g.draw_fitted(TENT,Rect2(1325,235,225,220),Color.WHITE if m.gates[1][2] > 0 else Color(0.5,0.4,0.3,0.7))
 	g.bar(Rect2(1370,464,135,7),m.gates[1][2],B.GATE_HP,g.BLUE)
 	g.label_at(Vector2(1367,489),"強盜帳篷",20)
-	g.draw_texture_rect(g.art("gate",0),Rect2(189,346,74,68),false)
+	g.draw_texture_rect(g.art("gate",0),Rect2(189,346,74,68),false,Color.WHITE if m.gates[0][2] > 0 else Color(0.5,0.45,0.35,0.4))
 	g.bar(Rect2(197,428,58,5),m.gates[0][2],B.GATE_HP,g.RED)
 	for b: Dictionary in m.buildings:
 		g.draw_combat_actor(b.kind,b,b.pos,1.0 if b.team == 0 else -1.0)
 		if b.hp < b.max_hp: g.bar(Rect2(b.pos-Vector2(30,40),Vector2(60,5)),b.hp,b.max_hp,g.RED if b.team == 0 else g.BLUE)
 	g.layout_formations()
-	var ranks := {}
-	for u: Dictionary in m.units:
-		var key: String = str(u.team)+u.kind
-		var rank: int = ranks.get(key,0)
-		ranks[key] = rank+1
-		u.draw += Vector2((1 if u.team == 1 else -1)*(rank%3)*14,((rank%3)-1)*8)
-	for u: Dictionary in m.units:
+	var visible: Array = m.units.filter(func(u: Dictionary) -> bool: return u.hp > 0 and u.get("spawn_delay",0.0) <= 0)
+	for u: Dictionary in visible:
+		# Stable visual lanes: deaths no longer reshuffle the remaining sprites.
+		u.draw = u.pos+Vector2(0,[-22.0,0.0,22.0][u.id%3])
+	visible.sort_custom(func(a: Dictionary,b: Dictionary) -> bool: return a.draw.y < b.draw.y)
+	for u: Dictionary in visible:
 		if u.team == 1 and u.kind in ["militia","mob"]:
 			var p: Vector2 = u.draw
 			p.y += sin(m.elapsed*7)*2
 			if u.cd > 0.6: p.x += sin(time*15)*7
-			g.draw_fitted(BANDIT,Rect2(p-Vector2(43,73),Vector2(86,104)),Color(1,1,1,0.68 if active and time < 8 else 1))
+			g.draw_fitted(BANDIT,Rect2(p-Vector2(43,73),Vector2(86,104)),Color.WHITE)
 			if u.hp < u.max_hp: g.bar(Rect2(p-Vector2(25,75),Vector2(50,4)),u.hp,u.max_hp,g.BLUE)
 		else:
 			if u.kind == "farmer" and u.work_left > 0:
 				g.draw_set_transform(u.draw,sin(time*9)*0.08)
 				g.draw_texture_rect(g.art("farmer"),g.actor_rect("farmer"),false)
 				g.draw_set_transform(Vector2.ZERO)
+				if u.hp < u.max_hp: g.bar(Rect2(u.draw-Vector2(24,68),Vector2(48,4)),u.hp,u.max_hp,g.RED)
 			else: g.draw_unit(u)
 	if m.lord_active[0] or arrived: g.draw_lord(m.lords[0])
 	for a: Dictionary in m.projectiles: g.draw_line(a.pos-Vector2(12,0),a.pos,g.INK,2)
 	g.draw_effects()
-	g.draw_hud()
+	if not active and g.model.cell_at(g.get_global_mouse_position()).y == 2: g.draw_preview()
+	g.draw_hud(true)
+	paint_status(g)
 	# Replace the five-gate summary with this stage's single objective.
 	for team: int in range(2):
 		var x := 44.0 if team == 0 else 1014.0
-		g.draw_rect(Rect2(x,23,405,50),Color("d9e5df"))
 		g.label_at(Vector2(x+8,44),"邊境農莊" if team == 0 else "強盜營地",22,g.RED if team == 0 else g.BLUE)
 		g.bar(Rect2(x+8,55,330,9),m.gates[team][2],B.GATE_HP,g.RED if team == 0 else g.BLUE)
 	g.panel(g.library.INFO_RECT,Color("ecdcb6"))
 	g.draw_string(g.font,g.library.INFO_RECT.position+Vector2(0,30),"第 1-1 關 · 單路",HORIZONTAL_ALIGNMENT_CENTER,g.library.INFO_RECT.size.x,20,g.INK)
-	if active or (arrived and time-arrived_at < 7):
+	if not m.ended and not m.paused and (active or (arrived and time-arrived_at < 7)):
 		var words := "農民：今年麥子長得好，收成後換把新鋤頭。"
 		if time >= 3: words = "農民：先把這兩塊田耕完，回家就有熱湯喝。"
 		if m.stats[0].cultivated >= 6: words = "農民：好了！……等等，誰在那裡？"
@@ -133,7 +134,7 @@ func paint(g) -> void:
 		g.panel(Rect2(325,540,950,85),Color("ebd9b4"))
 		g.draw_string(g.font,Vector2(345,588),words,HORIZONTAL_ALIGNMENT_CENTER,910,25,g.INK)
 		g.draw_string(g.font,Vector2(345,615),"空白鍵暫停" if active else "選牌部署，開始反攻",HORIZONTAL_ALIGNMENT_CENTER,910,15,Color("796344"))
-		if active: g.draw_rect(Rect2(410,725,1155,158),Color(0.2,0.17,0.12,0.45))
+		if active: g.draw_rect(Rect2(410,725,790,158),Color(0.2,0.17,0.12,0.45))
 	if m.ended: g.draw_result()
 	elif m.paused:
 		g.panel(L.OVERLAY_RECT)
@@ -141,3 +142,15 @@ func paint(g) -> void:
 		for item: Array in g.overlay_buttons():
 			g.panel(item[0])
 			g.draw_string(g.font,item[0].position+Vector2(0,27),item[1],HORIZONTAL_ALIGNMENT_CENTER,item[0].size.x,20,g.INK)
+
+func paint_status(g) -> void:
+	var m = g.model
+	if not arrived:
+		g.panel(g.SKILL_RECT,Color("bcb19a"))
+		g.draw_string(g.font,g.SKILL_RECT.position+Vector2(0,32),"領主尚未抵達",HORIZONTAL_ALIGNMENT_CENTER,g.SKILL_RECT.size.x,21,g.INK)
+	else:
+		g.draw_skill_button()
+		g.label_at(Vector2(1220,817),B.LORDS[m.lords[0].lord].name,18,g.RED)
+		g.bar(Rect2(1220,828,208,6),m.lords[0].hp,m.lords[0].max_hp,g.RED)
+		g.label_at(Vector2(1440,837),"%d / %d" % [maxi(0,int(m.lords[0].hp)),m.lords[0].max_hp],14)
+	g.label_at(Vector2(1220,870),"敵方據點：強盜帳篷",17,g.BLUE)

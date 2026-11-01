@@ -915,7 +915,9 @@ func draw_effects() -> void:
 				death_pos.y = maxf(death_pos.y,L.GRID_ORIGIN.y-actor_rect(kind).position.y+6)
 				var face: float = e.get("face",1.0 if e.team == 0 else -1.0)
 				if B.CARDS.has(kind) and B.CARDS[kind].type == "building": face = 1.0 if e.team == 0 else -1.0
-				draw_actor(kind,e.team,death_pos,face,Color(1,1,1,1-progress))
+				if adventure.index == 0 and e.team == 1 and kind in ["militia","mob"]:
+					draw_fitted(adventure.opening.BANDIT,Rect2(death_pos-Vector2(43,73),Vector2(86,104)),Color(1,1,1,1-progress))
+				else: draw_actor(kind,e.team,death_pos,face,Color(1,1,1,1-progress))
 				for i: int in range(5): draw_circle(e.pos+Vector2(cos(i*2),sin(i*2))*progress*24,3*(1-progress),INK)
 			"burn":
 				draw_circle(e.pos,35,Color(0.15,0.07,0.02,0.35*(1-progress)))
@@ -961,20 +963,21 @@ func draw_skill_effect(e: Dictionary, progress: float) -> void:
 					var y := point.y+25-progress*60-i*7
 					draw_line(Vector2(point.x-24,y),Vector2(point.x+24,y),Color(gold,strength*(1.0-i*0.2)),2.0,true)
 
-func draw_hud() -> void:
+func draw_hud(single_lane: bool = false) -> void:
 	draw_rect(L.HUD_FRAME,Color("a6c9dc"))
 	for x: int in range(48,1550,58):
 		draw_polyline(PackedVector2Array([Vector2(x,24),Vector2(x+16,34),Vector2(x,44),Vector2(x-16,34),Vector2(x,24)]),Color(0.92,0.97,1,0.23),1.2,true)
 	draw_texture_rect(PAPER,L.HUD_FRAME,false,Color(1,1,1,0.06))
 	ink_frame(L.HUD_FRAME)
-	for team: int in range(2):
-		var x := 95.0 if team == 0 else 1070.0
-		draw_texture_rect(art("crest",team),Rect2(x-58,21,48,50),false)
-		draw_texture_rect(ART.object_icon(0),Rect2(x+238,20,28,30),false)
-		var standing: int = model.gates[team].filter(func(hp: float) -> bool: return hp > 0).size()
-		label_at(Vector2(x,43),("紅獅" if team == 0 else "藍旗")+"  城門 %d / 5" % standing,23,RED if team == 0 else BLUE)
-		for lane: int in range(5): bar(Rect2(x+lane*70,53,62,10),model.gates[team][lane],B.GATE_HP,RED if team == 0 else BLUE)
-		label_at(Vector2(x+270,43),"%d / 50" % model.ink[team],18)
+	if not single_lane:
+		for team: int in range(2):
+			var x := 95.0 if team == 0 else 1070.0
+			draw_texture_rect(art("crest",team),Rect2(x-58,21,48,50),false)
+			draw_texture_rect(ART.object_icon(0),Rect2(x+238,20,28,30),false)
+			var standing: int = model.gates[team].filter(func(hp: float) -> bool: return hp > 0).size()
+			label_at(Vector2(x,43),("紅獅" if team == 0 else "藍旗")+"  城門 %d / 5" % standing,23,RED if team == 0 else BLUE)
+			for lane: int in range(5): bar(Rect2(x+lane*70,53,62,10),model.gates[team][lane],B.GATE_HP,RED if team == 0 else BLUE)
+			label_at(Vector2(x+270,43),"%d / 50" % model.ink[team],18)
 	panel(Rect2(712,24,140,58),Color("f2e3c0"))
 	var time := int(model.elapsed)
 	label_at(Vector2(725,58),"%02d:%02d" % [time/60,time%60],30,RED if model.multiplier() > 1 else INK)
@@ -1011,6 +1014,7 @@ func draw_hud() -> void:
 	var mouse := get_global_mouse_position()
 	if dragging and selected >= 0 and card_at(mouse) < 0 and model.cell_at(mouse).x < 0:
 		draw_card_art(model.kind_at(0,selected),Rect2(mouse-Vector2(40,36),Vector2(80,72)),0,Color(1,1,1,0.7))
+	if single_lane: return
 	if spectating: label_at(Vector2(1220,766),"雙方領主",20)
 	else: draw_skill_button()
 	for lord: Dictionary in model.lords:
