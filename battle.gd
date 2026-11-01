@@ -24,6 +24,8 @@ var events: Array[Dictionary] = []
 var elapsed := 0.0
 var last_dt := 0.0
 var ended := false
+# Challenge objectives can hold attackers at the far gate; normal matches keep both sides enabled.
+var invasion_victory: Array[bool] = [true,true]
 var winner := -2
 var paused := false
 var next_id := 0
@@ -819,7 +821,8 @@ func march(u: Dictionary, data: Dictionary, dt: float) -> bool:
 		u.climb = u.get("climb",0.0)+dt
 		if enemy == 0: alarm[u.lane] = 1.5
 	elif open:
-		event("invaded",u.pos,u.team,{"lane":u.lane})
+		if not invasion_victory[u.team]: return false
+		event("invaded",u.pos,u.team,{"lane":u.lane,"unit_kind":u.kind})
 		finish(u.team)
 		return true
 	elif u.cd <= 0:

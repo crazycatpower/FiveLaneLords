@@ -8,6 +8,8 @@ const ART = preload("res://manuscript_art.gd")
 const AttackAnimation = preload("res://attack_animation.gd")
 var attack_animation := AttackAnimation.new()
 var library = preload("res://card_library.gd").new(self)
+var review := preload("res://battle_review.gd").new()
+var challenge := preload("res://challenges.gd").new()
 const PAPER = preload("res://assets/parchment-background.png")
 const INK := Color("463529")
 const RED := Color("9c3d30")
@@ -129,6 +131,7 @@ func _ready() -> void:
 	show_title()
 
 func start_battle() -> void:
+	challenge.index = -1
 	if spectating:
 		for team: int in range(2):
 			if not DeckStore.valid(watch_decks[team],watch_lords[team]): watch_decks[team] = DeckStore.fit_to_lord(watch_decks[team],watch_lords[team])
@@ -147,6 +150,7 @@ func start_battle() -> void:
 
 # T10: scripted first match with a fixed deck; the blue side stays idle until the last step.
 func start_tutorial() -> void:
+	challenge.index = -1
 	spectating = false
 	model = Battle.new(seed_value,Tutorial.DECK.duplicate(),B.PRESETS[0].duplicate())
 	model.difficulty = 0
@@ -189,10 +193,14 @@ func prepare_tutorial_step() -> void:
 	notice = tutorial.caption()
 
 func restart() -> void:
+	if challenge.index >= 0:
+		challenge.start(self,challenge.index)
+		return
 	if tutorial != null: start_tutorial()
 	else: start_battle()
 
 func enter_battle(message: String) -> void:
+	review.clear()
 	attack_animation.clear()
 	selected = -1
 	dragging = false
@@ -239,9 +247,11 @@ func _physics_process(dt: float) -> void:
 		attack_animation.observe(model)
 		var advanced: bool = tutorial != null and tutorial.observe(model.events)
 		consume_events()
+		challenge.update(self)
 		if advanced: prepare_tutorial_step()
 
 func consume_events() -> void:
+	review.observe(model)
 	for e: Dictionary in model.events:
 		if e.kind == "breach": notice = ("我方第 %d 路城門被攻破！敵兵走進來就輸了。" if e.team == 1 else "攻破藍旗第 %d 路城門！派兵走進去就贏。") % (e.lane+1)
 		if e.kind == "skill": notice = "%s%s發動「%s」！" % ["紅方" if e.team == 0 else "藍方",B.LORDS[e.lord].name,B.LORDS[e.lord].skill]
@@ -286,6 +296,7 @@ func overlay_buttons() -> Array:
 	var y := RESULT_RECT.end.y-60 if model.ended else L.OVERLAY_RECT.position.y+95
 	var items: Array = []
 	if not model.ended: items.append([Rect2(490,y,190,40),"繼續",toggle_pause])
+	else: items.append([Rect2(490,y,190,40),"戰局復盤",show_review])
 	items.append([Rect2(700,y,190,40),"重新開始",restart])
 	items.append([Rect2(910,y,190,40),"回到標題",show_title])
 	return items
@@ -301,6 +312,9 @@ func try_play(slot: int, pos: Vector2) -> bool:
 	return false
 
 func _unhandled_input(event: InputEvent) -> void:
+	if screen == "recap" and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		close_review()
+		return
 	if screen in ["codex","battle_info"]:
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 			if screen == "codex": library.back()
@@ -587,6 +601,10 @@ func _draw() -> void:
 	if screen != "battle": draw_landscape(L.PAGE_FRAME.grow(-7),0.46)
 	panel(L.PAGE_FRAME,Color(0.85,0.74,0.53,0.15))
 	if screen == "battle": draw_battle()
+	elif screen == "challenges": draw_challenges()
+	elif screen == "recap":
+		panel(Rect2(100,70,1400,700))
+		label_at(Vector2(140,128),"戰局復盤",38)
 	elif screen == "codex": library.draw_catalog()
 	elif screen == "battle_info": library.draw_battle_info()
 	elif screen == "deck": draw_deck()
@@ -738,6 +756,7 @@ func draw_battle() -> void:
 	if tutorial != null and not model.ended:
 		panel(Rect2(290,98,1020,34),Color("f6ead0"))
 		draw_string(font,Vector2(290,121),tutorial.caption(),HORIZONTAL_ALIGNMENT_CENTER,1020,18,INK)
+	review.draw_pressure(self)
 	panel(library.INFO_RECT,Color("ecdcb6"))
 	draw_string(font,library.INFO_RECT.position+Vector2(0,30),["簡單","普通","困難"][model.difficulty]+" · 戰局資料",HORIZONTAL_ALIGNMENT_CENTER,library.INFO_RECT.size.x,20,INK)
 	if model.ended: draw_result()
@@ -753,7 +772,7 @@ func draw_result() -> void:
 	var r := RESULT_RECT
 	panel(r,Color("efe0bd"))
 	ink_frame(r.grow(-8))
-	var title := "紅獅勝利！我軍攻進藍旗主堡" if model.winner == 0 else "敗北：藍旗士兵攻進了我方主堡"
+	var title := challenge.outcome if challenge.index >= 0 else ("紅獅勝利！我軍攻進藍旗主堡" if model.winner == 0 else "敗北：藍旗士兵攻進了我方主堡")
 	draw_string(font,r.position+Vector2(0,62),title,HORIZONTAL_ALIGNMENT_CENTER,r.size.x,32,RED if model.winner == 0 else BLUE)
 	var t := int(model.elapsed)
 	draw_string(font,r.position+Vector2(0,96),"戰鬥時間 %02d:%02d" % [t/60,t%60],HORIZONTAL_ALIGNMENT_CENTER,r.size.x,18,INK)
@@ -894,14 +913,9 @@ func draw_link(from: Vector2, to: Vector2, color: Color, progress: float) -> voi
 # Standing relations, drawn every frame: a mill's dashed gold line to the farms it boosts, and a
 # scarecrow's dashed red line to the enemies it is pulling in.
 func draw_relations() -> void:
-	for drummer: Dictionary in model.units:
-		if drummer.hp <= 0 or drummer.kind != "drummer" or drummer.spawn_delay > 0: continue
-		for u: Dictionary in model.units:
-			var ahead: float = (u.pos.x-drummer.pos.x)*drummer.face
-			if u.hp > 0 and u.team == drummer.team and u.lane == drummer.lane and ahead > 0 and ahead <= B.CARDS.drummer.inspire_cells*L.CELL_SIZE.x:
-				dashed(drummer.pos,u.pos,Color(0.72,0.53,0.20,0.42))
+	# Buffed units already carry gold markers; avoid a web of field-wide lines.
 	for b: Dictionary in model.buildings:
-		if b.hp <= 0: continue
+		if b.hp <= 0 or get_global_mouse_position().distance_to(b.pos) > 75: continue
 		if b.kind == "mill":
 			for farm: Dictionary in model.buildings:
 				if farm.hp > 0 and farm.kind == "farm" and farm.team == b.team and farm.cell.y == b.cell.y: dashed(b.pos,farm.pos,Color("e2b23a",0.55))
@@ -1107,6 +1121,7 @@ func show_title() -> void:
 	title_button(Rect2(352,512,216,54),"操作說明",show_help)
 	title_button(Rect2(118,594,216,44),"難度："+["簡單","普通","困難"][difficulty],func(): difficulty = (difficulty+1)%3; show_title())
 	title_button(Rect2(352,594,216,44),"卡牌圖鑑",func(): library.open())
+	title_button(Rect2(352,680,216,48),"挑戰關卡",show_challenges)
 	title_button(Rect2(118,770,216,44),"設定",show_settings)
 	title_button(Rect2(352,770,216,44),"離開",func(): get_tree().quit())
 	queue_redraw()
@@ -1149,7 +1164,7 @@ func draw_title() -> void:
 	ink_line(Vector2(118,665),Vector2(568,665),3,Color(INK,0.3))
 	label_at(Vector2(122,700),"出征領主",16,Color("80643e"))
 	label_at(Vector2(122,735),B.LORDS[player_lord].name,25,RED)
-	draw_string(font,Vector2(330,733),"農田＋領主＋八張牌",HORIZONTAL_ALIGNMENT_RIGHT,232,17,INK)
+
 	# Two opposing hosts: farmland behind the human army, graves behind the undead.
 	ground_wash(Vector2(835,625),Vector2(180,160),Color("b7b97b"),72,0.10)
 	ground_wash(Vector2(1410,625),Vector2(145,160),Color("655a70"),81,0.12)
@@ -1442,3 +1457,35 @@ func show_settings() -> void:
 	button(Rect2(600,460,400,55),"音效："+("開" if sound_enabled else "關"),func(): sound_enabled = not sound_enabled; sound.enabled = sound_enabled; save_settings(); show_settings())
 	button(Rect2(600,600,400,55),"回到標題",show_title)
 	queue_redraw()
+
+func show_review() -> void:
+	screen = "recap"
+	clear_ui()
+	library.text_box(Rect2(140,161,1320,555),review.report(model),24)
+	title_button(Rect2(100,804,250,48),"返回結算",close_review)
+	title_button(Rect2(1250,804,250,48),"再次挑戰" if challenge.index >= 0 else "再戰一局",restart)
+	queue_redraw()
+
+func close_review() -> void:
+	clear_ui()
+	screen = "battle"
+	queue_redraw()
+
+func show_challenges() -> void:
+	screen = "challenges"
+	clear_ui()
+	for i: int in range(challenge.DATA.size()):
+		var choice := i
+		var d: Dictionary = challenge.DATA[i]
+		library.text_box(Rect2(115+i*480,330,390,175),d.story+"\n\n"+d.goal,24)
+		title_button(Rect2(135+i*480,640,350,58),"開始挑戰",func(): challenge.start(self,choice),true)
+	title_button(Rect2(100,805,230,48),"返回標題",show_title)
+	queue_redraw()
+
+func draw_challenges() -> void:
+	label_at(Vector2(100,116),"挑戰關卡",44)
+	label_at(Vector2(100,160),"固定牌組與攻勢 · 重試相同戰局 · 不改動你的自選牌組",23)
+	for i: int in range(challenge.DATA.size()):
+		panel(Rect2(90+i*480,210,430,540))
+		label_at(Vector2(115+i*480,285),challenge.DATA[i].name,34)
+		draw_fitted(lord_art(challenge.DATA[i].lord),Rect2(370+i*480,505,100,122))
