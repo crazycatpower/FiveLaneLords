@@ -865,7 +865,7 @@ func test_adventure() -> void:
 		check(d.kind in a.KIND_NAMES and d.chapter < a.CHAPTERS.size() and a.MAP.has_point(d.map),"stage %d has a known kind, chapter and map point" % (i+1))
 		if d.deck is Array: check(game.DeckStore.valid(d.deck,d.lord,d.get("allow_duplicates",false)),"stage %d deck fits its lord" % (i+1))
 		if d.kind == "conquer":
-			check(B.LORDS.has(d.enemy_lord) and game.DeckStore.valid(d.get("enemy_deck",B.PRESETS[d.ai]),d.enemy_lord),"stage %d enemy deck fits the enemy lord" % (i+1))
+			check(B.LORDS.has(d.enemy_lord) and game.DeckStore.valid(d.get("enemy_deck",B.PRESETS[d.ai]),d.enemy_lord,true),"stage %d enemy deck fits the enemy lord" % (i+1))
 		else: check(d.limit > 0,"scripted stage %d has a time limit" % (i+1))
 		for w: Array in d.get("waves",[]): check(B.CARDS.has(w[2]) and B.CARDS[w[2]].type == "unit" and w[1] >= 0 and w[1] < 5,"stage %d waves spawn real units in real lanes" % (i+1))
 	check(a.unlocked(0) and not a.unlocked(1) and a.frontier() == 0,"a fresh adventure opens only the first stage")

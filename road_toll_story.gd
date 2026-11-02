@@ -1,52 +1,54 @@
 extends RefCounted
 const LORD = preload("res://assets/manuscript-v1/adventure-lord.png")
 const MOB = preload("res://assets/manuscript-v1/mob.png")
-const GUARD = preload("res://assets/manuscript-v1/shieldguard.png")
+const GUARD = preload("res://assets/manuscript-v1/militia-red.png")
 const BANDIT = preload("res://assets/manuscript-v1/bandit.png")
 const KNIGHT = preload("res://assets/manuscript-v1/knight.png")
+const HUNTER = preload("res://assets/manuscript-v1/hunter.png")
+const LION = preload("res://assets/manuscript-v1/lord-lion.png")
+
+const HARVEST = preload("res://assets/manuscript-v1/lord-harvest.png")
+const IRON = preload("res://assets/manuscript-v1/lord-iron.png")
+const UNDERWORLD = preload("res://assets/manuscript-v1/lord-underworld.png")
+const SKELETON = preload("res://assets/manuscript-v1/skeleton.png")
+const NECROMANCER = preload("res://assets/manuscript-v1/necromancer.png")
+
 var lines: Array = []
 var step := 0
 var victory := false
+var heading := ""
+var opening_caption := ""
+var victory_caption := ""
+var next_caption := ""
 
 func begin(g, won: bool = false) -> void:
 	victory = won
 	step = 0
-	if won:
-		lines = [
-			["村民","箭樓下的糧倉開了。這些糧袋……每一袋都有村子的記號。","mob","guard"],
-			["村民","這袋麥穗記號，是我們的糧……\n可收糧的人，明明說是送去賑災。","mob","lord"],
-			["俘虜","我們只管扣糧。每隔五天，有人在東邊的木橋接貨。","guard","lord"],
-			["領主","把糧還給村民。\n下一站，木橋。","lord","mob"],
-		]
-	else:
-		lines = [
-			["村民","春天收過田稅，收成又收糧稅。\n現在走自己的路，還得再交一次錢。","mob","guard"],
-			["守軍","奉東境領主之命，糧食不得出境。\n交糧，或者回去。","guard","mob"],
-			["領主","回去之後，他們吃什麼？","lord","guard"],
-			["守軍","那不在我的命令裡。","guard","lord"],
-			["村民","大人，我們沒摸過劍。\n但這條路，我們走了一輩子。","mob","lord"],
-		]
-		if g.adventure.recruit == "bandit":
-			lines.append_array([
-				["強盜","我們當初也是在這裡，被叫回去的。","bandit","lord"],
-				["領主","所以你們就去搶別人的糧？","lord","bandit"],
-				["強盜","……所以這次，我們走前面。","bandit","lord"],
-			])
-		elif g.adventure.recruit == "knight":
-			lines.append_array([
-				["騎士","路稅應當有領主印令。拿出來。","knight","guard"],
-				["守軍","您認得這面旗，還需要看印令？","guard","knight"],
-				["騎士","……大人，讓村民退到我身後。","knight","lord"],
-			])
-		lines.append(["乾草叉暴民加入隊伍","村民舉起乾草叉，站到了你的旗幟下。\n從中路部署乾草叉暴民，便能同時向三路進軍。突破箭樓防線，攻入敵方底線。","mob","lord"])
+	var idx: int = g.adventure.index
+	var recruit: String = g.adventure.recruit
+	setup_stage_story(idx, recruit, won)
 	show(g)
+
+func setup_stage_story(idx: int, recruit: String, won: bool) -> void:
+	var adventure_data = load("res://adventure.gd")
+	var stage: Dictionary = adventure_data.STAGES[idx]
+	heading = "第 %d 關 · %s" % [idx+1,stage.name]
+	opening_caption = "決戰亡靈領主" if idx == 9 else ["戰亂與重稅","亡靈與勾結","三位領主的援軍"][stage.chapter]
+	victory_caption = "戰後 · "+stage.name
+	next_caption = "返回冒險地圖" if idx == 9 else "前往下一關"
+	lines = preload("res://campaign_story_data.gd").dialogue(idx,recruit,won)
+	if won:
+		var rewards: Array = adventure_data.STAGE_UNLOCKS.get(stage.id,[])
+		if not rewards.is_empty():
+			var names: Array = rewards.map(func(k): return preload("res://balance.gd").CARDS[k].name)
+			lines.append(["卡牌解鎖","已解鎖："+"、".join(names)+"。\n可在冒險牌組中選用。",stage.get("support_lord","lord"),"lord"])
 
 func advance(g) -> void:
 	if g.screen != "road_toll_story": return
 	step += 1
 	if step < lines.size(): show(g)
 	elif victory: g.show_adventure()
-	else: g.enter_battle(g.adventure.STAGES[1].goal)
+	else: g.enter_battle(g.adventure.STAGES[g.adventure.index].goal)
 
 func show(g) -> void:
 	g.screen = "road_toll_story"
@@ -56,17 +58,17 @@ func show(g) -> void:
 	var text = g.library.text_box(Rect2(115,666,1370,100),line[1],26)
 	text.scroll_active = false
 	var caption := "繼續"
-	if step == lines.size()-1: caption = "前往木橋" if victory else "開始戰鬥"
+	if step == lines.size()-1: caption = next_caption if victory else "開始戰鬥"
 	g.title_button(Rect2(1200,784,280,54),caption,func(): advance(g),true).grab_focus()
 	g.queue_redraw()
 
 func texture(kind: String) -> Texture2D:
-	return {"mob":MOB,"guard":GUARD,"lord":LORD,"bandit":BANDIT,"knight":KNIGHT}[kind]
+	return {"mob":MOB,"guard":GUARD,"lord":LORD,"bandit":BANDIT,"knight":KNIGHT,"hunter":HUNTER,"lion":LION,"harvest":HARVEST,"iron":IRON,"underworld":UNDERWORLD,"skeleton":SKELETON,"necromancer":NECROMANCER}.get(kind, GUARD)
 
 func paint(g) -> void:
 	g.draw_rect(Rect2(28,28,1544,844),Color(0.18,0.15,0.10,0.18))
-	g.label_at(Vector2(80,85),"1-2 · 東邊的路稅",36)
-	g.label_at(Vector2(80,123),"糧袋上的記號" if victory else "三條農路，三座箭樓。",22)
+	g.label_at(Vector2(80,85),heading,36)
+	g.label_at(Vector2(80,123),victory_caption if victory else opening_caption,22)
 	var line: Array = lines[step]
 	var actor: Texture2D = texture(line[2])
 	var other: Texture2D = texture(line[3])

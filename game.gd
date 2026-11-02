@@ -36,6 +36,7 @@ var screen := "title"
 var player_deck: Array = []
 var player_lord := "iron"
 var deck_path := "user://deck.json"
+var adventure_deck_mode := false
 var deck_tab := "unit"
 var deck_page := 0
 var difficulty := 1
@@ -265,6 +266,16 @@ func try_play(slot: int, pos: Vector2) -> bool:
 func _unhandled_input(event: InputEvent) -> void:
 	if screen == "recap" and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		close_review()
+		return
+	if screen == "deck" and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		if adventure_deck_mode:
+			if DeckStore.valid(player_deck,player_lord):
+				adventure.custom_deck = player_deck.duplicate()
+				adventure.save_progress()
+			adventure_deck_mode = false
+			show_adventure()
+		else:
+			show_title()
 		return
 	if screen in ["codex","battle_info"]:
 		if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
@@ -1055,6 +1066,7 @@ func try_skill() -> bool:
 
 
 func show_title() -> void:
+	adventure_deck_mode = false
 	screen = "title"
 	clear_ui()
 	preload("res://main_menu.gd").build(self)
@@ -1101,25 +1113,28 @@ func title_soldier(kind: String, pos: Vector2, team: int, size_scale: float) -> 
 func show_deck() -> void:
 	screen = "deck"
 	clear_ui()
-	for i: int in range(3):
-		var index := i
-		button(Rect2(120+i*300,155,270,45),B.PRESET_NAMES[i],func(): player_deck = B.PRESETS[index].duplicate(); player_lord = B.PRESET_LORDS[index]; save_choice(); show_deck())
+	if not adventure_deck_mode:
+		for i: int in range(3):
+			var index := i
+			button(Rect2(120+i*300,155,270,45),B.PRESET_NAMES[i],func(): player_deck = B.PRESETS[index].duplicate(); player_lord = B.PRESET_LORDS[index]; save_choice(); show_deck())
 	for i: int in range(3):
 		var tab: String = ["unit","building","spell"][i]
 		button(Rect2(120+i*210,235,190,44),["部隊","建築","法術"][i],func(): deck_tab = tab; deck_page = 0; show_deck())
-	deck_page = clampi(deck_page,0,(tab_size()-1)/8)
+	deck_page = clampi(deck_page,0,maxi(0,(tab_size()-1)/8))
 	if tab_size() > 8:
 		button(Rect2(755,235,200,44),"第 %d 頁 / %d　→" % [deck_page+1,ceili(tab_size()/8.0)],func(): deck_page = (deck_page+1)%ceili(tab_size()/8.0); show_deck())
-	var lord_index := 0
-	for lord_kind: String in B.LORDS:
-		var choice := lord_kind
-		var b := button(lord_rect(lord_index),"",func(): choose_lord(choice))
-		b.tooltip_text = lord_tooltip(lord_kind)
-		b.modulate = Color(1,1,1,0.01)
-		lord_index += 1
+	if not adventure_deck_mode:
+		var lord_index := 0
+		for lord_kind: String in B.LORDS:
+			var choice := lord_kind
+			var b := button(lord_rect(lord_index),"",func(): choose_lord(choice))
+			b.tooltip_text = lord_tooltip(lord_kind)
+			b.modulate = Color(1,1,1,0.01)
+			lord_index += 1
+	var pool: Array = adventure.unlocked_cards() if adventure_deck_mode else DeckStore.pool(player_lord)
 	var index := 0
 	for kind: String in B.CARDS:
-		if B.CARDS[kind].type != deck_tab or not kind in DeckStore.pool(player_lord): continue
+		if B.CARDS[kind].type != deck_tab or not kind in pool: continue
 		if index/8 != deck_page:
 			index += 1
 			continue
@@ -1129,15 +1144,33 @@ func show_deck() -> void:
 		b.tooltip_text = card_description(kind)
 		b.modulate = Color(1,1,1,0.01)
 		index += 1
-	button(Rect2(120,805,220,50),"回到標題",show_title)
-	start_button = button(Rect2(1220,805,240,50),"儲存並開戰",func(): spectating = false; start_battle())
-	start_button.disabled = not DeckStore.valid(player_deck,player_lord)
+	if adventure_deck_mode:
+		button(Rect2(120,805,220,50),"返回地圖",func():
+			if DeckStore.valid(player_deck,player_lord):
+				adventure.custom_deck = player_deck.duplicate()
+				adventure.save_progress()
+			adventure_deck_mode = false
+			show_adventure()
+		)
+		start_button = button(Rect2(1220,805,240,50),"儲存並出征",func():
+			adventure.custom_deck = player_deck.duplicate()
+			adventure.save_progress()
+			adventure_deck_mode = false
+			spectating = false
+			adventure.start(self,adventure.selected)
+		)
+		start_button.disabled = not DeckStore.valid(player_deck,player_lord)
+	else:
+		button(Rect2(120,805,220,50),"回到標題",show_title)
+		start_button = button(Rect2(1220,805,240,50),"儲存並開戰",func(): spectating = false; start_battle())
+		start_button.disabled = not DeckStore.valid(player_deck,player_lord)
 	queue_redraw()
 
 func tab_size() -> int:
 	var n := 0
+	var pool: Array = adventure.unlocked_cards() if adventure_deck_mode else DeckStore.pool(player_lord)
 	for kind: String in B.CARDS:
-		if B.CARDS[kind].type == deck_tab and kind in DeckStore.pool(player_lord): n += 1
+		if B.CARDS[kind].type == deck_tab and kind in pool: n += 1
 	return n
 
 func lord_tooltip(kind: String) -> String:
@@ -1148,7 +1181,13 @@ func lord_rect(index: int) -> Rect2:
 	return Rect2(1010+(index%2)*270,148+(index/2)*74,260,68)
 
 func save_choice() -> void:
-	if DeckStore.valid(player_deck,player_lord): DeckStore.save_deck(player_deck,deck_path,player_lord)
+	if adventure_deck_mode:
+		if DeckStore.valid(player_deck,player_lord):
+			adventure.custom_deck = player_deck.duplicate()
+			adventure.save_progress()
+	else:
+		if DeckStore.valid(player_deck,player_lord):
+			DeckStore.save_deck(player_deck,deck_path,player_lord)
 
 # Card pool layout: up to eight full-size cards in a row, narrower when a tab holds more.
 func pool_rect(index: int, count: int) -> Rect2:
@@ -1173,25 +1212,38 @@ func toggle_deck_card(kind: String) -> void:
 	show_deck()
 
 func draw_deck() -> void:
-	label_at(Vector2(120,100),"村莊牌組",48)
-	var home: String = B.CARDS[B.home_card(player_lord)].name
-	label_at(Vector2(560,100),"%s＋領主固定，再選 8 張：%d / 8 · 平均 %.1f 金幣" % [home,player_deck.size(),DeckStore.average(player_deck)],22)
-	label_at(Vector2(560,128),"%s可用：%s牌與中立牌" % [B.LORDS[player_lord].name,B.FACTIONS[B.lord_faction(player_lord)]],16,Color("6f5a3e"))
-	label_at(Vector2(1010,140),"選擇領主",18)
-	var lord_index := 0
-	for lord_kind: String in B.LORDS:
-		var r := lord_rect(lord_index)
-		var info: Dictionary = B.LORDS[lord_kind]
-		panel(r,Color("f2e3c0") if lord_kind == player_lord else Color("e3d2aa"),RED if lord_kind == player_lord else INK)
-		if lord_kind == player_lord: draw_rect(r.grow(2),RED,false,3)
-		draw_fitted(lord_art(lord_kind),Rect2(r.position+Vector2(6,3),Vector2(54,62)))
-		label_at(r.position+Vector2(68,23),info.name,18)
-		label_at(r.position+Vector2(68,41),"%s · %d 血" % [info.role,int(info.hp)],12,Color("6f5a3e"))
-		label_at(r.position+Vector2(68,58),"%s · %d 金幣" % [info.skill,int(B.skill_cost(lord_kind))],12,RED)
-		lord_index += 1
+	if adventure_deck_mode:
+		label_at(Vector2(120,100),"出征牌組編成",48)
+		label_at(Vector2(480,100),"農田＋領主固定，從已解鎖單位挑選 8 張：%d / 8 · 平均 %.1f 金幣" % [player_deck.size(),DeckStore.average(player_deck)],22)
+		label_at(Vector2(480,128),"已解鎖卡牌：%d · 選滿 8 張不同卡牌即可出征" % adventure.unlocked_cards().size(),16,Color("6f5a3e"))
+		var r := Rect2(1010,148,420,68)
+		panel(r,Color("f2e3c0"),RED)
+		draw_rect(r.grow(2),RED,false,3)
+		draw_fitted(lord_art("adventure"),Rect2(r.position+Vector2(6,3),Vector2(54,62)))
+		label_at(r.position+Vector2(68,23),"冒險領主",18)
+		label_at(r.position+Vector2(68,41),"近戰 · 750 血",12,Color("6f5a3e"))
+		label_at(r.position+Vector2(68,58),"先鋒力 · 召集前鋒士兵",12,RED)
+	else:
+		label_at(Vector2(120,100),"村莊牌組",48)
+		var home: String = B.CARDS[B.home_card(player_lord)].name
+		label_at(Vector2(560,100),"%s＋領主固定，再選 8 張：%d / 8 · 平均 %.1f 金幣" % [home,player_deck.size(),DeckStore.average(player_deck)],22)
+		label_at(Vector2(560,128),"%s可用：%s牌與中立牌" % [B.LORDS[player_lord].name,B.FACTIONS[B.lord_faction(player_lord)]],16,Color("6f5a3e"))
+		label_at(Vector2(1010,140),"選擇領主",18)
+		var lord_index := 0
+		for lord_kind: String in B.LORDS:
+			var r := lord_rect(lord_index)
+			var info: Dictionary = B.LORDS[lord_kind]
+			panel(r,Color("f2e3c0") if lord_kind == player_lord else Color("e3d2aa"),RED if lord_kind == player_lord else INK)
+			if lord_kind == player_lord: draw_rect(r.grow(2),RED,false,3)
+			draw_fitted(lord_art(lord_kind),Rect2(r.position+Vector2(6,3),Vector2(54,62)))
+			label_at(r.position+Vector2(68,23),info.name,18)
+			label_at(r.position+Vector2(68,41),"%s · %d 血" % [info.role,int(info.hp)],12,Color("6f5a3e"))
+			label_at(r.position+Vector2(68,58),"%s · %d 金幣" % [info.skill,int(B.skill_cost(lord_kind))],12,RED)
+			lord_index += 1
+	var pool: Array = adventure.unlocked_cards() if adventure_deck_mode else DeckStore.pool(player_lord)
 	var index := 0
 	for kind: String in B.CARDS:
-		if B.CARDS[kind].type != deck_tab or not kind in DeckStore.pool(player_lord): continue
+		if B.CARDS[kind].type != deck_tab or not kind in pool: continue
 		if index/8 != deck_page:
 			index += 1
 			continue
@@ -1199,12 +1251,18 @@ func draw_deck() -> void:
 		draw_card(kind,rect)
 		if kind in player_deck: draw_rect(rect,Color("9b3d2c"),false,4)
 		index += 1
-	label_at(Vector2(120,555),"牌組（%s固定在常駐格；點上方卡牌加入或移除）" % B.CARDS[B.home_card(player_lord)].name,22)
+	var deck_header := "出征牌組（農田固定在常駐格；點上方卡牌加入或移除）" if adventure_deck_mode else "牌組（%s固定在常駐格；點上方卡牌加入或移除）" % B.CARDS[B.home_card(player_lord)].name
+	label_at(Vector2(120,555),deck_header,22)
 	var fixed := Rect2(120,585,128,162)
 	panel(fixed.grow(4),Color("cfdcae"),Color("3f5a2c"))
 	draw_card(B.home_card(player_lord),fixed)
 	for i: int in range(player_deck.size()): draw_card(player_deck[i],Rect2(268+i*146,585,128,162))
-	label_at(Vector2(400,790),"需選滿 8 張不同卡牌（常駐牌不用選）。" if not DeckStore.valid(player_deck,player_lord) else menu_notice,20,RED)
+	if not DeckStore.valid(player_deck,player_lord):
+		label_at(Vector2(400,790),"需選滿 8 張不同卡牌才能出征（目前已選 %d / 8 張）。" % player_deck.size() if adventure_deck_mode else "需選滿 8 張不同卡牌（常駐牌不用選）。",20,RED)
+	elif adventure_deck_mode:
+		label_at(Vector2(400,790),"牌組配置完成！點擊【儲存並出征】即可開戰。" if menu_notice.is_empty() else menu_notice,20,Color("3f5a2c"))
+	else:
+		label_at(Vector2(400,790),menu_notice,20,RED)
 
 # Random spectate deck (rules live in DeckStore so the balance tools share them).
 static func random_deck(rng: RandomNumberGenerator, lord: String = "") -> Array:

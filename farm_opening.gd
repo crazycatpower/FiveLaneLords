@@ -30,7 +30,7 @@ func start(g) -> void:
 	# Fixed opening hands, but every deployment pays the normal cost and rotates its real slot.
 	m.decks[0] = g.adventure.STAGES[0].deck.duplicate()
 	# One opening raid in reserve; subsequent raids require normal income.
-	m.decks[1] = ["bandit","bandit","bandit","bandit","bandit","bandit","bandit","bandit"]
+	m.decks[1] = g.adventure.STAGES[0].enemy_deck.duplicate()
 	m.ink[1] = float(B.CARDS.bandit.cost)
 	m.ai_enabled = [false,false]
 	m.lord_active = [false,false]

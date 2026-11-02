@@ -48,7 +48,7 @@ func run() -> void:
 		assert(restored.recruit == recruit and restored.unlocked(1))
 		var deck: Array = restored.stage_deck(g,1)
 		assert(recruit in deck and deck.size() == 8)
-		assert(g.DeckStore.valid(deck,restored.stage_lord(g,1)))
+		assert(g.DeckStore.valid(deck,restored.stage_lord(g,1),restored.STAGES[1].get("allow_duplicates",false)))
 		assert(not recruit in restored.stage_deck(g,0), "Opening deck must stay unchanged")
 		g.adventure.start(g,0)
 		g.model.finish(0)
