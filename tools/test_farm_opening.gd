@@ -44,7 +44,7 @@ func run():
 	for stage in range(1,g.adventure.STAGES.size()):
 		g.adventure.start(g,stage)
 		assert(g.model.ai_enabled == [false,true])
-		assert(g.model.active_lanes.size() == 5)
+		assert(g.model.active_lanes.size() == (3 if stage == 1 else 5))
 	g.free()
 	print("Opening sequence, pause, restart, single lane and normal AI: PASS")
 	quit()

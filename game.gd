@@ -659,10 +659,11 @@ func draw_battle() -> void:
 					draw_rect(r,Color(1.0,0.93,0.55,0.22))
 					draw_rect(r,Color(0.85,0.65,0.15,0.7),false,2)
 	for lane: int in range(6):
+		if not lane in model.active_lanes and not lane-1 in model.active_lanes: continue
 		var y := grid.position.y+lane*L.CELL_SIZE.y
 		ink_line(Vector2(grid.position.x,y),Vector2(grid.end.x,y),lane,Color(INK,0.55 if lane == 0 or lane == 5 else 0.38),2.0)
-	for lane: int in range(5):
-		draw_string(font,Vector2(grid.position.x+6,grid.position.y+lane*L.CELL_SIZE.y+20),ROMAN[lane],HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color(INK,0.6))
+	for lane: int in model.active_lanes:
+		draw_string(font,Vector2(grid.position.x+6,grid.position.y+lane*L.CELL_SIZE.y+20),ROMAN[model.active_lanes.find(lane)],HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color(INK,0.6))
 	for b: Dictionary in model.buildings:
 		team_shadow(b.pos+Vector2(0,30),40,Color(0.25,0.17,0.08))
 		draw_combat_actor(b.kind,b,b.pos,1.0 if b.team == 0 else -1.0)
@@ -685,7 +686,7 @@ func draw_battle() -> void:
 	for u: Dictionary in ordered: draw_unit(u)
 	for lord: Dictionary in model.lords: draw_lord(lord)
 	var pulse := 0.5+0.5*sin(model.elapsed*10.0)
-	for lane: int in range(5):
+	for lane: int in model.active_lanes:
 		var y := L.cell_center(Vector2i(0,lane)).y
 		for team: int in range(2):
 			var x := L.gate_icon_x(team)
@@ -975,9 +976,9 @@ func draw_hud(single_lane: bool = false) -> void:
 			var x := 95.0 if team == 0 else 1070.0
 			draw_texture_rect(art("crest",team),Rect2(x-58,21,48,50),false)
 			draw_texture_rect(ART.object_icon(0),Rect2(x+238,20,28,30),false)
-			var standing: int = model.gates[team].filter(func(hp: float) -> bool: return hp > 0).size()
-			label_at(Vector2(x,43),("紅獅" if team == 0 else "藍旗")+"  城門 %d / 5" % standing,23,RED if team == 0 else BLUE)
-			for lane: int in range(5): bar(Rect2(x+lane*70,53,62,10),model.gates[team][lane],B.GATE_HP,RED if team == 0 else BLUE)
+			var standing: int = model.active_lanes.filter(func(lane: int) -> bool: return model.gates[team][lane] > 0).size()
+			label_at(Vector2(x,43),("紅獅" if team == 0 else "藍旗")+"  城門 %d / %d" % [standing,model.active_lanes.size()],23,RED if team == 0 else BLUE)
+			for lane: int in model.active_lanes: bar(Rect2(x+model.active_lanes.find(lane)*70,53,62,10),model.gates[team][lane],B.GATE_HP,RED if team == 0 else BLUE)
 			label_at(Vector2(x+270,43),"%d / 50" % model.ink[team],18)
 	panel(Rect2(712,24,140,58),Color("f2e3c0"))
 	var time := int(model.elapsed)

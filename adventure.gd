@@ -25,9 +25,11 @@ const STAGES := [
 	 "allow_duplicates":true,
 	 },
 	{"id":"fifth_drum","chapter":0,"map":Vector2(275,470),"name":"第五聲鼓","lord":"iron","kind":"survive","limit":90.0,
-	 "story":"箭樓的燈還亮著。這次，你要等到所有人回來。",
-	 "goal":"守住 90 秒，不讓敵兵入城。",
-	 "deck":["shieldguard","hunter","tower","healer","militia","rain","farmer","drummer"],
+	 "story":"三條農路通向東邊，箭樓封住了路口。村民拿起乾草叉，加入你的隊伍。",
+	 "goal":"守住三條路 90 秒，不讓敵兵入城。",
+	 "deck":["mob","hunter","farmer","militia","shieldguard","rain","healer","drummer"],
+	 "active_lanes":[1,2,3],
+	 "buildings":[[7,1,"tower"],[7,2,"tower"],[7,3,"tower"]],
 	 },
 	{"id":"old_bridge","chapter":0,"map":Vector2(400,615),"name":"故鄉木橋","lord":"lion","kind":"breach","lane":2,"limit":180.0,
 	 "story":"攻城槌上的刻痕還在。城門另一邊，也有人認得。",
@@ -129,10 +131,11 @@ func start(game, choice: int) -> void:
 	var ai: int = d.get("ai",1)
 	var enemy: Array = d.get("enemy_deck",B.PRESETS[ai]).duplicate()
 	game.model = Battle.new(7300+index,deck,enemy,lord,d.get("enemy_lord","iron"))
+	game.model.active_lanes.assign(d.get("active_lanes",[0,1,2,3,4]))
 	game.model.difficulty = ai
 	game.model.ai_enabled = [false,true]
 	game.model.invasion_victory[0] = d.kind in ["breach","conquer"]
-	for b: Array in d.get("buildings",[]): game.model.add_building(1,Vector2i(b[0],b[1]),"tower")
+	for b: Array in d.get("buildings",[]): game.model.add_building(1,Vector2i(b[0],b[1]),b[2])
 	opening.active = false
 	if index == 0: opening.start(game)
 	game.enter_battle("%s · %s" % [d.name,d.goal])
