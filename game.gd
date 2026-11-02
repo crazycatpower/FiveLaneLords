@@ -397,7 +397,8 @@ func art(kind: String, team: int = 0) -> Texture2D:
 	return textures.get(kind,textures.militia)
 
 func lord_art(kind: String, team: int = 0) -> Texture2D:
-	return art("lord_"+kind,team)
+	var key := kind if kind.begins_with("lord_") else "lord_"+kind
+	return blue_art[key] if team == 1 and blue_art.has(key) else textures.get(key,textures.militia)
 
 # Recolour only designated team materials. Natural fields/skin/wood are not team ink.
 # Ox cloth additionally has a spatial mask so its brown coat never enters the palette swap.
@@ -458,7 +459,7 @@ func draw_fitted(texture: Texture2D, box: Rect2, shade: Color = Color.WHITE, bot
 func actor_rect(kind: String) -> Rect2:
 	if kind == "corpse_giant": return fitted_rect(art(kind).get_size(),Rect2(-52,-85,104,104),true)
 	if kind.begins_with("lord_"): return fitted_rect(art(kind).get_size(),Rect2(-47,-67,94,94),true)
-	if kind in ["farm","mill","tower","scarecrow","grave","bonewall","catapult"]: return fitted_rect(art(kind).get_size(),Rect2(-45,-39,90,78),true)
+	if kind in ["farm","mill","tower","scarecrow","grave","bonewall","barricade","catapult"]: return fitted_rect(art(kind).get_size(),Rect2(-45,-39,90,78),true)
 	var width := 112.0 if kind in ["ox","ram"] else 80.0
 	return fitted_rect(art(kind).get_size(),Rect2(-width/2,-63,width,80),true)
 

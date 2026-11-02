@@ -4,7 +4,7 @@ const ROLES := {
  "melee":["militia","mob","knight","shieldguard","corpse_giant","skeleton","ghoul","reaper","ox","ram","spearbow","raven"],
  "ranged":["hunter","catapult","tower","rain","fire"],
  "support":["healer","drummer","necromancer","guard"],
- "control":["curse","plague","bonewall","scarecrow"]
+ "control":["barricade","curse","plague","bonewall","scarecrow"]
 }
 static func card_tint(kind: String) -> Color:
 	for role: String in ROLES:

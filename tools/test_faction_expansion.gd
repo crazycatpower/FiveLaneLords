@@ -5,9 +5,9 @@ const DS = preload("res://deck_store.gd")
 
 static func run(t: SceneTree) -> void:
 	for faction: String in B.FACTIONS:
-		t.check(B.CARDS.keys().filter(func(k: String) -> bool: return B.card_faction(k) == faction).size() == 10,"each faction has ten cards: "+faction)
+		t.check(B.CARDS.keys().filter(func(k: String) -> bool: return B.card_faction(k) == faction).size() == (12 if faction == "" else 10),"faction card count: "+faction)
 	for lord: String in B.LORDS:
-		t.check(DS.pool(lord).size() == 19,"each lord chooses from nineteen rotating cards: "+lord)
+		t.check(DS.pool(lord).size() == 21,"each lord chooses from twenty-one rotating cards: "+lord)
 	var p := L.cell_center(Vector2i(3,2))
 	var m = t.bare(42)
 	m.lord_active = [false,false]

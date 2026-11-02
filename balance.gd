@@ -43,6 +43,7 @@ const LORD_HYSTERESIS := 1.5
 # and "spread": true to deploy "count" troops in each of three adjacent lanes.
 # "cooldown": seconds a card must wait after it enters the hand before it can be played (0..30).
 const CARDS := {
+	"barricade":{"name":"木拒馬","role":"耐久·阻擋","type":"building","ai":["defend_building","obstacle"],"cost":2,"cooldown":6.0,"hp":750.0,"expires":-1.0},
 	"corpse_giant":{"name":"腐屍巨人","role":"重裝·屍爆","faction":"dark","series":"dark","type":"unit","cost":21,"cooldown":12.0,"count":1,"hp":1500.0,"damage":45.0,"interval":1.2,"range":47.0,"speed":20.0,"on_death_spawn":["skeleton",4]},
 	"curse":{"name":"詛咒","role":"死後·為奴","faction":"dark","series":"dark","type":"spell","ai":["defend_spell","wave_spell"],"cost":4,"cooldown":10.0,"radius":110.0,"curse_duration":10.0},
 	"catapult":{"name":"投石車","role":"遠程·拋射","type":"building","ai":["guard","obstacle"],"cost":27,"cooldown":12.0,"hp":400.0,"expires":-1.0,"area_damage":80.0,"interval":1.7,"range":300.0,"min_range":100.0,"radius":68.0,"flight_time":0.8},
@@ -267,6 +268,7 @@ static func card_description(kind: String, cards: Dictionary = CARDS) -> String:
 		lines.append("範圍半徑 %s；落下時間 %s 秒。" % [number(d.radius),number(SPELL_DELAY)])
 		if d.has("damage"): lines.append("部隊傷害 %s、建築傷害 %s、城門傷害 %s。" % [number(d.damage),number(d.building_damage),number(d.gate_damage)])
 	match kind:
+		"barricade": lines.append("沒有特殊效果。不攻擊、不產金、不反傷；依一般建築規則提供領地。")
 		"corpse_giant": lines.append("死亡時在原地召喚 %d 名%s；自身死亡仍會加速墓碑並觸發吞噬。" % [d.on_death_spawn[1],cards[d.on_death_spawn[0]].name])
 		"curse": lines.append("範圍內敵兵被詛咒 %s 秒；期間死亡，在原地變成我方骷髏兵。再次施放刷新時間，不疊加。" % number(d.curse_duration))
 		"catapult": lines.append("攻擊距離 %s～%s 內最遠敵兵；每 %s 秒拋射，%s 秒後落地，對半徑 %s 內敵兵造成 %s 範圍傷害。落點不追蹤移動。" % [number(d.min_range),number(d.range),number(d.interval),number(d.flight_time),number(d.radius),number(d.area_damage)])

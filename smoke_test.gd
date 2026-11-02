@@ -897,7 +897,7 @@ func test_adventure() -> void:
 	# Conquer: a real AI opponent; the last page uses the player's own deck.
 	var last: int = a.STAGES.size()-1
 	a.start(game,last)
-	check(game.model.ai_enabled == [false,true] and game.model.difficulty == a.STAGES[last].ai and game.model.decks[0].size() == 8 and game.model.lords[0].lord == game.player_lord,"the final stage pits the player's deck against the AI")
+	check(game.model.ai_enabled == [false,true] and game.model.difficulty == a.STAGES[last].ai and game.model.decks[0].size() == 8 and game.model.lords[0].lord == a.stage_lord(game,last),"the final stage pits the player's deck against the AI")
 	game.restart()
 	check(a.index == last and game.model.elapsed == 0,"restart replays the same stage")
 	game.start_battle()

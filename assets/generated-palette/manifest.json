@@ -1,4 +1,10 @@
 {
+	"barricade": {
+		"revision": "team-material-v1",
+		"sha256": "c2e0512027ab56f60ed67c1f7d432d36abca82c2990d26eca94576ad08b77945",
+		"size": 384,
+		"source": "res://assets/manuscript-v1/barricade.png"
+	},
 	"bonewall": {
 		"revision": "team-material-v1",
 		"sha256": "51ada8d64139a4e516b09fada2b4fb097edbfa6a448d76f1275c162ec7a7af37",

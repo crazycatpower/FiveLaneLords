@@ -19,7 +19,7 @@ const STARTER_CARDS := ["farmer","hunter","militia"]
 const STAGE_UNLOCKS := {
   "first_farm": [],
   "fifth_drum": [
-    "mob"
+    "mob", "barricade"
   ],
   "old_bridge": [
     "ram"

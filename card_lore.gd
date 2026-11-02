@@ -1,6 +1,7 @@
 extends RefCounted
 # Original flavor; story connections remain implicit and never affect gameplay.
 const TEXT := {
+	"barricade": "橋上的木頭又少了一截。軍需官說只是借來擋路，村民問他打算讓哪條路先通。",
  "farm": "領主說，金幣不會從土裡長出來。農民沒有糾正他，畢竟稅單還沒寄到。",
  "farmer": "阿禾每天帶兩份午飯。稻草人吃不吃？「以前挺挑食的。」",
  "scarecrow": "不領薪水，不請假，還會自己換班。阿禾只希望它別再把藍袖子穿反。",

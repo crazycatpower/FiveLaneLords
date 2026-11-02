@@ -1,0 +1,6 @@
+{
+  "generator": "built-in image_gen",
+  "name": "barricade",
+  "transparent": true,
+  "prompt": "Use case: stylized-concept. Create ONE production game sprite: an intact medieval wooden cheval-de-frise barricade, a low horizontal crossbeam carried by two sturdy X-shaped trestles with six clearly separated sharpened timber stakes pointing diagonally upward and forward, rope lashings at the actual joints. Three-quarter side view, compact wide silhouette, complete structure and tips visible, generous transparent padding. It is a simple non-magical defensive obstacle, NO people, wheels, bones, shields, flags, weapons piled on ground or scenery. Consistent medieval illuminated manuscript art: dark umber ink outlines, simplified charming flat forms, hand-painted gouache, muted ochre brown timber, sparse hatching, subtle pigment texture contained inside the object. Readable when scaled to 95 pixels wide. NOT photorealistic, NOT 3D rendering, no modern glossy cartoon, no soft glow or drop shadow. Genuine transparent background with clean alpha and no background paper, ground rectangle, text, watermark or border. One neutral asset for both teams; no team color needed. Landscape 3:2 framing."
+}
