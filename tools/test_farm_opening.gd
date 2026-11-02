@@ -7,6 +7,11 @@ func run():
 	g.sound_enabled = false
 	g.adventure.progress_path = "user://opening-test.json"
 	g.adventure.start(g,0)
+	assert(g.adventure.index == 0)
+	assert(g.model.decks[0].count("farmer") == 4)
+	assert(g.model.decks[0].count("hunter") == 4)
+	assert(g.model.decks[0].slice(0,4) == ["farmer","hunter","farmer","hunter"])
+	assert(not g.adventure.DeckStore.valid(g.model.decks[0],g.model.lords[0].lord))
 	assert(g.model.count_buildings(0,"farm") == 2)
 	assert(g.model.active_lanes == [2])
 	assert(not g.model.can_play(0,0,g.L.cell_center(Vector2i(0,1))))

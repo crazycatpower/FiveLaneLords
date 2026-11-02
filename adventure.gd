@@ -21,7 +21,8 @@ const STAGES := [
 	{"id":"first_farm","chapter":0,"map":Vector2(175,650),"name":"第一塊農田","lord":"harvest","kind":"conquer","ai":0,"enemy_lord":"iron",
 	 "story":"農民聊著今年的收成，沒有注意到麥田另一頭的腳步聲。",
 	 "goal":"守住唯一的農路，反攻並摧毀強盜帳篷。",
-	 "deck":["farmer","militia","hunter","tower","rain","scarecrow","harvest","mill"],
+	 "deck":["farmer","hunter","farmer","hunter","farmer","hunter","farmer","hunter"],
+	 "allow_duplicates":true,
 	 },
 	{"id":"fifth_drum","chapter":0,"map":Vector2(275,470),"name":"第五聲鼓","lord":"iron","kind":"survive","limit":90.0,
 	 "story":"箭樓的燈還亮著。這次，你要等到所有人回來。",
@@ -110,7 +111,7 @@ func start(game, choice: int) -> void:
 	var d: Dictionary = STAGES[index]
 	var lord := stage_lord(game,index)
 	var deck := stage_deck(game,index)
-	if not DeckStore.valid(deck,lord):
+	if not DeckStore.valid(deck,lord,d.get("allow_duplicates",false) and not d.deck is String):
 		index = -1
 		game.show_deck()
 		return

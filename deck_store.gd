@@ -2,11 +2,11 @@ extends RefCounted
 const B = preload("res://balance.gd")
 # A deck is 8 unique rotating cards (the lord's home card is always in its own slot) plus a chosen
 # lord. With a lord, every card must also be open to that lord's faction (B.card_allowed).
-static func valid(deck: Array, lord: String = "") -> bool:
+static func valid(deck: Array, lord: String = "", allow_duplicates: bool = false) -> bool:
 	if deck.size() != 8 or deck.any(func(k) -> bool: return B.is_home_card(str(k))): return false
 	var unique := {}
 	for kind in deck:
-		if not kind is String or not B.CARDS.has(kind) or unique.has(kind): return false
+		if not kind is String or not B.CARDS.has(kind) or (unique.has(kind) and not allow_duplicates): return false
 		if not lord.is_empty() and not B.card_allowed(kind,lord): return false
 		unique[kind] = true
 	return true
