@@ -29,7 +29,9 @@ func start(g) -> void:
 	m.add_building(0,Vector2i(2,2),"farm")
 	# Fixed opening hands, but every deployment pays the normal cost and rotates its real slot.
 	m.decks[0] = g.adventure.STAGES[0].deck.duplicate()
-	m.decks[1] = ["mob","militia","hunter","shieldguard","farmer","scarecrow","rain","ram"]
+	# One opening raid in reserve; subsequent raids require normal income.
+	m.decks[1] = ["bandit","bandit","bandit","bandit","bandit","bandit","bandit","bandit"]
+	m.ink[1] = float(B.CARDS.bandit.cost)
 	m.ai_enabled = [false,false]
 	m.lord_active = [false,false]
 	m.lords[0].hp = 0

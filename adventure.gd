@@ -21,7 +21,7 @@ const STAGES := [
 	{"id":"first_farm","chapter":0,"map":Vector2(175,650),"name":"第一塊農田","lord":"harvest","kind":"conquer","ai":0,"enemy_lord":"iron",
 	 "story":"農民聊著今年的收成，沒有注意到麥田另一頭的腳步聲。",
 	 "goal":"守住唯一的農路，反攻並摧毀強盜帳篷。",
-	 "deck":["farmer","hunter","farmer","hunter","farmer","hunter","farmer","hunter"],
+	 "deck":["farmer","hunter","farmer","hunter","militia","farmer","hunter","militia"],
 	 "allow_duplicates":true,
 	 },
 	{"id":"fifth_drum","chapter":0,"map":Vector2(275,470),"name":"第五聲鼓","lord":"iron","kind":"survive","limit":90.0,
