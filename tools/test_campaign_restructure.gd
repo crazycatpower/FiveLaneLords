@@ -46,7 +46,7 @@ func run() -> void:
 			g.model.finish(0)
 			g.adventure.update(g)
 			assert(g.adventure.is_cleared(stage))
-			var rewards: Array = g.adventure.STAGE_UNLOCKS[g.adventure.STAGES[stage].id]
+			var rewards: Array = g.adventure.STAGES[stage].rewards
 			for card: String in rewards: assert(card in g.adventure.unlocked_cards())
 			while g.screen == "road_toll_story":
 				var step: int = g.adventure.road_story.step

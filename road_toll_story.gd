@@ -30,15 +30,15 @@ func begin(g, won: bool = false) -> void:
 	show(g)
 
 func setup_stage_story(idx: int, recruit: String, won: bool) -> void:
-	var adventure_data = load("res://adventure.gd")
+	var adventure_data = preload("res://campaign_catalog.gd")
 	var stage: Dictionary = adventure_data.STAGES[idx]
 	heading = "第 %d 關 · %s" % [idx+1,stage.name]
-	opening_caption = "決戰亡靈領主" if idx == 9 else ["戰亂與重稅","亡靈與勾結","三位領主的援軍"][stage.chapter]
+	opening_caption = "決戰亡靈領主" if idx == adventure_data.STAGES.size()-1 else ["戰亂與重稅","亡靈與勾結","三位領主的援軍"][stage.chapter]
 	victory_caption = "戰後 · "+stage.name
-	next_caption = "返回冒險地圖" if idx == 9 else "前往下一關"
-	lines = preload("res://campaign_story_data.gd").dialogue(idx,recruit,won)
+	next_caption = "返回冒險地圖" if idx == adventure_data.STAGES.size()-1 else "前往下一關"
+	lines = preload("res://campaign_story_data.gd").dialogue(stage.id,recruit,won)
 	if won:
-		var rewards: Array = adventure_data.STAGE_UNLOCKS.get(stage.id,[])
+		var rewards: Array = stage.rewards
 		if not rewards.is_empty():
 			var names: Array = rewards.map(func(k): return preload("res://balance.gd").CARDS[k].name)
 			lines.append(["卡牌解鎖","已解鎖："+"、".join(names)+"。\n可在冒險牌組中選用。",stage.get("support_lord","lord"),"lord"])

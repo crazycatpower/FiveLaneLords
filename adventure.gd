@@ -1,73 +1,20 @@
 extends RefCounted
-# Adventure mode: a chain of stages on one campaign map. Each stage is one entry in STAGES; to add a
-# stage, append a dictionary (and a map point) and it is drawn, unlocked and saved automatically.
-#   kind     conquer: normal invasion victory, without special objectives
-#   deck     eight cards, or "player" for the player's own deck and lord
-# All opponents use the normal card-playing AI; stage 1 opens with scheduled legal card plays.
+# Campaign execution, progress and map presentation. Content lives in campaign_catalog.gd.
+# Public data aliases preserve existing callers while maintaining a single source.
 const B = preload("res://balance.gd")
 const L = preload("res://layout.gd")
 const Battle = preload("res://battle.gd")
 const DeckStore = preload("res://deck_store.gd")
-const CHAPTERS := [
-	{"name":"第一章　戰亂與重稅","color":Color("6f8a45")},
-	{"name":"第二章　亡靈的契約","color":Color("6a5277")},
-	{"name":"第三章　領主同盟","color":Color("963f30")},
-]
-const KIND_NAMES := {"survive":"守城","breach":"破城","economy":"經營","conquer":"決戰"}
-const DARK_DECK := ["skeleton","ghoul","necromancer","reaper","plague","bonewall","hunter","militia"]
-const STARTER_CARDS := ["farmer","hunter","militia"]
-const STAGE_UNLOCKS := {
-  "first_farm": [],
-  "fifth_drum": [
-    "mob", "barricade"
-  ],
-  "old_bridge": [
-    "ram"
-  ],
-  "swamp_path": [
-    "rain"
-  ],
-  "abandoned_mill": [
-    "mill",
-    "healer"
-  ],
-  "patrol_riders": [
-    "scarecrow"
-  ],
-  "tavern_brawl": [
-    "knight",
-    "drummer",
-    "fire"
-  ],
-  "beacon_gate": [
-    "ox",
-    "harvest"
-  ],
-  "canal_sluice": [
-    "shieldguard",
-    "tower",
-    "catapult"
-  ],
-  "warlord_camp": []
-}
-const STAGES := [
-	{"id":"first_farm","chapter":0,"name":"第一塊農田","lord":"adventure","kind":"conquer","ai":0,"enemy_lord":"iron","story":"東邊戰亂不斷，領主加徵重稅。逃荒的人與叛逃民兵流落邊境。","goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。","deck":["farmer","hunter","farmer","hunter","militia","farmer","hunter","militia"],"enemy_deck":["bandit","bandit","bandit","bandit","bandit","bandit","bandit","bandit"],"active_lanes":[2],"buildings":[],"allow_duplicates":true,"map":Vector2(120,630)},
-	{"id":"fifth_drum","chapter":0,"name":"東邊的路稅","lord":"adventure","kind":"conquer","ai":1,"enemy_lord":"iron","story":"強盜與叛逃民兵佔住農路，打著收稅的旗號搶糧。","goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。","deck":["mob","farmer","hunter","militia","mob","farmer","hunter","militia"],"enemy_deck":["bandit","militia","bandit","militia","bandit","militia","bandit","militia"],"active_lanes":[1,2,3],"buildings":[[7,1,"tower"],[7,2,"tower"],[7,3,"tower"]],"allow_duplicates":true,"map":Vector2(195,490)},
-	{"id":"old_bridge","chapter":0,"name":"故鄉木橋","lord":"adventure","kind":"conquer","ai":1,"enemy_lord":"iron","story":"截下木橋上的走私車隊，追查糧食與兵器的去向。","goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。","deck":["ram","mob","farmer","hunter","militia","ram","hunter","militia"],"enemy_deck":["bandit","militia","hunter","bandit","militia","hunter","bandit","militia"],"active_lanes":[0,1,2,3,4],"buildings":[[7,2,"tower"]],"allow_duplicates":true,"map":Vector2(285,610)},
-	{"id":"swamp_path","chapter":1,"name":"泥沼亡影","lord":"adventure","kind":"conquer","ai":1,"enemy_lord":"underworld","story":"沿運貨名冊進入泥沼，第一次看見亡靈搬運人類打造的兵器。","goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。","deck":["rain","ram","mob","farmer","hunter","militia","hunter","rain"],"enemy_deck":["bandit","militia","hunter","skeleton","bandit","militia","hunter","skeleton"],"active_lanes":[0,1,3,4],"buildings":[],"allow_duplicates":true,"map":Vector2(370,460)},
-	{"id":"abandoned_mill","chapter":1,"name":"磨坊密信","lord":"adventure","kind":"conquer","ai":1,"enemy_lord":"underworld","story":"亡靈佔據廢棄磨坊，地窖裡藏著人類管事與死靈法師的接頭信。","goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。","deck":["mill","healer","rain","ram","mob","farmer","hunter","militia"],"enemy_deck":["bandit","militia","hunter","skeleton","ghoul","skeleton","ghoul","skeleton"],"active_lanes":[1,2,3],"buildings":[],"map":Vector2(460,590)},
-	{"id":"patrol_riders","chapter":1,"name":"墓園契約","lord":"adventure","kind":"conquer","ai":1,"enemy_lord":"underworld","story":"在墓園找到有雙方印記的契約：人類以糧食、兵器換取亡靈軍隊。","goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。","deck":"player","enemy_deck":["bandit","militia","hunter","skeleton","ghoul","necromancer","skeleton","ghoul"],"active_lanes":[0,1,2,3,4],"buildings":[],"map":Vector2(550,440)},
-	{"id":"tavern_brawl","chapter":2,"name":"馳援紅獅","lord":"adventure","kind":"conquer","ai":1,"enemy_lord":"underworld","story":"將證據交給紅獅領主，協助他擊退亡靈先鋒。","goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。","deck":"player","enemy_deck":["bandit","militia","skeleton","ghoul","necromancer","reaper","bonewall","skeleton"],"active_lanes":[0,1,2,3,4],"buildings":[[7,2,"bonewall"]],"support_lord":"lion","map":Vector2(640,580)},
-	{"id":"beacon_gate","chapter":2,"name":"守護豐收","lord":"adventure","kind":"conquer","ai":1,"enemy_lord":"underworld","story":"豐收領主的糧倉遭亡靈包圍，保住糧道，讓援軍繼續前進。","goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。","deck":"player","enemy_deck":["bandit","militia","skeleton","ghoul","necromancer","reaper","bonewall","raven"],"active_lanes":[1,2,3],"buildings":[[7,1,"grave"],[7,3,"grave"]],"support_lord":"harvest","map":Vector2(730,430)},
-	{"id":"canal_sluice","chapter":2,"name":"鐵壁之圍","lord":"adventure","kind":"conquer","ai":1,"enemy_lord":"underworld","story":"鐵壁領主守住最後一道關口。打退圍城亡靈，打開進軍冥府的路。","goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。","deck":"player","enemy_deck":["militia","skeleton","ghoul","necromancer","reaper","bonewall","raven","corpse_giant"],"active_lanes":[0,1,2,3,4],"buildings":[[7,0,"bonewall"],[7,4,"bonewall"]],"support_lord":"iron","map":Vector2(820,570)},
-	{"id":"warlord_camp","chapter":2,"name":"冥府王座","lord":"adventure","kind":"conquer","ai":2,"enemy_lord":"underworld","story":"三位領主已牽制亡靈大軍。率領集結的部隊，直取亡靈領主的王座。","goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。","deck":"player","enemy_deck":["skeleton","ghoul","necromancer","reaper","raven","corpse_giant","plague","curse"],"active_lanes":[0,1,2,3,4],"buildings":[[7,1,"grave"],[7,2,"bonewall"],[7,3,"grave"]],"map":Vector2(915,360)},
-]
+const Catalog = preload("res://campaign_catalog.gd")
+const CHAPTERS = Catalog.CHAPTERS
+const STAGES = Catalog.STAGES
+const STARTER_CARDS = Catalog.STARTER_CARDS
+const KIND_NAMES := {"conquer":"決戰"}
 var index := -1 # the stage being played, -1 outside adventure battles
 var selected := 0 # the stage shown on the map panel
 var opening := preload("res://farm_opening.gd").new()
 var ending := preload("res://adventure_ending.gd").new()
 var road_story := preload("res://road_toll_story.gd").new()
-var bridge_story := preload("res://bridge_story.gd").new()
 var recruit := ""
 var outcome := ""
 var cleared: Dictionary = {}
@@ -80,7 +27,7 @@ func unlocked_cards() -> Array:
 		result.append(recruit)
 	for i: int in range(STAGES.size()):
 		if is_cleared(i):
-			for k: String in STAGE_UNLOCKS.get(STAGES[i].id,[]):
+			for k: String in STAGES[i].rewards:
 				if not k in result:
 					result.append(k)
 	return result
@@ -141,7 +88,7 @@ func stage_deck(game, i: int) -> Array:
 			return game.player_deck.duplicate()
 		return ["farmer","hunter","militia","mob","ram","rain","mill","healer"]
 	var deck: Array = STAGES[i].deck.duplicate()
-	if i > 0 and not recruit.is_empty() and not recruit in deck and B.card_allowed(recruit,stage_lord(game,i)):
+	if not STAGES[i].opening and not recruit.is_empty() and not recruit in deck and B.card_allowed(recruit,stage_lord(game,i)):
 		deck[deck.size()-1] = recruit
 	return deck
 
@@ -174,10 +121,10 @@ func start(game, choice: int) -> void:
 	var enemy: Array = d.get("enemy_deck",B.PRESETS[ai]).duplicate()
 	game.model = Battle.new(7300+index,deck,enemy,lord,d.get("enemy_lord","iron"))
 	game.model.active_lanes.assign(d.get("active_lanes",[0,1,2,3,4]))
-	if index < 9:
+	if not d.enemy_lord_active:
 		game.model.lord_active[1] = false
 		game.model.lords[1].hp = 0
-	if index < 3:
+	if d.enemy_camp:
 		game.model.home_cards[1] = ""
 		game.model.buildings = game.model.buildings.filter(func(b): return b.team == 0)
 		game.model.refresh_territory()
@@ -186,20 +133,23 @@ func start(game, choice: int) -> void:
 	game.model.invasion_victory.assign([true,true])
 	for b: Array in d.get("buildings",[]): game.model.add_building(1,Vector2i(b[0],b[1]),b[2])
 	opening.active = false
-	if index == 0: opening.start(game)
+	if d.opening: opening.start(game)
 	game.enter_battle("%s · %s" % [d.name,d.goal])
-	if index in range(1, 10): road_story.begin(game)
+	if d.dialogue: road_story.begin(game)
 
 func update(game) -> void:
 	if index < 0 or game.model.paused or not outcome.is_empty(): return
 	var m = game.model
 	if not m.ended: return
 	var won: bool = m.winner == 0
-	if won and index == 0 and recruit.is_empty():
+	if won and is_opening() and recruit.is_empty():
 		ending.begin(game)
 		return
 	settle(won,"")
-	if won and index in range(1, 10): road_story.begin(game, true)
+	if won and STAGES[index].dialogue: road_story.begin(game, true)
+
+func is_opening() -> bool:
+	return index >= 0 and index < STAGES.size() and STAGES[index].opening
 
 func active_story():
 	return road_story
@@ -323,7 +273,7 @@ func paint_side(g) -> void:
 	g.label_at(Vector2(x+160,SIDE.position.y+140),"領主　"+B.LORDS[lord].name,22)
 	g.label_at(Vector2(x+160,SIDE.position.y+170),"類型　"+KIND_NAMES[d.kind],22)
 	if d.kind == "conquer":
-		var opponent: String = "強盜與叛逃民兵" if selected < 3 else B.LORDS[d.enemy_lord].name+" · "+["簡單","普通","困難"][d.ai]
+		var opponent: String = "強盜與叛逃民兵" if d.enemy_camp else B.LORDS[d.enemy_lord].name+" · "+["簡單","普通","困難"][d.ai]
 		g.label_at(Vector2(x+160,SIDE.position.y+200),"對手　"+opponent,18)
 	g.draw_string(g.font,Vector2(x+30,SIDE.position.y+305),"目標：",HORIZONTAL_ALIGNMENT_LEFT,-1,20,g.RED)
 	g.draw_multiline_string(g.font,Vector2(x+95,SIDE.position.y+305),"攻入敵方底線即獲勝。\n敵軍攻入我方底線則失敗。",HORIZONTAL_ALIGNMENT_LEFT,w-125,18,-1,g.RED)

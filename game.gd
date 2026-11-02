@@ -193,10 +193,10 @@ func _physics_process(dt: float) -> void:
 	if screen != "battle": return
 	# Spectate mode can fast-forward: several fixed steps per frame, so results match 1x exactly.
 	for i: int in range(speed if spectating else 1):
-		if adventure.index == 0: adventure.opening.advance(self,dt)
+		if adventure.is_opening(): adventure.opening.advance(self,dt)
 		attack_animation.observe(model)
 		model.step(dt)
-		if adventure.index == 0: adventure.opening.observe(self)
+		if adventure.is_opening(): adventure.opening.observe(self)
 		attack_animation.observe(model)
 		consume_events()
 		adventure.update(self)
@@ -253,7 +253,7 @@ func overlay_buttons() -> Array:
 	return items
 
 func try_play(slot: int, pos: Vector2) -> bool:
-	if adventure.index == 0 and adventure.opening.active: return false
+	if adventure.is_opening() and adventure.opening.active: return false
 	var reason: String = model.play_error(0,slot,pos)
 	if reason.is_empty() and model.play(0,slot,pos):
 		selected = -1
@@ -634,7 +634,7 @@ func draw_landscape(rect: Rect2, horizon: float) -> void:
 	draw_texture_rect(PAPER,rect,false,Color(1,1,1,0.19))
 
 func draw_battle() -> void:
-	if adventure.index == 0:
+	if adventure.is_opening():
 		adventure.opening.paint(self)
 		return
 	var field: Rect2 = L.FIELD_FRAME
@@ -930,7 +930,7 @@ func draw_effects() -> void:
 				death_pos.y = maxf(death_pos.y,L.GRID_ORIGIN.y-actor_rect(kind).position.y+6)
 				var face: float = e.get("face",1.0 if e.team == 0 else -1.0)
 				if B.CARDS.has(kind) and B.CARDS[kind].type == "building": face = 1.0 if e.team == 0 else -1.0
-				if adventure.index == 0 and e.team == 1 and kind in ["militia","mob"]:
+				if adventure.is_opening() and e.team == 1 and kind in ["militia","mob"]:
 					draw_fitted(adventure.opening.BANDIT,Rect2(death_pos-Vector2(43,73),Vector2(86,104)),Color(1,1,1,1-progress))
 				else: draw_actor(kind,e.team,death_pos,face,Color(1,1,1,1-progress))
 				for i: int in range(5): draw_circle(e.pos+Vector2(cos(i*2),sin(i*2))*progress*24,3*(1-progress),INK)
@@ -1058,7 +1058,7 @@ func draw_skill_button() -> void:
 	label_at(SKILL_RECT.position+Vector2(42,44),"%d 金幣 · %s" % [int(cost),state],13,Color("6f5a3e"))
 
 func try_skill() -> bool:
-	if adventure.index == 0 and adventure.opening.active: return false
+	if adventure.is_opening() and adventure.opening.active: return false
 	var reason: String = model.skill_error(0)
 	if reason.is_empty() and model.cast_skill(0): return true
 	notice = reason

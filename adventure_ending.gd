@@ -41,17 +41,17 @@ func show(g) -> void:
 func choose(g, kind: String) -> void:
 	if step != 2 or not kind in ["bandit","knight"]: return
 	if not g.adventure.recruit.is_empty(): return
-	var was_cleared: bool = g.adventure.is_cleared(0)
+	var was_cleared: bool = g.adventure.is_cleared(g.adventure.index)
 	g.adventure.recruit = kind
-	g.adventure.cleared[g.adventure.STAGES[0].id] = true
+	g.adventure.cleared[g.adventure.STAGES[g.adventure.index].id] = true
 	if not g.adventure.save_progress():
 		g.adventure.recruit = ""
-		if not was_cleared: g.adventure.cleared.erase(g.adventure.STAGES[0].id)
+		if not was_cleared: g.adventure.cleared.erase(g.adventure.STAGES[g.adventure.index].id)
 		error = "進度儲存失敗，請再試一次。"
 		show(g)
 		return
 	g.adventure.outcome = "第一關通過！獲得："+g.B.CARDS[kind].name
-	g.adventure.selected = 1
+	g.adventure.selected = mini(g.adventure.index+1,g.adventure.STAGES.size()-1)
 	step = 3
 	error = ""
 	show(g)
