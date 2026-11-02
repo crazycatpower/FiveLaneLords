@@ -1,9 +1,7 @@
 extends RefCounted
 # Adventure mode: a chain of stages on one campaign map. Each stage is one entry in STAGES; to add a
 # stage, append a dictionary (and a map point) and it is drawn, unlocked and saved automatically.
-#   kind     survive: hold until `limit` · breach: break in (lane = required lane, -1 any) before `limit`
-#            economy: produce `gold` coins (and cast `skills` lord skills) before `limit`
-#            conquer: beat the AI (`ai` = difficulty) with no time limit
+#   kind     conquer: normal invasion victory, without special objectives
 #   deck     eight cards, or "player" for the player's own deck and lord
 # All opponents use the normal card-playing AI; stage 1 opens with scheduled legal card plays.
 const B = preload("res://balance.gd")
@@ -20,50 +18,50 @@ const DARK_DECK := ["skeleton","ghoul","necromancer","reaper","plague","bonewall
 const STAGES := [
 	{"id":"first_farm","chapter":0,"map":Vector2(175,650),"name":"第一塊農田","lord":"harvest","kind":"conquer","ai":0,"enemy_lord":"iron",
 	 "story":"農民聊著今年的收成，沒有注意到麥田另一頭的腳步聲。",
-	 "goal":"守住唯一的農路，反攻並摧毀強盜帳篷。",
+	 "goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。",
 	 "deck":["farmer","hunter","farmer","hunter","militia","farmer","hunter","militia"],
 	 "allow_duplicates":true,
 	 },
-	{"id":"fifth_drum","chapter":0,"map":Vector2(275,470),"name":"第五聲鼓","lord":"iron","kind":"survive","limit":90.0,
+	{"id":"fifth_drum","chapter":0,"map":Vector2(275,470),"name":"第五聲鼓","lord":"iron","kind":"conquer","ai":1,"enemy_lord":"iron",
 	 "story":"三條農路通向東邊，箭樓封住了路口。村民拿起乾草叉，加入你的隊伍。",
-	 "goal":"守住三條路 90 秒，不讓敵兵入城。",
+	 "goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。",
 	 "deck":["mob","hunter","farmer","militia","shieldguard","rain","healer","drummer"],
 	 "active_lanes":[1,2,3],
 	 "buildings":[[7,1,"tower"],[7,2,"tower"],[7,3,"tower"]],
 	 },
-	{"id":"old_bridge","chapter":0,"map":Vector2(400,615),"name":"故鄉木橋","lord":"lion","kind":"breach","lane":2,"limit":180.0,
+	{"id":"old_bridge","chapter":0,"map":Vector2(400,615),"name":"故鄉木橋","lord":"lion","kind":"conquer","ai":1,"enemy_lord":"iron",
 	 "story":"攻城槌上的刻痕還在。城門另一邊，也有人認得。",
-	 "goal":"180 秒內從第 III 路入城；敵軍入城則失敗。",
+	 "goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。",
 	 "deck":["ram","shieldguard","healer","hunter","farmer","rain","drummer","militia"],
 	 "buildings":[[7,2,"tower"]],
 	 },
-	{"id":"roll_call","chapter":1,"map":Vector2(505,420),"name":"名冊錯字","lord":"underworld","kind":"economy","gold":60,"skills":1,"limit":180.0,
+	{"id":"roll_call","chapter":1,"map":Vector2(505,420),"name":"名冊錯字","lord":"underworld","kind":"conquer","ai":1,"enemy_lord":"iron",
 	 "story":"墓園開始收帳了。先備好金幣，再核對回來的是誰。",
-	 "goal":"180 秒內累計產出 60 金幣，施放亡者大軍一次。",
+	 "goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。",
 	 "deck":["skeleton","bonewall","necromancer","curse","hunter","plague","shieldguard","drummer"],
 	 },
-	{"id":"night_watch","chapter":1,"map":Vector2(615,615),"name":"守夜人","lord":"underworld","kind":"survive","limit":120.0,
+	{"id":"night_watch","chapter":1,"map":Vector2(615,615),"name":"守夜人","lord":"underworld","kind":"conquer","ai":1,"enemy_lord":"iron",
 	 "story":"火把從五條路一起亮起來。骨牆擋得住一時，擋不住整夜。",
-	 "goal":"守住 120 秒，不讓敵兵入城。",
+	 "goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。",
 	 "deck":["skeleton","bonewall","reaper","ghoul","plague","tower","rain","hunter"],
 	 },
-	{"id":"raven_road","chapter":1,"map":Vector2(725,410),"name":"烏鴉之路","lord":"underworld","kind":"breach","lane":-1,"limit":180.0,
+	{"id":"raven_road","chapter":1,"map":Vector2(725,410),"name":"烏鴉之路","lord":"underworld","kind":"conquer","ai":1,"enemy_lord":"iron",
 	 "story":"對面的箭樓整夜沒熄。讓烏鴉先去，骨頭隨後就到。",
-	 "goal":"180 秒內從任一路入城；敵軍入城則失敗。",
+	 "goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。",
 	 "deck":["raven","skeleton","ghoul","reaper","corpse_giant","curse","plague","ram"],
 	 "buildings":[[7,1,"tower"],[7,3,"tower"]],
 	 },
 	{"id":"iron_gate","chapter":2,"map":Vector2(810,600),"name":"鐵壁之前","lord":"iron","kind":"conquer","ai":0,"enemy_lord":"harvest",
 	 "story":"豐收領主的糧倉堆得比城牆還高。對手正不斷集結兵力。",
-	 "goal":"擊敗簡單難度的豐收領主。",
+	 "goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。",
 	 "deck":["shieldguard","militia","hunter","tower","knight","rain","ram","drummer"]},
 	{"id":"ash_harvest","chapter":2,"map":Vector2(880,430),"name":"豐收與骨灰","lord":"lion","kind":"conquer","ai":1,"enemy_lord":"underworld","enemy_deck":DARK_DECK,
 	 "story":"墓碑立到了麥田邊上。紅獅要在收成之前，把它們推回去。",
-	 "goal":"擊敗普通難度的冥府領主。",
+	 "goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。",
 	 "deck":["militia","knight","mob","ox","hunter","rain","fire","healer"]},
 	{"id":"last_page","chapter":2,"map":Vector2(925,255),"name":"最後一頁","lord":"","kind":"conquer","ai":2,"enemy_lord":"lion",
 	 "story":"戰史只剩最後一頁。帶上你自己編的牌組，寫下結局。",
-	 "goal":"用你的牌組與領主，擊敗困難難度的紅獅領主。",
+	 "goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。",
 	 "deck":"player"},
 ]
 
@@ -134,7 +132,7 @@ func start(game, choice: int) -> void:
 	game.model.active_lanes.assign(d.get("active_lanes",[0,1,2,3,4]))
 	game.model.difficulty = ai
 	game.model.ai_enabled = [false,true]
-	game.model.invasion_victory[0] = d.kind in ["breach","conquer"]
+	game.model.invasion_victory.assign([true,true])
 	for b: Array in d.get("buildings",[]): game.model.add_building(1,Vector2i(b[0],b[1]),b[2])
 	opening.active = false
 	if index == 0: opening.start(game)
@@ -143,27 +141,12 @@ func start(game, choice: int) -> void:
 func update(game) -> void:
 	if index < 0 or game.model.paused or not outcome.is_empty(): return
 	var m = game.model
-	var d: Dictionary = STAGES[index]
-	if m.ended:
-		var won: bool = m.winner == 0
-		if d.kind == "breach" and d.lane >= 0: won = won and game.review.break_lane == d.lane
-		if won and index == 0 and recruit.is_empty():
-			ending.begin(game)
-			return
-		settle(won,"")
-		if not won: m.winner = 1
+	if not m.ended: return
+	var won: bool = m.winner == 0
+	if won and index == 0 and recruit.is_empty():
+		ending.begin(game)
 		return
-	var limit: float = d.get("limit",0.0)
-	var complete: bool = d.kind == "survive" and m.elapsed >= limit
-	if d.kind == "economy": complete = m.stats[0].produced >= d.gold and m.stats[0].get("skills",0) >= d.skills
-	if complete:
-		settle(true,"")
-		m.finish(0)
-	elif limit > 0 and m.elapsed >= limit:
-		settle(false,"：時間用盡")
-		m.finish(1)
-	elif limit > 0:
-		game.notice = "%s · %s　剩餘 %d 秒" % [d.name,d.goal,maxi(0,ceili(limit-m.elapsed))]
+	settle(won,"")
 
 func settle(won: bool, reason: String) -> void:
 	outcome = ("第 %d 關通過！" % (index+1)) if won else "挑戰失敗"+reason

@@ -6,15 +6,7 @@ static func draw(g) -> void:
 	if g.adventure.index >= 0:
 		var d: Dictionary = g.adventure.STAGES[g.adventure.index]
 		g.label_at(Vector2(50,727),d.name,20,g.INK)
-		var limit: float = d.get("limit",0.0)
-		if limit > 0:
-			var left := maxi(0,ceili(limit-m.elapsed))
-			g.panel(Rect2(289,708,103,27),Color("e4d2ab"))
-			g.draw_string(g.font,Vector2(289,728),"%02d:%02d" % [left/60,left%60],HORIZONTAL_ALIGNMENT_CENTER,103,20,g.RED if left <= 20 else g.INK)
 		var objective: String = d.goal
-		if d.kind == "economy":
-			objective = "累計產出 %d / %d 金幣" % [mini(int(m.stats[0].produced),int(d.gold)),d.gold]
-			if d.skills > 0: objective += " · 技能 %d / %d" % [mini(m.stats[0].get("skills",0),d.skills),d.skills]
 		wrapped(g,objective,Vector2(50,752),342,16,muted)
 	else:
 		wrapped(g,g.notice,Vector2(50,725),342,16,muted)

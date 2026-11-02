@@ -863,7 +863,7 @@ func test_adventure() -> void:
 		check(not ids.has(d.id),"adventure stage ids are unique (%s)" % d.id)
 		ids[d.id] = true
 		check(d.kind in a.KIND_NAMES and d.chapter < a.CHAPTERS.size() and a.MAP.has_point(d.map),"stage %d has a known kind, chapter and map point" % (i+1))
-		if d.deck is Array: check(game.DeckStore.valid(d.deck,d.lord),"stage %d deck fits its lord" % (i+1))
+		if d.deck is Array: check(game.DeckStore.valid(d.deck,d.lord,d.get("allow_duplicates",false)),"stage %d deck fits its lord" % (i+1))
 		if d.kind == "conquer":
 			check(B.LORDS.has(d.enemy_lord) and game.DeckStore.valid(d.get("enemy_deck",B.PRESETS[d.ai]),d.enemy_lord),"stage %d enemy deck fits the enemy lord" % (i+1))
 		else: check(d.limit > 0,"scripted stage %d has a time limit" % (i+1))
@@ -876,45 +876,24 @@ func test_adventure() -> void:
 	a.selected = 3
 	game.show_adventure()
 	check(a.selected == 0,"a locked stage cannot stay selected")
-	# Survive: holding until the limit clears the stage and unlocks the next one.
-	var survive: int = a.STAGES.map(func(d: Dictionary) -> String: return d.kind).find("survive")
-	a.start(game,survive)
-	var m = game.model
-	check(m.ai_enabled == [false,true] and m.lord_active[1] and m.decks[0].size() == 8,"adventure stages use normal AI")
-	m.elapsed = 30
-	a.update(game)
-	var count: int = m.units.size()
-	check(count == 0,"no timed wave spawns")
-	a.update(game)
-	check(m.units.size() == count,"waves do not repeat at the same time")
-	m.elapsed = a.STAGES[survive].limit
-	a.update(game)
-	check(m.ended and m.winner == 0 and a.is_cleared(survive) and a.unlocked(survive+1),"surviving clears the stage and unlocks the next")
-	check(game.overlay_buttons().any(func(item: Array) -> bool: return item[1] == "冒險地圖"),"adventure results lead back to the map")
-	var reread = load("res://adventure.gd").new()
-	reread.progress_path = a.progress_path
-	reread.load_progress()
-	check(reread.is_cleared(survive),"progress is saved")
-	# Breach with a required lane: winning through another lane does not count.
-	var breach: int = a.STAGES.map(func(d: Dictionary) -> int: return d.get("lane",-1)).find(2)
-	a.start(game,breach)
-	check(game.model.invasion_victory[0] and game.model.buildings.any(func(b: Dictionary) -> bool: return b.team == 1 and b.kind == "tower"),"breach stage lets the player invade and builds its defences")
-	game.review.break_lane = 0
-	game.model.finish(0)
-	a.update(game)
-	check(game.model.winner == 1 and not a.is_cleared(breach),"breaking in through the wrong lane fails")
-	a.start(game,breach)
-	game.model.elapsed = a.STAGES[breach].limit
-	a.update(game)
-	check(game.model.ended and game.model.winner == 1 and a.outcome.contains("時間"),"running out of time fails")
-	# Economy: the gold (and skill) target finishes the stage.
-	var economy: int = a.STAGES.map(func(d: Dictionary) -> String: return d.kind).find("economy")
-	a.start(game,economy)
-	check(not game.model.invasion_victory[0],"economy stages cannot be won by invading")
-	game.model.stats[0].produced = a.STAGES[economy].gold
-	game.model.stats[0].skills = a.STAGES[economy].skills
-	a.update(game)
-	check(game.model.ended and game.model.winner == 0 and a.is_cleared(economy),"reaching the gold target clears the stage")
+	# All campaign stages now use the normal invasion result.
+	for stage: int in range(1,a.STAGES.size()):
+		a.start(game,stage)
+		var m = game.model
+		check(m.ai_enabled == [false,true] and m.invasion_victory == [true,true],"normal AI and invasion victory")
+		m.elapsed = 1000
+		m.stats[0].produced = 10000
+		m.stats[0].skills = 100
+		a.update(game)
+		check(not m.ended,"time and economic totals do not end adventure battles")
+		game.review.break_lane = 0
+		m.finish(0)
+		a.update(game)
+		check(m.winner == 0 and a.is_cleared(stage),"normal victory clears every stage regardless of lane")
+		a.start(game,stage)
+		game.model.finish(1)
+		a.update(game)
+		check(game.model.winner == 1,"normal defeat is preserved")
 	# Conquer: a real AI opponent; the last page uses the player's own deck.
 	var last: int = a.STAGES.size()-1
 	a.start(game,last)
