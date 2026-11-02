@@ -22,7 +22,7 @@ const STAGES := [
 	 "deck":["farmer","hunter","farmer","hunter","militia","farmer","hunter","militia"],
 	 "allow_duplicates":true,
 	 },
-	{"id":"fifth_drum","chapter":0,"map":Vector2(275,470),"name":"第五聲鼓","lord":"iron","kind":"conquer","ai":1,"enemy_lord":"iron",
+	{"id":"fifth_drum","chapter":0,"map":Vector2(275,470),"name":"東邊的路稅","lord":"iron","kind":"conquer","ai":1,"enemy_lord":"iron",
 	 "story":"三條農路通向東邊，箭樓封住了路口。村民拿起乾草叉，加入你的隊伍。",
 	 "goal":"攻入敵方底線獲勝；敵軍攻入我方底線則失敗。",
 	 "deck":["mob","hunter","farmer","militia","shieldguard","rain","healer","drummer"],
@@ -69,6 +69,7 @@ var index := -1 # the stage being played, -1 outside adventure battles
 var selected := 0 # the stage shown on the map panel
 var opening := preload("res://farm_opening.gd").new()
 var ending := preload("res://adventure_ending.gd").new()
+var road_story := preload("res://road_toll_story.gd").new()
 var recruit := ""
 var outcome := ""
 var cleared: Dictionary = {}
@@ -137,6 +138,7 @@ func start(game, choice: int) -> void:
 	opening.active = false
 	if index == 0: opening.start(game)
 	game.enter_battle("%s · %s" % [d.name,d.goal])
+	if index == 1: road_story.begin(game)
 
 func update(game) -> void:
 	if index < 0 or game.model.paused or not outcome.is_empty(): return
@@ -147,6 +149,7 @@ func update(game) -> void:
 		ending.begin(game)
 		return
 	settle(won,"")
+	if won and index == 1: road_story.begin(game,true)
 
 func settle(won: bool, reason: String) -> void:
 	outcome = ("第 %d 關通過！" % (index+1)) if won else "挑戰失敗"+reason

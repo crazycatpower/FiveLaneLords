@@ -9,6 +9,7 @@ func run() -> void:
 	for recruit: String in ["bandit","knight"]:
 		g.adventure.recruit = recruit
 		g.adventure.start(g,1)
+		while g.screen == "road_toll_story": g.adventure.road_story.advance(g)
 		assert(g.adventure.index == 1 and g.model.active_lanes == [1,2,3])
 		assert(recruit in g.model.decks[0] and "mob" in g.model.decks[0])
 		assert(g.model.count_buildings(1,"tower") == 3)
@@ -26,6 +27,7 @@ func run() -> void:
 		for u in g.model.units: assert(u.lane in [1,2,3])
 		for b in g.model.buildings: assert(b.cell.y in [1,2,3])
 	g.adventure.start(g,1)
+	while g.screen == "road_toll_story": g.adventure.road_story.advance(g)
 	if "--capture" in OS.get_cmdline_user_args():
 		g.queue_redraw()
 		await process_frame
