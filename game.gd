@@ -554,6 +554,7 @@ func _draw() -> void:
 	panel(L.PAGE_FRAME,Color(0.85,0.74,0.53,0.15))
 	if screen == "battle": draw_battle()
 	elif screen == "adventure": adventure.paint(self)
+	elif screen == "adventure_ending": adventure.ending.paint(self)
 	elif screen == "recap":
 		panel(Rect2(100,70,1400,700))
 		label_at(Vector2(140,128),"戰局復盤",38)

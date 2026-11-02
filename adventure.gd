@@ -68,20 +68,27 @@ const STAGES := [
 var index := -1 # the stage being played, -1 outside adventure battles
 var selected := 0 # the stage shown on the map panel
 var opening := preload("res://farm_opening.gd").new()
+var ending := preload("res://adventure_ending.gd").new()
+var recruit := ""
 var outcome := ""
 var cleared: Dictionary = {}
 var progress_path := "user://adventure.json"
 
 func load_progress() -> void:
 	cleared = {}
+	recruit = ""
 	if not FileAccess.file_exists(progress_path): return
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string(progress_path))
 	if parsed is Dictionary and parsed.get("cleared") is Array:
 		for id in parsed.cleared: cleared[str(id)] = true
+		if parsed.get("recruit", "") in ["bandit","knight"]: recruit = parsed.recruit
 
-func save_progress() -> void:
+func save_progress() -> bool:
 	var file := FileAccess.open(progress_path,FileAccess.WRITE)
-	if file != null: file.store_string(JSON.stringify({"cleared":cleared.keys()}))
+	if file == null: return false
+	file.store_string(JSON.stringify({"cleared":cleared.keys(),"recruit":recruit}))
+	file.flush()
+	return file.get_error() == OK
 
 func is_cleared(i: int) -> bool:
 	return cleared.has(STAGES[i].id)
@@ -102,7 +109,10 @@ func stage_lord(game, i: int) -> String:
 	return game.player_lord if STAGES[i].deck is String else STAGES[i].lord
 
 func stage_deck(game, i: int) -> Array:
-	return game.player_deck.duplicate() if STAGES[i].deck is String else STAGES[i].deck.duplicate()
+	var deck: Array = game.player_deck.duplicate() if STAGES[i].deck is String else STAGES[i].deck.duplicate()
+	if i > 0 and STAGES[i].deck is Array and not recruit.is_empty() and not recruit in deck and B.card_allowed(recruit,stage_lord(game,i)):
+		deck[deck.size()-1] = recruit
+	return deck
 
 func start(game, choice: int) -> void:
 	index = choice
@@ -134,6 +144,9 @@ func update(game) -> void:
 	if m.ended:
 		var won: bool = m.winner == 0
 		if d.kind == "breach" and d.lane >= 0: won = won and game.review.break_lane == d.lane
+		if won and index == 0 and recruit.is_empty():
+			ending.begin(game)
+			return
 		settle(won,"")
 		if not won: m.winner = 1
 		return
@@ -194,6 +207,7 @@ func seal_button(game, rect: Rect2, action: Callable) -> Button:
 func paint(g) -> void:
 	g.label_at(Vector2(90,88),"冒險模式",44)
 	g.label_at(Vector2(300,88),"已通過 %d / %d 關" % [cleared_count(),STAGES.size()],22)
+	if not recruit.is_empty(): g.label_at(Vector2(650,88),"同行部隊："+B.CARDS[recruit].name,24)
 	g.label_at(Vector2(90,126),"依序攻下九場戰役；每關有固定的領主與牌組，不會改動你自己的牌組。",20)
 	paint_map(g)
 	paint_side(g)
