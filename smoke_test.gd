@@ -1098,7 +1098,12 @@ func test_skill_visuals() -> void:
 			check(cue.duration == 1.0 and cue.lord == kind and cue.team == team,"skill visual identity and duration")
 			var count: int = game.model.buildings.filter(func(b: Dictionary) -> bool: return b.team == team and b.kind == "farm").size() if kind == "harvest" else 5
 			if kind == "underworld": count = game.model.buildings.filter(func(b: Dictionary) -> bool: return b.team == team and b.kind == "grave").size()
+			if kind == "mage": count = 0 # full-page ripple is sampled from the independent freeze clock
 			check(cue.targets.size() == count,"all affected lanes or farms get a visual cue")
+			if kind == "mage":
+				game._process(1.1)
+				check(not game.effects.is_empty() and game.model.time_stopped(),"mage freezes ordinary effect clocks")
+				game.model.step(B.LORDS.mage.freeze_duration)
 			game._process(1.1)
 			check(game.effects.is_empty() and game.model.ink[team] == gold,"skill visuals expire without changing gold")
 	game.model = Battle.new(5)

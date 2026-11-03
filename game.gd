@@ -184,7 +184,8 @@ func button(rect: Rect2, caption: String, action: Callable) -> Button:
 	style.set_corner_radius_all(8)
 	b.add_theme_stylebox_override("normal",style)
 	b.add_theme_color_override("font_color",INK)
-	b.pressed.connect(action)
+	b.pressed.connect(func():
+		if not ui_time_locked(): action.call())
 	add_child(b)
 	ui.append(b)
 	return b
@@ -199,7 +200,7 @@ func _physics_process(dt: float) -> void:
 		if adventure.is_opening(): adventure.opening.observe(self)
 		attack_animation.observe(model)
 		consume_events()
-		adventure.update(self)
+		if not model.time_stopped(): adventure.update(self)
 
 func consume_events() -> void:
 	review.observe(model)
@@ -218,6 +219,9 @@ func consume_events() -> void:
 	model.events.clear()
 
 func _process(dt: float) -> void:
+	if ui_time_locked():
+		queue_redraw()
+		return
 	if model != null and model.paused: dt = 0
 	shake_left = maxf(0,shake_left-dt)
 	position = Vector2(sin(shake_left*180),cos(shake_left*210))*shake_left*18 if shake_enabled and shake_left > 0 else Vector2.ZERO
@@ -236,6 +240,7 @@ func card_at(pos: Vector2) -> int:
 	return -1
 
 func toggle_pause() -> void:
+	if ui_time_locked(): return
 	if not model.ended: model.paused = not model.paused
 
 func set_speed(value: int) -> void:
@@ -264,6 +269,7 @@ func try_play(slot: int, pos: Vector2) -> bool:
 	return false
 
 func _unhandled_input(event: InputEvent) -> void:
+	if ui_time_locked(): return
 	if screen == "recap" and event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		close_review()
 		return
@@ -476,7 +482,7 @@ func draw_combat_actor(kind: String, actor: Dictionary, pos: Vector2, face: floa
 		shade *= Color(brightness,brightness,brightness,1)
 	if kind in ["teleport_trap","blast_trap"]:
 		draw_arc(pos+Vector2(0,17),35,0,TAU,32,RED if actor.team == 0 else BLUE,2,true)
-	var pose: Dictionary = attack_animation.pose(actor,model.elapsed) if fx_enabled else {}
+	var pose: Dictionary = attack_animation.pose(actor,model.actor_time(actor)) if fx_enabled else {}
 	if pose.is_empty():
 		draw_actor(kind,actor.team,pos,face,shade)
 		return
@@ -585,6 +591,26 @@ func _draw() -> void:
 	elif screen == "help": draw_help()
 	elif screen == "settings": draw_string(font,Vector2(0,220),"畫面與音效設定",HORIZONTAL_ALIGNMENT_CENTER,L.VIEWPORT_SIZE.x,40,INK)
 	else: draw_title()
+	if ui_time_locked(): draw_time_stop()
+
+func ui_time_locked() -> bool:
+	return model != null and model.time_stopped()
+
+# Handle before GUI controls, so mouse, keyboard and hotkeys all remain frozen.
+func _input(_event: InputEvent) -> void:
+	if ui_time_locked(): get_viewport().set_input_as_handled()
+
+func draw_time_stop() -> void:
+	var age: float = B.LORDS.mage.freeze_duration-model.time_stop_left
+	var fade: float = minf(1.0,model.time_stop_left*2.0)
+	draw_rect(Rect2(Vector2.ZERO,L.VIEWPORT_SIZE),Color(0.16,0.19,0.34,0.16*fade))
+	# Concentric space ripples expand from the caster over the whole page, including UI.
+	for i: int in range(3):
+		var wave: float = age*1100-i*95
+		if wave > 0 and wave < 2100:
+			draw_arc(model.time_stop_origin,wave,0,TAU,128,Color(0.7,0.77,0.95,0.65*fade),4,true)
+	panel(Rect2(590,102,420,44),Color("d9d9df"),Color("666681"))
+	draw_string(font,Vector2(590,132),"時空凝滯 · %.1f 秒" % model.time_stop_left,HORIZONTAL_ALIGNMENT_CENTER,420,24,Color("46435f"))
 
 # Flat manuscript pigments over paper; deterministic strokes never consume battle RNG.
 static func scenery_noise(index: int, salt: int) -> float:
@@ -733,7 +759,7 @@ func draw_battle() -> void:
 	review.draw_pressure(self)
 	panel(library.INFO_RECT,Color("ecdcb6"))
 	draw_string(font,library.INFO_RECT.position+Vector2(0,30),["簡單","普通","困難"][model.difficulty]+" · 戰局資料",HORIZONTAL_ALIGNMENT_CENTER,library.INFO_RECT.size.x,20,INK)
-	if model.ended: draw_result()
+	if model.ended and not model.time_stopped(): draw_result()
 	elif model.paused:
 		panel(L.OVERLAY_RECT,Color("efe0bd"))
 		draw_string(font,L.OVERLAY_RECT.position+Vector2(0,58),"戰局暫停" if not model.ended else ("紅獅勝利！我軍攻進藍旗主堡" if model.winner == 0 else "敗北：藍旗士兵攻進了我方主堡"),HORIZONTAL_ALIGNMENT_CENTER,L.OVERLAY_RECT.size.x,30,INK)
@@ -811,8 +837,8 @@ func team_shadow(center: Vector2, radius: float, color: Color) -> void:
 func draw_unit(u: Dictionary) -> void:
 	if u.hp <= 0: return
 	var pos: Vector2 = u.draw-Vector2(u.face*4,0) if fx_enabled and u.flash > 0 else u.draw # small knockback on hit
-	var bounce := sin(model.elapsed*8+u.phase)*2
-	if u.get("flying",false): bounce = -20+sin(model.elapsed*10+u.phase)*5
+	var bounce := sin(model.actor_time(u)*8+u.phase)*2
+	if u.get("flying",false): bounce = -20+sin(model.actor_time(u)*10+u.phase)*5
 	var top: float = actor_rect(u.kind).position.y+bounce
 	if u.get("cursed_until",0.0) > model.elapsed: top = minf(top,-84)
 	if u.hp < u.max_hp: top = minf(top,-69)
@@ -1197,7 +1223,7 @@ func lord_tooltip(kind: String) -> String:
 	return "%s（%s）\n%d 血 · 普攻 %d\n%s" % [info.name,info.role,int(info.hp),int(info.damage),B.skill_text(kind)]
 
 func lord_rect(index: int) -> Rect2:
-	return Rect2(1010+(index%2)*270,148+(index/2)*74,260,68)
+	return Rect2(1010+(index%2)*270,148+(index/2)*54,260,50)
 
 func save_choice() -> void:
 	if adventure_deck_mode:
@@ -1246,7 +1272,7 @@ func draw_deck() -> void:
 		label_at(Vector2(120,100),"村莊牌組",48)
 		var home: String = B.CARDS[B.home_card(player_lord)].name
 		label_at(Vector2(560,100),"%s＋領主固定，再選 8 張：%d / 8 · 平均 %.1f 金幣" % [home,player_deck.size(),DeckStore.average(player_deck)],22)
-		label_at(Vector2(560,128),"%s可用：%s牌與中立牌" % [B.LORDS[player_lord].name,B.FACTIONS[B.lord_faction(player_lord)]],16,Color("6f5a3e"))
+		label_at(Vector2(560,128),"法師領主可用：中立牌" if player_lord == "mage" else "%s可用：%s牌與中立牌" % [B.LORDS[player_lord].name,B.FACTIONS[B.lord_faction(player_lord)]],16,Color("6f5a3e"))
 		label_at(Vector2(1010,140),"選擇領主",18)
 		var lord_index := 0
 		for lord_kind: String in B.LORDS:
@@ -1254,10 +1280,10 @@ func draw_deck() -> void:
 			var info: Dictionary = B.LORDS[lord_kind]
 			panel(r,Color("f2e3c0") if lord_kind == player_lord else Color("e3d2aa"),RED if lord_kind == player_lord else INK)
 			if lord_kind == player_lord: draw_rect(r.grow(2),RED,false,3)
-			draw_fitted(lord_art(lord_kind),Rect2(r.position+Vector2(6,3),Vector2(54,62)))
-			label_at(r.position+Vector2(68,23),info.name,18)
-			label_at(r.position+Vector2(68,41),"%s · %d 血" % [info.role,int(info.hp)],12,Color("6f5a3e"))
-			label_at(r.position+Vector2(68,58),"%s · %d 金幣" % [info.skill,int(B.skill_cost(lord_kind))],12,RED)
+			draw_fitted(lord_art(lord_kind),Rect2(r.position+Vector2(6,3),Vector2(44,44)))
+			label_at(r.position+Vector2(58,17),info.name,17)
+			label_at(r.position+Vector2(58,32),"%s · %d 血" % [info.role,int(info.hp)],11,Color("6f5a3e"))
+			label_at(r.position+Vector2(58,46),"%s · %d 金幣" % [info.skill,int(B.skill_cost(lord_kind))],11,RED)
 			lord_index += 1
 	var pool: Array = adventure.unlocked_cards() if adventure_deck_mode else DeckStore.pool(player_lord)
 	var index := 0

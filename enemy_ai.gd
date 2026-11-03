@@ -33,6 +33,7 @@ static func skill_plan(k: Dictionary) -> Dictionary:
 	var wanted := false
 	var hoard: bool = pr.get("hoard",1.0) >= 0.5
 	match k.lord:
+		"mage": wanted = k.get("troops",0) >= 3 and k.elapsed >= 20.0
 		"underworld": wanted = k.get("graves",0) >= 2
 		"lion": wanted = k.elapsed >= pr.get("skill_after",45.0)
 		"harvest": wanted = k.elapsed >= pr.get("skill_after",45.0) and k.farms <= pr.get("harvest_max_farms",7.0)

@@ -12,7 +12,7 @@ static func style(kind: String) -> String:
 		"tower": return "tower"
 		"arcane_tower": return "cast"
 		"catapult": return "siege"
-		"necromancer", "healer", "lord_underworld", "lord_harvest": return "cast"
+		"necromancer", "healer", "lord_mage", "lord_underworld", "lord_harvest": return "cast"
 		"corpse_giant", "knight", "reaper", "lord_lion", "lord_iron": return "heavy"
 		"ram", "ox": return "ram"
 		"raven": return "peck"
@@ -28,14 +28,14 @@ func observe(model: RefCounted) -> void:
 	for actor: Dictionary in model.units+model.buildings+model.lords:
 		if actor.hp <= 0: continue
 		var id := key(actor)
-		alive[id] = true
+		alive[id] = model.actor_time(actor)
 		var timers := [float(actor.get("cd",0)),float(actor.get("heal_cd",0)),float(actor.get("summon_left",0)),float(actor.get("drum_cd",0))]
 		if not previous.has(id): previous[id] = [0.0,0.0,0.0,0.0]
 		for i: int in range(timers.size()):
 			if timers[i] > previous[id][i]+0.0001:
 				var kind: String = "lord_"+actor.lord if actor.kind == "lord" else actor.kind
 				var mode := style(kind) if i == 0 else ("drum" if i == 3 else "cast")
-				clips[id] = {"start":model.elapsed,"duration":clampf(timers[i]*0.7,0.16,0.42),"style":mode}
+				clips[id] = {"start":model.actor_time(actor),"duration":clampf(timers[i]*0.7,0.16,0.42),"style":mode}
 				break
 		previous[id] = timers
 	for id: String in previous.keys():
@@ -43,7 +43,7 @@ func observe(model: RefCounted) -> void:
 			previous.erase(id)
 			clips.erase(id)
 	for id: String in clips.keys():
-		if model.elapsed-clips[id].start >= clips[id].duration: clips.erase(id)
+		if float(alive.get(id,model.elapsed))-clips[id].start >= clips[id].duration: clips.erase(id)
 
 func pose(actor: Dictionary, now: float) -> Dictionary:
 	var clip: Dictionary = clips.get(key(actor),{})

@@ -1,6 +1,7 @@
 extends RefCounted
 # Original flavor; story connections remain implicit and never affect gameplay.
 const TEXT := {
+	"lord_mage": "他讓第五聲鼓停在半空，趁機改完稅單。恢復時間後，軍需官說這五秒也得算工錢。",
 	"artificer": "他修好了磨坊、城門和橋欄。軍需官問稅單能不能也修大一點，他說那得先把良心拆下來。",
 	"crystal": "礦工說它越老越不肯亮。村長倒覺得這很像自己那位領了薪水就開始打盹的表弟。",
 	"teleport_trap": "第五聲鼓響起時，全隊終於抵達了出發的地方。嚮導堅稱這是抄近路。",

@@ -7,7 +7,7 @@ static func run(t: SceneTree) -> void:
 	for faction: String in B.FACTIONS:
 		t.check(B.CARDS.keys().filter(func(k: String) -> bool: return B.card_faction(k) == faction).size() == (17 if faction == "" else 10),"faction card count: "+faction)
 	for lord: String in B.LORDS:
-		t.check(DS.pool(lord).size() == 26,"each lord chooses from twenty-six rotating cards: "+lord)
+		t.check(DS.pool(lord).size() == (16 if lord == "mage" else 26),"lord rotating pool: "+lord)
 	var p := L.cell_center(Vector2i(3,2))
 	var m = t.bare(42)
 	m.lord_active = [false,false]

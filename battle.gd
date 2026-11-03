@@ -23,6 +23,34 @@ var building_alarm: Array = [0.0,0.0,0.0,0.0,0.0]
 var stats: Array = []
 var events: Array[Dictionary] = []
 var elapsed := 0.0
+var time_stop_left := 0.0
+var time_stop_team := -1
+var time_stop_origin := Vector2.ZERO
+
+func time_stopped() -> bool:
+	return time_stop_left > 0.000001
+
+func actor_time(actor: Dictionary) -> float:
+	return elapsed+float(actor.get("extra_time",0.0))
+
+func step_time_stop(dt: float) -> void:
+	var active_dt := minf(dt,time_stop_left)
+	if not ended:
+		build_lookups()
+		var caster: Dictionary = lords[time_stop_team]
+		caster.extra_time = caster.get("extra_time",0.0)+active_dt
+		if lord_active[time_stop_team]: Lord.step(self,caster,active_dt)
+		for u: Dictionary in units.duplicate():
+			if u.team != time_stop_team or u.hp <= 0: continue
+			u.extra_time = u.get("extra_time",0.0)+active_dt
+			if update_unit(u,active_dt): break
+		# Death reactions, buildings and all projectiles wait until normal time resumes.
+		remove_dead()
+	time_stop_left = maxf(0,time_stop_left-active_dt)
+	if not time_stopped():
+		time_stop_left = 0.0
+		time_stop_team = -1
+		if dt > active_dt: step(dt-active_dt)
 var last_dt := 0.0
 var ended := false
 # Challenge objectives can hold attackers at the far gate; normal matches keep both sides enabled.
@@ -223,6 +251,7 @@ func slot_cd(team: int, slot: int) -> float:
 enum Refusal {OK, ENDED, PAUSED, NO_CARD, COOLDOWN, GOLD, OFF_GRID, NOT_OURS, OCCUPIED}
 
 func play_check(team: int, slot: int, pos: Vector2) -> Refusal:
+	if time_stopped(): return Refusal.PAUSED
 	if ended: return Refusal.ENDED
 	if paused: return Refusal.PAUSED
 	if (slot < 0 or slot >= 4) and slot != FARM_SLOT: return Refusal.NO_CARD
@@ -466,6 +495,7 @@ func reaper_target(u: Dictionary) -> Dictionary:
 
 # Why the lord's skill cannot be cast now ("" = it can).
 func skill_error(team: int) -> String:
+	if time_stopped(): return "時間凍結中。"
 	if ended: return "戰局已經結束。"
 	if paused: return "暫停中。"
 	var info: Dictionary = B.LORDS[lords[team].lord]
@@ -484,6 +514,10 @@ func cast_skill(team: int) -> bool:
 	stats[team].skills = stats[team].get("skills",0)+1
 	var visual_targets: Array[Vector2] = []
 	match kind:
+		"mage":
+			time_stop_team = team
+			time_stop_left = B.LORDS.mage.freeze_duration
+			time_stop_origin = lords[team].pos
 		"underworld":
 			for b: Dictionary in buildings:
 				if b.hp <= 0 or b.team != team or b.kind != "grave": continue
@@ -649,11 +683,15 @@ func cultivate(u: Dictionary, dt: float) -> bool:
 # fails if it changes): deaths, AI plays, clocks and income, buildings, spells and
 # clouds, arrows, lords, troops, then deaths again and cleanup.
 func step(dt: float) -> void:
+	if time_stopped():
+		step_time_stop(dt)
+		return
 	if paused or ended: return
 	elapsed += dt
 	last_dt = dt
 	resolve_deaths()
 	update_ai(dt)
+	if time_stopped(): return
 	tick_clocks(dt)
 	build_lookups()
 	Arcane.update_traps(self)
@@ -904,7 +942,7 @@ func skill_state(team: int) -> Dictionary:
 	for hp: float in gates[team]:
 		gate_total += hp
 		if hp <= 0: broken += 1
-	return {"lord":lords[team].lord,"ready":lords[team].hp > 0 and skill_cd[team] <= 0,"ink":ink[team],"elapsed":elapsed,"farms":farms,"graves":count_buildings(team,"grave"),"gate_share":gate_total/(5*B.GATE_HP),"broken":broken,"difficulty":difficulty,"params":ai_params[team]}
+	return {"troops":units.filter(func(u: Dictionary) -> bool: return u.team == team and u.hp > 0).size(),"lord":lords[team].lord,"ready":lords[team].hp > 0 and skill_cd[team] <= 0,"ink":ink[team],"elapsed":elapsed,"farms":farms,"graves":count_buildings(team,"grave"),"gate_share":gate_total/(5*B.GATE_HP),"broken":broken,"difficulty":difficulty,"params":ai_params[team]}
 
 func snapshot(team: int) -> Dictionary:
 	var candidates: Array = []
@@ -933,6 +971,8 @@ func update_ai(dt: float) -> void:
 			ai_clock[team] = B.AI_TICK
 			var plan: Dictionary = AI.skill_plan(skill_state(team))
 			ai_save[team] = plan.save
-			if plan.cast and cast_skill(team): continue
+			if plan.cast and cast_skill(team):
+				if time_stopped(): return
+				continue
 			ai_pending[team] = AI.decide(snapshot(team))
 			ai_delay[team] = [1.2,0.6,0.2][difficulty]

@@ -131,6 +131,12 @@
 		"size": 384.0,
 		"source": "res://assets/manuscript-v1/lord-lion.png"
 	},
+	"lord_mage": {
+		"revision": "team-material-v1",
+		"sha256": "cea6a61c05d7e19b3298a08ac437ab2ed26085212f7e3e474882a920d3b8dd29",
+		"size": 384,
+		"source": "res://assets/manuscript-v1/lord-mage.png"
+	},
 	"lord_underworld": {
 		"revision": "team-material-v1",
 		"sha256": "4fb3147177caaafc6c858554d8c361ec4b52b7ef9a998275ef8ff38c808751fa",
