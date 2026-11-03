@@ -199,6 +199,7 @@ const PRESET_LORDS := ["harvest","iron","lion"]
 # Lord speed tiers C/D/E (producer 2026-10-30): lion 45, harvest 30, iron 20.
 const LORDS := {
 	"mage":{"name":"法師領主","role":"時空型","faction":"","home_card":"crystal","hp":750.0,"damage":45.0,"speed":30.0,"skill":"時空凝滯","skill_cost":50.0,"freeze_duration":5.0,"skill_desc":"空間波動後凍結時間 %s 秒，只有友方軍隊與施法領主可以行動；產金、冷卻、投射物與選單全部暫停。"},
+	"adventure":{"name":"邊境領主","role":"主角型","faction":"normal","hp":750.0,"damage":90.0,"speed":45.0,"skill":"破陣斬","skill_cost":10.0,"skill_cells":3,"skill_damage":600.0,"skill_desc":"向前斬出長 %s 格、寬一格的劍氣，對範圍內敵軍、建築與領主造成 %s 傷害。"},
 	"underworld":{"name":"冥府領主","role":"亡者型","faction":"dark","home_card":"grave","hp":750.0,"damage":45.0,"speed":30.0,"skill":"亡者大軍","skill_cost":30.0,"summon_count":4,"skill_desc":"我方每座墓碑各召喚 %s 隻骷髏兵；沒有墓碑時無法發動。"},
 	"lion":{"name":"紅獅領主","role":"進攻型","faction":"normal","hp":750.0,"damage":90.0,"speed":45.0,"skill":"獅王號令","skill_desc":"每路有領地時各召喚一名騎士，從領地前線進攻。"},
 	"harvest":{"name":"豐收領主","role":"經濟型","faction":"normal","hp":750.0,"damage":45.0,"speed":30.0,"skill":"豐年祭","skill_desc":"每路在己方領地空格種一塊農田，全部農田回滿血並產量加倍 %s 秒。"},
@@ -218,6 +219,7 @@ static func skill_text(kind: String) -> String:
 	var desc: String = info.skill_desc % number(FEAST_BOOST) if kind == "harvest" else info.skill_desc
 	if kind == "underworld": desc = desc % int(info.summon_count)
 	if kind == "mage": desc = desc % number(info.freeze_duration)
+	if kind == "adventure": desc = desc % [str(info.skill_cells),number(info.skill_damage)]
 	return "%s（%d 金幣，冷卻 %d 秒）：%s" % [info.skill,int(skill_cost(kind)),int(SKILL_COOLDOWN),desc]
 
 # Stat tiers S..E (producer 2026-10-29; nonlinear since 2026-10-30: damage/health 30x E->S, speed 8x,

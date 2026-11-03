@@ -944,6 +944,18 @@ func draw_effects() -> void:
 	for e: Dictionary in effects:
 		var progress: float = 1-e.life/e.duration
 		match e.kind:
+			"hero_slash":
+				var direction := 1.0 if e.team == 0 else -1.0
+				var reach: float = e.length*minf(1.0,progress*4.0)
+				var start: Vector2 = e.pos+Vector2(0,-20)
+				var tip: Vector2 = start+Vector2(direction*reach,0)
+				var glow := Color("e7bd62",(1-progress)*0.75)
+				draw_colored_polygon(PackedVector2Array([start+Vector2(0,-e.width*0.35),tip,start+Vector2(0,e.width*0.35)]),Color(glow,glow.a*0.3))
+				draw_line(start,tip,glow,12*(1-progress)+2,true)
+				draw_line(start,tip,Color("fff1c0",1-progress),3,true)
+				for i: int in range(3):
+					var center := start+Vector2(direction*reach*(i+1)/3.0,0)
+					draw_arc(center,20+progress*22,-1.1 if direction > 0 else PI-1.1,1.1 if direction > 0 else PI+1.1,18,glow,3,true)
 			"teleport":
 				for p: Vector2 in [e.pos,e.to]: draw_arc(p,12+progress*30,0,TAU,32,Color(0.5,0.4,0.8,1-progress),3,true)
 				dashed(e.pos,e.to,Color(0.5,0.4,0.8,(1-progress)*0.6))
@@ -1267,7 +1279,7 @@ func draw_deck() -> void:
 		draw_fitted(lord_art("adventure"),Rect2(r.position+Vector2(6,3),Vector2(54,62)))
 		label_at(r.position+Vector2(68,23),"冒險領主",18)
 		label_at(r.position+Vector2(68,41),"近戰 · 750 血",12,Color("6f5a3e"))
-		label_at(r.position+Vector2(68,58),"先鋒力 · 召集前鋒士兵",12,RED)
+		label_at(r.position+Vector2(68,58),"破陣斬 · 10 金幣 · 前方三格",12,RED)
 	else:
 		label_at(Vector2(120,100),"村莊牌組",48)
 		var home: String = B.CARDS[B.home_card(player_lord)].name
@@ -1403,7 +1415,7 @@ func card_description(kind: String) -> String:
 
 func help_columns() -> Array[String]:
 	return [
-		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐農田；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 有選牌時取消，沒選牌時切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩，戰鬥中按 R 不重開。\n\n[b]牌組與領主[/b]\n常駐牌＋領主四選一＋自選 8 張輪轉牌；常駐牌（農田，冥府為墓碑）不輪轉、不佔名額。經典領主帶經典與中立牌，冥府領主帶黑暗與中立牌。領主由 AI 移動，只在農田後方防守；按 Q 花 %s 金幣（冥府 %s）發動技能，冷卻 %s 秒。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2，等待時間會縮短。" % [B.number(B.SKILL_COST),B.number(B.skill_cost("underworld")),B.number(B.SKILL_COOLDOWN),B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
+		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐農田；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 有選牌時取消，沒選牌時切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩，戰鬥中按 R 不重開。\n\n[b]牌組與領主[/b]\n常駐牌＋領主四選一＋自選 8 張輪轉牌；常駐牌（農田，冥府為墓碑）不輪轉、不佔名額。經典領主帶經典與中立牌，冥府領主帶黑暗與中立牌。領主由 AI 移動，只在農田後方防守；按 Q 花 %s 金幣（冥府 %s、主角 %s）發動技能，冷卻 %s 秒。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2，等待時間會縮短。" % [B.number(B.SKILL_COST),B.number(B.skill_cost("underworld")),B.number(B.skill_cost("adventure")),B.number(B.SKILL_COOLDOWN),B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
 		"[b]種田與防守[/b]\n農田自己產金幣；農民從田後方出發，順路耕田加速並回血。相同建築覆蓋自己的舊建築可補滿生命。\n部隊只往前走，不追身後範圍外的敵人；城門不反擊，靠領主、部隊與建築防守。\n\n[b]破門與勝負[/b]\n建築與部隊限己方領地：建築、城牆周圍八格先佔先得，失去所有己方建築覆蓋就釋出。敵兵破門後需停下拆殘垣 %s 秒，再向家門前進。\n任何敵兵走進家門就輸，沒有時間限制。\n\n[b]觀戰模式[/b]\n開戰前調整雙方牌組與領主（預設隨機），AI 出牌；1–4 切換 ×1／×2／×4／×8，＋／－ 逐級調速。空白鍵暫停。" % B.number(B.RUBBLE_TIME)
 	]
 

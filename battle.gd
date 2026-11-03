@@ -526,6 +526,8 @@ func cast_skill(team: int) -> bool:
 					u.card = "skill"
 					u.spawn_delay = i*0.12
 				if record_events: visual_targets.append(b.pos)
+		"adventure":
+			preload("res://hero_slash.gd").cast(self,team)
 		"lion":
 			# One knight per lane at the front-most deploy column of that lane.
 			for lane: int in active_lanes:
@@ -942,7 +944,7 @@ func skill_state(team: int) -> Dictionary:
 	for hp: float in gates[team]:
 		gate_total += hp
 		if hp <= 0: broken += 1
-	return {"troops":units.filter(func(u: Dictionary) -> bool: return u.team == team and u.hp > 0).size(),"lord":lords[team].lord,"ready":lords[team].hp > 0 and skill_cd[team] <= 0,"ink":ink[team],"elapsed":elapsed,"farms":farms,"graves":count_buildings(team,"grave"),"gate_share":gate_total/(5*B.GATE_HP),"broken":broken,"difficulty":difficulty,"params":ai_params[team]}
+	return {"slash_targets":units.filter(func(u: Dictionary) -> bool: return u.team != team and u.hp > 0 and u.spawn_delay <= 0 and preload("res://hero_slash.gd").contains(lords[team].pos,u.pos,team)).size() if lords[team].lord == "adventure" else 0,"troops":units.filter(func(u: Dictionary) -> bool: return u.team == team and u.hp > 0).size(),"lord":lords[team].lord,"ready":lords[team].hp > 0 and skill_cd[team] <= 0,"ink":ink[team],"elapsed":elapsed,"farms":farms,"graves":count_buildings(team,"grave"),"gate_share":gate_total/(5*B.GATE_HP),"broken":broken,"difficulty":difficulty,"params":ai_params[team]}
 
 func snapshot(team: int) -> Dictionary:
 	var candidates: Array = []

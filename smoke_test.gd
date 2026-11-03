@@ -1098,7 +1098,7 @@ func test_skill_visuals() -> void:
 			check(cue.duration == 1.0 and cue.lord == kind and cue.team == team,"skill visual identity and duration")
 			var count: int = game.model.buildings.filter(func(b: Dictionary) -> bool: return b.team == team and b.kind == "farm").size() if kind == "harvest" else 5
 			if kind == "underworld": count = game.model.buildings.filter(func(b: Dictionary) -> bool: return b.team == team and b.kind == "grave").size()
-			if kind == "mage": count = 0 # full-page ripple is sampled from the independent freeze clock
+			if kind in ["mage","adventure"]: count = 0 # independent full-page ripple / directional slash
 			check(cue.targets.size() == count,"all affected lanes or farms get a visual cue")
 			if kind == "mage":
 				game._process(1.1)
