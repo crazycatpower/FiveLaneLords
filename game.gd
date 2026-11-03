@@ -406,7 +406,7 @@ static func team_material(kind: String, uv: Vector2, c: Color) -> bool:
 	if kind == "castle_wall" and Rect2(0.48,0.55,0.26,0.45).has_point(uv): return false # recessed timber gate
 	if kind == "catapult": return uv.x > 0.73 and uv.y < 0.28 and c.a >= 0.05 and c.s >= 0.35 and c.v >= 0.20 and (c.h <= 0.08 or c.h >= 0.95)
 	if kind == "bonewall": return (uv.x < 0.30 or uv.x > 0.80) and c.a >= 0.05 and c.s >= 0.60 and c.v >= 0.30 and (c.h <= 0.075 or c.h >= 0.95)
-	if kind in ["farm","farmer","harvest","rain","fire"]: return false
+	if kind in ["farm","farmer","harvest","rain","fire","teleport_trap","blast_trap"]: return false
 	if kind == "ox" and not Rect2(0.30,0.20,0.26,0.36).has_point(uv): return false
 	if kind == "ram" and uv.y > 0.55: return false
 	# Architecture's weathered red paint is less saturated than character cloth.
@@ -457,9 +457,11 @@ func draw_fitted(texture: Texture2D, box: Rect2, shade: Color = Color.WHITE, bot
 	draw_texture_rect(texture,fitted_rect(texture.get_size(),box,bottom),false,shade)
 
 func actor_rect(kind: String) -> Rect2:
+	if kind in ["teleport_trap","blast_trap"]: return fitted_rect(art(kind).get_size(),Rect2(-45,-8,90,46),true)
+	if kind == "arcane_tower": return fitted_rect(art(kind).get_size(),Rect2(-40,-65,80,100),true)
 	if kind == "corpse_giant": return fitted_rect(art(kind).get_size(),Rect2(-52,-85,104,104),true)
 	if kind.begins_with("lord_"): return fitted_rect(art(kind).get_size(),Rect2(-47,-67,94,94),true)
-	if kind in ["farm","mill","tower","scarecrow","grave","bonewall","barricade","catapult"]: return fitted_rect(art(kind).get_size(),Rect2(-45,-39,90,78),true)
+	if kind in ["farm","mill","tower","scarecrow","grave","bonewall","barricade","crystal","catapult"]: return fitted_rect(art(kind).get_size(),Rect2(-45,-39,90,78),true)
 	var width := 112.0 if kind in ["ox","ram"] else 80.0
 	return fitted_rect(art(kind).get_size(),Rect2(-width/2,-63,width,80),true)
 
@@ -469,6 +471,11 @@ func draw_actor(kind: String, team: int, pos: Vector2, face: float, shade: Color
 	draw_set_transform(Vector2.ZERO)
 
 func draw_combat_actor(kind: String, actor: Dictionary, pos: Vector2, face: float, shade: Color = Color.WHITE) -> void:
+	if kind == "crystal":
+		var brightness := lerpf(0.30,1.0,clampf(actor.hp/actor.max_hp,0,1))
+		shade *= Color(brightness,brightness,brightness,1)
+	if kind in ["teleport_trap","blast_trap"]:
+		draw_arc(pos+Vector2(0,17),35,0,TAU,32,RED if actor.team == 0 else BLUE,2,true)
 	var pose: Dictionary = attack_animation.pose(actor,model.elapsed) if fx_enabled else {}
 	if pose.is_empty():
 		draw_actor(kind,actor.team,pos,face,shade)
@@ -856,7 +863,7 @@ func draw_preview() -> void:
 					if b.kind == "farm" and b.team == 0 and b.cell.y == cell.y and b.cell.x >= cell.x: draw_circle(b.pos,40,color,false,3)
 
 # Colours of the cause-and-effect links (battle.gd link()): one family per relation.
-const LINK_COLORS := {"soul":Color("b9a3d6"),"devour":Color("9b2f2f"),"summon":Color("7b4fa0"),"heal":Color("4f9a4a"),"harvest":Color("e2b23a")}
+const LINK_COLORS := {"repair":Color("c4a75f"),"soul":Color("b9a3d6"),"devour":Color("9b2f2f"),"summon":Color("7b4fa0"),"heal":Color("4f9a4a"),"harvest":Color("e2b23a")}
 
 # A light travelling from cause to effect along a shallow arc, with a fading trail and a ring where
 # it lands, so the player sees what fed what.
@@ -911,6 +918,17 @@ func draw_effects() -> void:
 	for e: Dictionary in effects:
 		var progress: float = 1-e.life/e.duration
 		match e.kind:
+			"teleport":
+				for p: Vector2 in [e.pos,e.to]: draw_arc(p,12+progress*30,0,TAU,32,Color(0.5,0.4,0.8,1-progress),3,true)
+				dashed(e.pos,e.to,Color(0.5,0.4,0.8,(1-progress)*0.6))
+			"arcane_impact":
+				draw_line(e.from,e.pos,Color(0.55,0.55,0.9,1-progress),3,true)
+				draw_arc(e.pos,e.radius*progress,0,TAU,32,Color(0.6,0.5,0.9,1-progress),3,true)
+			"trap_blast":
+				draw_arc(e.pos,e.radius*progress,0,TAU,32,Color(0.85,0.35,0.12,1-progress),4,true)
+			"repair":
+				draw_line(e.pos+Vector2(-6,-20-progress*15),e.pos+Vector2(6,-20-progress*15),Color(0.8,0.7,0.3,1-progress),3,true)
+				draw_line(e.pos+Vector2(0,-26-progress*15),e.pos+Vector2(0,-14-progress*15),Color(0.8,0.7,0.3,1-progress),3,true)
 			"stone_impact": draw_arc(e.pos,e.radius*progress,0,TAU,28,Color(0.40,0.30,0.18,1-progress),3,true)
 			"summoned", "boneburst": draw_arc(e.pos,12+progress*36,0,TAU,24,Color(0.55,0.38,0.60,1-progress),2,true)
 			"skill": draw_skill_effect(e,progress)

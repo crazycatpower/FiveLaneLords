@@ -1,4 +1,5 @@
 extends RefCounted
+const Arcane = preload("res://arcane_mechanics.gd")
 const AI = preload("res://enemy_ai.gd")
 const Lord = preload("res://lord.gd")
 const B = preload("res://balance.gd")
@@ -162,7 +163,10 @@ func production_rate(team: int) -> float:
 	var rate := 1.0/B.BASE_INTERVAL
 	for b: Dictionary in buildings:
 		if b.team == team and b.hp > 0 and b.kind == "farm": rate += B.FARM_DROP/B.FARM_INTERVAL*farm_speed(b)
-	return rate*multiplier()+count_buildings(team,"grave")*B.CARDS.grave.income/B.CARDS.grave.period
+	var crystal_rate := 0.0
+	for b: Dictionary in buildings:
+		if b.team == team and b.hp > 0 and b.kind == "crystal": crystal_rate += B.CARDS.crystal.income/Arcane.crystal_period(b)
+	return crystal_rate+rate*multiplier()+count_buildings(team,"grave")*B.CARDS.grave.income/B.CARDS.grave.period
 
 func gain_ink(team: int, amount: float) -> void:
 	stats[team].produced += amount
@@ -198,7 +202,7 @@ func build_lookups() -> void:
 		lane_foes[against][u.lane].append(u)
 	for b: Dictionary in buildings:
 		var against: int = 1-b.team
-		lane_foe_buildings[against][b.cell.y].append(b)
+		if not B.CARDS[b.kind].has("trap"): lane_foe_buildings[against][b.cell.y].append(b)
 		if b.kind == "scarecrow": lane_foe_taunts[against][b.cell.y].append(b)
 		elif b.kind == "mill" and b.hp > 0: lane_mill[b.team][b.cell.y] = true
 
@@ -652,6 +656,7 @@ func step(dt: float) -> void:
 	update_ai(dt)
 	tick_clocks(dt)
 	build_lookups()
+	Arcane.update_traps(self)
 	update_buildings(dt)
 	update_spells(dt)
 	update_zones(dt)
@@ -692,6 +697,7 @@ func update_buildings(dt: float) -> void:
 			refresh_territory()
 			event("death",b.pos,b.team,{"card":b.kind,"art_kind":b.kind,"face":1.0})
 			continue
+		if Arcane.update_building(self,b,dt): continue
 		if b.kind == "grave":
 			b.production += dt
 			if b.production >= B.CARDS.grave.period: grave_drop(b)
@@ -770,6 +776,7 @@ func update_unit(u: Dictionary, dt: float) -> bool:
 	if not target.is_empty():
 		if u.cd <= 0: attack(u,target)
 		return false
+	if Arcane.repair(self,u): return false
 	if cultivate(u,dt): return false
 	return march(u,data,dt)
 

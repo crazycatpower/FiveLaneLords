@@ -10,6 +10,7 @@ static func style(kind: String) -> String:
 	match kind:
 		"hunter": return "bow"
 		"tower": return "tower"
+		"arcane_tower": return "cast"
 		"catapult": return "siege"
 		"necromancer", "healer", "lord_underworld", "lord_harvest": return "cast"
 		"corpse_giant", "knight", "reaper", "lord_lion", "lord_iron": return "heavy"

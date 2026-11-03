@@ -1,6 +1,11 @@
 extends RefCounted
 # Original flavor; story connections remain implicit and never affect gameplay.
 const TEXT := {
+	"artificer": "他修好了磨坊、城門和橋欄。軍需官問稅單能不能也修大一點，他說那得先把良心拆下來。",
+	"crystal": "礦工說它越老越不肯亮。村長倒覺得這很像自己那位領了薪水就開始打盹的表弟。",
+	"teleport_trap": "第五聲鼓響起時，全隊終於抵達了出發的地方。嚮導堅稱這是抄近路。",
+	"blast_trap": "工匠特地刻了『勿踩』。軍需官驗收時說字太小，走近兩步仔細看。",
+	"arcane_tower": "法師說這座塔從不瞄準錯的人。只是旁邊的人，也常常被算進同一道題裡。",
 	"barricade": "橋上的木頭又少了一截。軍需官說只是借來擋路，村民問他打算讓哪條路先通。",
  "farm": "領主說，金幣不會從土裡長出來。農民沒有糾正他，畢竟稅單還沒寄到。",
  "farmer": "阿禾每天帶兩份午飯。稻草人吃不吃？「以前挺挑食的。」",

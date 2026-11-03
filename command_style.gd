@@ -1,10 +1,10 @@
 extends RefCounted
 const ROLES := {
- "economy":["farm","grave","farmer","mill","harvest"],
+ "economy":["crystal","farm","grave","farmer","mill","harvest"],
  "melee":["militia","mob","knight","shieldguard","corpse_giant","skeleton","ghoul","reaper","ox","ram","spearbow","raven"],
- "ranged":["hunter","catapult","tower","rain","fire"],
- "support":["healer","drummer","necromancer","guard"],
- "control":["barricade","curse","plague","bonewall","scarecrow"]
+ "ranged":["arcane_tower","hunter","catapult","tower","rain","fire"],
+ "support":["artificer","healer","drummer","necromancer","guard"],
+ "control":["teleport_trap","blast_trap","barricade","curse","plague","bonewall","scarecrow"]
 }
 static func card_tint(kind: String) -> Color:
 	for role: String in ROLES:

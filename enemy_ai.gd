@@ -145,6 +145,12 @@ static func decide(s: Dictionary) -> Dictionary:
 				if c.kind == "farm" and farm_total < farm_goal:
 					# Spread farms over the lanes, back row first, away from lanes under pressure.
 					score = pr.get("farm_score",800.0)-my_farms[lane]*45-col*15-urgency[lane]*0.05+jitter(lane,s.elapsed)*0.2
+				elif c.kind == "crystal":
+					score = 710-col*12-urgency[lane]*0.1
+				elif c.kind == "artificer":
+					for b: Dictionary in s.buildings:
+						if b.team == team and b.hp > 0 and b.hp < b.max_hp and not B.CARDS[b.kind].has("trap") and b.pos.distance_to(c.pos) <= data.repair_range:
+							score = maxf(score,720+(1-b.hp/b.max_hp)*100)
 				elif c.kind == "farmer":
 					var ahead := 0
 					for b: Dictionary in s.buildings:

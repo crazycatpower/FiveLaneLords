@@ -43,6 +43,12 @@ const LORD_HYSTERESIS := 1.5
 # and "spread": true to deploy "count" troops in each of three adjacent lanes.
 # "cooldown": seconds a card must wait after it enters the hand before it can be played (0..30).
 const CARDS := {
+	"artificer":{"name":"工匠","role":"維修·支援","type":"unit","ai":["no_defend"],"cost":6,"cooldown":8.0,"count":1,"hp":200.0,"damage":6.0,"interval":1.7,"range":47.0,"speed":45.0,"repair_range":100.0,"repair_amount":50.0,"repair_interval":1.7},
+	"crystal":{"name":"水晶","role":"耗能·經濟","type":"building","cost":10,"cooldown":20.0,"hp":400.0,"expires":-1.0,"period":10.0,"max_period":20.0,"income":2.0,"decay_fraction":0.1},
+	"teleport_trap":{"name":"傳送法陣","role":"陷阱·轉移","type":"building","ai":["defend_building"],"cost":6,"cooldown":12.0,"hp":100.0,"expires":-1.0,"trap":"teleport","trigger_radius":26.0,"radius":110.0},
+	"blast_trap":{"name":"爆炸法陣","role":"陷阱·爆破","type":"building","ai":["defend_building"],"cost":5,"cooldown":12.0,"hp":100.0,"expires":-1.0,"trap":"blast","trigger_radius":26.0,"radius":110.0,"explosion_damage":150.0},
+	"arcane_tower":{"name":"祕法塔","role":"範圍·防守","type":"building","ai":["guard","defend_building","obstacle"],"cost":16,"cooldown":10.0,"hp":400.0,"expires":-1.0,"range":210.0,"interval":2.4,"radius":68.0,"area_damage":80.0},
+
 	"barricade":{"name":"木拒馬","role":"耐久·阻擋","type":"building","ai":["defend_building","obstacle"],"cost":2,"cooldown":6.0,"hp":750.0,"expires":-1.0},
 	"corpse_giant":{"name":"腐屍巨人","role":"重裝·屍爆","faction":"dark","series":"dark","type":"unit","cost":21,"cooldown":12.0,"count":1,"hp":1500.0,"damage":45.0,"interval":1.2,"range":47.0,"speed":20.0,"on_death_spawn":["skeleton",4]},
 	"curse":{"name":"詛咒","role":"死後·為奴","faction":"dark","series":"dark","type":"spell","ai":["defend_spell","wave_spell"],"cost":4,"cooldown":10.0,"radius":110.0,"curse_duration":10.0},
@@ -149,7 +155,7 @@ static func validate() -> Array[String]:
 				if not c.has(key): problems.append("%s: a %s needs %s" % [kind,type,key])
 		for stat: String in TIERS:
 			if c.has(stat) and (type == "unit" or c.has("range")) and tier(stat,c[stat]).is_empty(): problems.append("%s: %s %s is not an S-E tier value" % [kind,stat,str(c[stat])])
-		for key: String in ["radius","spread_radius"]:
+		for key: String in ["radius","spread_radius","trigger_radius"]:
 			if c.has(key) and tier("radius",c[key]).is_empty(): problems.append("%s: %s %s is not a radius tier value" % [kind,key,str(c[key])])
 		for key: String in AREA_DAMAGE_KEYS:
 			if c.has(key) and (key != "damage" or type == "spell") and tier("area_damage",c[key]).is_empty(): problems.append("%s: %s %s is not an area damage tier value" % [kind,key,str(c[key])])
@@ -158,6 +164,10 @@ static func validate() -> Array[String]:
 		if not c.get("faction","") in FACTIONS: problems.append("%s: faction must be normal, dark or absent (neutral)" % kind)
 		for tag in c.get("ai",[]):
 			if not tag in AI_TAGS: problems.append("%s: unknown AI tag %s" % [kind,str(tag)])
+		if c.has("trap") and not c.trap in ["teleport","blast"]: problems.append(kind+": unknown trap")
+		if c.has("max_period") and c.max_period < c.get("period",0): problems.append(kind+": invalid production period")
+		if c.has("decay_fraction") and (c.decay_fraction <= 0 or c.decay_fraction > 1): problems.append(kind+": invalid decay fraction")
+		if c.has("repair_amount") and (c.repair_amount <= 0 or c.get("repair_interval",0) <= 0 or c.get("repair_range",0) <= 0): problems.append(kind+": invalid repair values")
 		if c.has("on_death_spawn"):
 			var spawn: Array = c.on_death_spawn
 			if spawn.size() != 2 or not CARDS.has(spawn[0]) or CARDS[spawn[0]].type != "unit" or spawn[1] <= 0: problems.append("%s: invalid on_death_spawn" % kind)
@@ -268,6 +278,11 @@ static func card_description(kind: String, cards: Dictionary = CARDS) -> String:
 		lines.append("範圍半徑 %s；落下時間 %s 秒。" % [number(d.radius),number(SPELL_DELAY)])
 		if d.has("damage"): lines.append("部隊傷害 %s、建築傷害 %s、城門傷害 %s。" % [number(d.damage),number(d.building_damage),number(d.gate_damage)])
 	match kind:
+		"artificer": lines.append("無敵人在攻擊距離內時，停下維修距離 %s 內的受損友方建築，每 %s 秒恢復 %s 生命；不復活已摧毀建築。" % [number(d.repair_range),number(d.repair_interval),number(d.repair_amount)])
+		"crystal": lines.append("每次產出 %s 金幣並損失最大生命的 %s%%，自身耗損最低留 1 生命。產出間隔隨生命降低由 %s 秒延長至 %s 秒；維修可恢復效率，敵人仍能摧毀。" % [number(d.income),number(d.decay_fraction*100),number(d.period),number(d.max_period)])
+		"teleport_trap": lines.append("敵方地面部隊踩入 %s 範圍後消耗，將 %s 範圍內敵方地面部隊一起送到同一條隨機其他有效路的敵方起點；沒有共同可用路徑時不觸發。不阻擋或吸引普攻。" % [number(d.trigger_radius),number(d.radius)])
+		"blast_trap": lines.append("敵方地面部隊踩入 %s 範圍後消耗，對 %s 範圍內敵方地面部隊造成 %s 傷害。不阻擋或吸引普攻。" % [number(d.trigger_radius),number(d.radius),number(d.explosion_damage)])
+		"arcane_tower": lines.append("每 %s 秒攻擊射程 %s 內敵軍，對落點半徑 %s 內敵方部隊造成 %s 範圍傷害，可對空。" % [number(d.interval),number(d.range),number(d.radius),number(d.area_damage)])
 		"barricade": lines.append("沒有特殊效果。不攻擊、不產金、不反傷；依一般建築規則提供領地。")
 		"corpse_giant": lines.append("死亡時在原地召喚 %d 名%s；自身死亡仍會加速墓碑並觸發吞噬。" % [d.on_death_spawn[1],cards[d.on_death_spawn[0]].name])
 		"curse": lines.append("範圍內敵兵被詛咒 %s 秒；期間死亡，在原地變成我方骷髏兵。再次施放刷新時間，不疊加。" % number(d.curse_duration))

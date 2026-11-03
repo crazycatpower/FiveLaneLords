@@ -1,9 +1,27 @@
 {
+	"arcane_tower": {
+		"revision": "team-material-v1",
+		"sha256": "b1a394112a9ec78df9a767bbd3cc5a1cd1b6872e92f07fbb654f05e560269894",
+		"size": 384,
+		"source": "res://assets/manuscript-v1/arcane_tower.png"
+	},
+	"artificer": {
+		"revision": "team-material-v1",
+		"sha256": "fe0f88bef9f4492daa76e6ab6de21976bea9f98f15fc63039a8082e3b60715b3",
+		"size": 384,
+		"source": "res://assets/manuscript-v1/artificer.png"
+	},
 	"barricade": {
 		"revision": "team-material-v1",
 		"sha256": "c2e0512027ab56f60ed67c1f7d432d36abca82c2990d26eca94576ad08b77945",
 		"size": 384,
 		"source": "res://assets/manuscript-v1/barricade.png"
+	},
+	"blast_trap": {
+		"revision": "team-material-v1",
+		"sha256": "684b1fadcd78b7215d09a942d81549dfd84964fc9150a4fb398a6b603689d72d",
+		"size": 384,
+		"source": "res://assets/manuscript-v1/blast_trap.png"
 	},
 	"bonewall": {
 		"revision": "team-material-v1",
@@ -40,6 +58,12 @@
 		"sha256": "abc1f26850533b820446a82a04a8fcd5a95d51d55a41a356f8f05a5b325a7f92",
 		"size": 384.0,
 		"source": "res://assets/manuscript-v1/crown.png"
+	},
+	"crystal": {
+		"revision": "team-material-v1",
+		"sha256": "a99f8b59a990d5e0869009eac0c8293ba9ec11804b81b1b43932415c971b753a",
+		"size": 384,
+		"source": "res://assets/manuscript-v1/crystal.png"
 	},
 	"curse": {
 		"revision": "team-material-v1",
@@ -184,6 +208,12 @@
 		"sha256": "e9fbc70e07d6a545aae1bc93f88725221099c095331618a7305516999782bc37",
 		"size": 384.0,
 		"source": "res://assets/manuscript-v1/skeleton.png"
+	},
+	"teleport_trap": {
+		"revision": "team-material-v1",
+		"sha256": "a1758c53c0703cd493fe1e0796d4696d0588f3668d4b9160827b39d917aa8349",
+		"size": 384,
+		"source": "res://assets/manuscript-v1/teleport_trap.png"
 	},
 	"tower": {
 		"revision": "team-material-v1",
