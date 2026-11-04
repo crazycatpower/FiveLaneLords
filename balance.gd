@@ -86,7 +86,7 @@ const CARDS := {
 	"ox":{"name":"耕牛","role":"衝鋒·拆建","faction":"normal","type":"unit","ai":["raid"],"cost":11,"cooldown":10.0,"count":2,"hp":350.0,"damage":26.0,"interval":1.9,"range":47.0,"speed":120.0},
 	"fire":{"name":"火罐","role":"燒田法術","type":"spell","ai":["defend_spell","wave_spell","raid"],"cost":9,"cooldown":15.0,"radius":100.0,"damage":370.0,"building_damage":600.0,"gate_damage":140.0},
 	"knight":{"name":"騎士","role":"主坦","faction":"normal","type":"unit","cost":26,"cooldown":15.0,"count":2,"hp":900.0,"damage":70.0,"interval":1.9,"range":47.0,"speed":27.0},
-	"guard":{"name":"聖堂護衛","role":"重裝軍團","faction":"normal","type":"unit","cost":27,"cooldown":18.0,"members":[["knight",2,0.0],["healer",2,50.0]],"art":["knight","healer"]},
+	"guard":{"name":"聖堂護衛","role":"重裝軍團","faction":"normal","type":"unit","cost":28,"cooldown":18.0,"members":[["knight",2,0.0],["healer",2,50.0]],"art":["knight","healer"]},
 	"mill":{"name":"磨坊","role":"大型經濟","faction":"normal","type":"building","ai":["obstacle"],"cost":16,"cooldown":20.0,"hp":900.0,"expires":-1.0},
 	"ram":{"name":"攻城槌","role":"終結·破門","type":"unit","hits":"buildings","ai":["hold"],"cost":20,"cooldown":30.0,"members":[["ram",1,0.0],["militia",4,-40.0]],"art":["ram","militia"],"count":1,"hp":1500.0,"damage":360.0,"interval":2.4,"range":47.0,"speed":20.0}
 }
