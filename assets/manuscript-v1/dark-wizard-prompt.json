@@ -1,0 +1,6 @@
+{
+  "tool": "built-in image_gen",
+  "prompt": "Create ONE NEW game character cutout using the attached necromancer ONLY as reference for medieval illuminated manuscript style, scale, parchment pigment texture and dark ink outline. This new DARK SORCERER must be distinct: gaunt hooded living adult wizard, shadowed pale face, charcoal purple robe with muted RED shoulder mantle and red sash for team recoloring, weathered gold trim. Full body standing and facing RIGHT, both feet fully visible, anatomically clear two arms and two hands: one hand grips a tall crooked wooden staff topped by a smoky purple crystal, other open hand gestures forward holding three small pale soul wisps. High damage soul mage, ominous but no gore. Flat hand-painted medieval bestiary illustration, warm grainy parchment texture WITHIN the figure, simple expressive linework, no 3D realism, no glossy render, no background, no ground, no lettering, no border, no sheet, no multiple poses. Transparent background. Generous transparent padding around complete staff, robe, feet, and wisps. Match reference art style closely, but no skull-topped staff or book.",
+  "reference": "necromancer.png",
+  "output": "dark_wizard.png"
+}

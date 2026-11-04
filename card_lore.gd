@@ -1,6 +1,7 @@
 extends RefCounted
 # Human-crafted witty flavor text preserving all implicit lore threads, puns, and dark humor.
 const TEXT := {
+	"dark_wizard":"他答應讓每個人都活在他的心裡。藍袖子的士兵問能不能改成名冊，他說太晚了。",
 	"summon_trap":"工匠說一個法陣能看三次門。軍需官問看門的要幾份薪水，他看了看那三個腦袋，決定裝沒聽見。",
 	"chimera":"獅子要肉，山羊要草，蛇說稅單上只寫了一張嘴。牠們唯一同意的事，是藍袖子不好吃。",
 	"lord_rune":"她在橋頭刻下禁止通行。軍需官踩上去，終於親自體會了公文的約束力。",

@@ -884,6 +884,10 @@ func draw_battle() -> void:
 			draw_line(tip-tail*1.6,tip,Color("8966b8",0.35),5)
 			draw_line(tip-tail,tip,Color("c5a4eb"),2)
 			draw_polyline(PackedVector2Array([tip-Vector2(arrow.direction*6,4),tip,tip-Vector2(arrow.direction*6,-4)]),Color("ead7ff"),2)
+		elif arrow.kind == "dark_wizard":
+			draw_line(arrow.pos-Vector2(18*arrow.get("direction",1.0),0),arrow.pos,Color(0.48,0.22,0.65,0.7),5,true)
+			draw_circle(arrow.pos,6,Color("aa6bce"))
+			draw_circle(arrow.pos,2.5,Color("f0deff"))
 		else: draw_line(arrow.pos-Vector2(12*arrow.get("direction",1.0),0),arrow.pos,INK,2)
 	draw_preview()
 	draw_effects()
@@ -1153,6 +1157,13 @@ func draw_effects() -> void:
 				for i in range(6):
 					var v := Vector2.from_angle(i*TAU/6)*30
 					draw_line(e.pos+v*.7,e.pos+v,Color(0.8,0.65,1.0,1-progress),3)
+			"soul_absorb":
+				for i: int in range(3):
+					var travel: float = clampf(progress*1.4-i*0.14,0,1)
+					var mote: Vector2 = e.pos.lerp(e.to,travel)+Vector2(0,-sin(travel*PI)*24)
+					draw_circle(mote,7-i,Color(0.65,0.38,0.85,1-progress))
+					draw_circle(mote,3,Color(0.95,0.85,1.0,1-progress))
+				draw_arc(e.to,10+progress*24,0,TAU,24,Color(0.7,0.4,0.9,1-progress),3,true)
 			"blood_gain":
 				draw_circle(e.pos+Vector2(0,-20-progress*25),3,Color(0.65,0.05,0.15,1-progress))
 			"repair":

@@ -1,4 +1,5 @@
 extends RefCounted
+const DarkSorcery = preload("res://dark_sorcery.gd")
 const LordExpansion = preload("res://lord_expansion.gd")
 const Arcane = preload("res://arcane_mechanics.gd")
 const AI = preload("res://enemy_ai.gd")
@@ -353,6 +354,8 @@ func deployment_column(team: int, lane: int, requested: int) -> int:
 func deploy(team: int, kind: String, cell: Vector2i) -> void:
 	var card: Dictionary = B.CARDS[kind]
 	var groups: Array = card.get("members",[[kind,card.get("count",1),0.0]])
+	var front_offset := 0.0
+	for group: Array in groups: front_offset = minf(front_offset,group[2])
 	var lanes: Array = [cell.y]
 	if card.get("spread",false):
 		var middle := clampi(cell.y,1,3)
@@ -366,12 +369,16 @@ func deploy(team: int, kind: String, cell: Vector2i) -> void:
 		if not lane in active_lanes: continue
 		var col := deployment_column(team,lane,cell.x)
 		if col < 0: continue
-		var spot := L.cell_center(Vector2i(col,lane))
+		# Place squads at the rear of the selected cell, mirrored for blue, so enemies
+		# inside that cell remain in front of the freshly deployed interceptors.
+		var spot := L.cell_center(Vector2i(col,lane))-Vector2(forward*(L.CELL_SIZE.x*0.5-12.0),0)
 		# Each lane counts its own spawn order, so a three-lane squad steps out in all lanes at once.
 		var n := 0
 		for group: Array in groups:
 			for i: int in range(group[1]):
-				var u := spawn_unit(team,lane,group[0],spot-Vector2(forward*group[2],0))
+				var spawn_pos := spot-Vector2(forward*(group[2]-front_offset),0)
+				spawn_pos.x = clampf(spawn_pos.x,L.GRID_ORIGIN.x+12.0,L.GRID_ORIGIN.x+L.GRID_SIZE.x-12.0)
+				var u := spawn_unit(team,lane,group[0],spawn_pos)
 				u.spawn_delay = n*0.12
 				u.card = kind
 				if march < INF: u.march = march
@@ -400,22 +407,25 @@ func trigger_drum(u: Dictionary) -> void:
 	team_drum_until[u.team] = maxf(team_drum_until[u.team],elapsed+dur)
 	event("drum",u.pos,u.team,{"duration":dur})
 
-func damage(target: Dictionary, amount: float, team: int, kind: String, source: Dictionary = {}) -> void:
+func damage(target: Dictionary, amount: float, team: int, kind: String, source: Dictionary = {}, sacrifice: bool = false) -> void:
 	if target.hp <= 0: return
 	if amount <= 0: return
 	if not target.get("phased",false): target.stealthed = false
-	amount *= 1.0-Arcane.resonance(self,target)
-	if target.get("armor",0.0) > 0: amount = maxf(1.0,amount-target.armor)
+	if not sacrifice:
+		amount *= 1.0-Arcane.resonance(self,target)
+		if target.get("armor",0.0) > 0: amount = maxf(1.0,amount-target.armor)
 	var dealt := minf(amount,target.hp)
 	target.hp -= amount
-	LordExpansion.drain(self,source,dealt,target.pos)
-	Arcane.blink(self,target)
+	if not sacrifice:
+		LordExpansion.drain(self,source,dealt,target.pos)
+		Arcane.blink(self,target)
 	if target.kind == "lord":
 		target.last_hit = elapsed
 		if target.hp <= 0: target.respawn = B.LORD_RESPAWN
 	target.flash = 0.08
-	stats[team].damage[kind] = stats[team].damage.get(kind,0.0)+dealt
+	if not sacrifice: stats[team].damage[kind] = stats[team].damage.get(kind,0.0)+dealt
 	event("hit",target.pos,target.team)
+	if target.hp <= 0 and not sacrifice: DarkSorcery.rescue(self,target)
 	if target.has("cell") and target.team == 0: building_alarm[target.cell.y] = 1.5
 	if target.hp <= 0:
 		if target.has("serial"):

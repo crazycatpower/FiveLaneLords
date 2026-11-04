@@ -12,7 +12,7 @@ static func style(kind: String) -> String:
 		"tower": return "tower"
 		"lord_rune", "arcane_tower", "chronomancer": return "cast"
 		"catapult": return "siege"
-		"necromancer", "healer", "lord_mage", "lord_underworld", "lord_harvest": return "cast"
+		"dark_wizard", "necromancer", "healer", "lord_mage", "lord_underworld", "lord_harvest": return "cast"
 		"lord_adventure": return "cleave"
 		"lord_vampire", "arcane_golem", "corpse_giant", "knight", "reaper", "lord_lion", "lord_iron": return "heavy"
 		"ram", "ox": return "ram"

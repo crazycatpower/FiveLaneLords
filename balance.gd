@@ -43,6 +43,7 @@ const LORD_HYSTERESIS := 1.5
 # and "spread": true to deploy "count" troops in each of three adjacent lanes.
 # "cooldown": seconds a card must wait after it enters the hand before it can be played (0..30).
 const CARDS := {
+	"dark_wizard":{"name":"黑暗巫師","role":"高傷·噬魂","faction":"dark","series":"dark","type":"unit","projectile":true,"soul_bargain":true,"cost":18,"cooldown":14.0,"count":1,"hp":210.0,"damage":110.0,"interval":1.9,"range":230.0,"speed":36.0},
 	"summon_trap":{"name":"召喚法陣","role":"陷阱·召獸","faction":"magic","series":"magic","type":"building","ai":["defend_building"],"cost":6,"cooldown":12.0,"hp":80.0,"expires":-1.0,"trap":"summon","charges":3,"trigger_radius":26.0,"radius":52.0,"summon_kind":"chimera","summon_count":3},
 	"chimera":{"name":"嵌合獸","role":"召喚物·近戰","faction":"magic","series":"magic","type":"unit","summon_only":true,"cost":1,"cooldown":0.0,"count":1,"hp":130.0,"damage":16.0,"interval":1.4,"range":47.0,"speed":50.0},
 	"blink_blade":{"name":"閃現劍士","role":"突進·穿陣","type":"unit","faction":"magic","series":"magic","cost":9,"cooldown":8.0,"count":3,"hp":130.0,"damage":42.0,"interval":0.85,"range":47.0,"speed":65.0,"blink_step":0.25},
@@ -402,6 +403,7 @@ static func card_description(kind: String, cards: Dictionary = CARDS) -> String:
 	match kind:
 		"summon_trap": lines.append("敵方地面部隊踩入 %s 範圍時，召喚 %d 隻%s；共可觸發 %d 次。同一名敵兵只觸發一次，同時踩入的一群只消耗一次。飛行與相位單位不觸發。" % [number(d.trigger_radius),d.summon_count,cards[d.summon_kind].name,d.charges])
 		"chimera": lines.append("由召喚法陣召喚的地面近戰部隊；不能直接加入牌組。")
+		"dark_wizard": lines.append("致命傷害時吞噬 3×3 格內最近的友方部隊，以其最大生命續命，可反覆觸發。領主、建築與未登場者除外。")
 		"blink_blade": lines.append("每次受傷向前閃現 %s 格，優先攻擊前方；不能越過城門。" % number(d.blink_step))
 		"arcane_golem": lines.append("每座友方水晶減傷 %s%%，最多 %s%%；工匠可修補。死亡對半徑 %s 內敵兵造成 %s 傷害。" % [number(d.resonance*100),number(d.resonance_max*100),number(d.radius),number(d.explosion_damage)])
 		"arcane_archer": lines.append("光箭飛行 %s 秒，貫穿本路 %s 距離（索敵距離的 %s 倍）；可對空並揭露潛行。" % [number(ARROW_TIME),number(d.range*d.pierce_range_multiplier),number(d.pierce_range_multiplier)])

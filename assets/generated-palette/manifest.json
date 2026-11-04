@@ -74,7 +74,7 @@
 	"chimera": {
 		"revision": "team-material-v1",
 		"sha256": "e2fa8dedcd6aaaa3c00ac589a21f3f326a212dea2e9bd829dbe706e1dce50679",
-		"size": 384,
+		"size": 384.0,
 		"source": "res://assets/manuscript-v1/chimera.png"
 	},
 	"chronomancer": {
@@ -106,6 +106,12 @@
 		"sha256": "449656a773acb7336e5166d4446696c834a4abcde7ea6ff252c6f4da3b2c498f",
 		"size": 384.0,
 		"source": "res://assets/manuscript-v1/curse.png"
+	},
+	"dark_wizard": {
+		"revision": "team-material-v1",
+		"sha256": "11d9dd60d3ee0686dfd19a2bd0f1b01b283749788e5354e97af4b873b53e26d6",
+		"size": 384,
+		"source": "res://assets/manuscript-v1/dark_wizard.png"
 	},
 	"drummer": {
 		"revision": "team-material-v1",
@@ -278,7 +284,7 @@
 	"summon_trap": {
 		"revision": "team-material-v1",
 		"sha256": "96be7463126843d3bb243a783376c5cfb59227c645581252081e8be171cdf1cc",
-		"size": 384,
+		"size": 384.0,
 		"source": "res://assets/manuscript-v1/summon_trap.png"
 	},
 	"teleport_trap": {
