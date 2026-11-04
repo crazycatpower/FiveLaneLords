@@ -44,9 +44,9 @@ const LORD_HYSTERESIS := 1.5
 # "cooldown": seconds a card must wait after it enters the hand before it can be played (0..30).
 const CARDS := {
 	"dark_wizard":{"name":"黑暗巫師","role":"高傷·噬魂","faction":"dark","series":"dark","type":"unit","projectile":true,"soul_bargain":true,"cost":18,"cooldown":14.0,"count":1,"hp":210.0,"damage":110.0,"interval":1.9,"range":230.0,"speed":36.0},
-	"summon_trap":{"name":"召喚法陣","role":"陷阱·召獸","faction":"magic","series":"magic","type":"building","ai":["defend_building"],"cost":6,"cooldown":12.0,"hp":80.0,"expires":-1.0,"trap":"summon","charges":3,"trigger_radius":26.0,"radius":52.0,"summon_kind":"chimera","summon_count":3},
-	"chimera":{"name":"嵌合獸","role":"召喚物·近戰","faction":"magic","series":"magic","type":"unit","summon_only":true,"cost":1,"cooldown":0.0,"count":1,"hp":130.0,"damage":16.0,"interval":1.4,"range":47.0,"speed":50.0},
-	"blink_blade":{"name":"閃現劍士","role":"突進·穿陣","type":"unit","faction":"magic","series":"magic","cost":9,"cooldown":8.0,"count":3,"hp":130.0,"damage":42.0,"interval":0.85,"range":47.0,"speed":65.0,"blink_step":0.25},
+	"summon_trap":{"name":"召喚法陣","role":"陷阱·召獸","faction":"magic","series":"magic","type":"building","ai":["defend_building"],"cost":6,"cooldown":12.0,"hp":80.0,"expires":-1.0,"trap":"summon","charges":3,"trigger_radius":26.0,"radius":52.0,"summon_kind":"chimera","summon_count":1},
+	"chimera":{"name":"嵌合獸","role":"召喚物·近戰","faction":"magic","series":"magic","type":"unit","summon_only":true,"cost":1,"cooldown":0.0,"count":1,"hp":210.0,"damage":26.0,"interval":1.1,"range":60.0,"speed":65.0},
+	"blink_blade":{"name":"閃現劍士","role":"突進·穿陣","type":"unit","faction":"magic","series":"magic","cost":13,"cooldown":8.0,"count":3,"hp":210.0,"damage":42.0,"interval":0.85,"range":47.0,"speed":65.0,"blink_step":0.25},
 	"arcane_golem":{"name":"奧術魔像","role":"重裝·共鳴","type":"unit","faction":"magic","series":"magic","cost":17,"cooldown":15.0,"count":1,"hp":1500.0,"damage":42.0,"interval":1.4,"range":47.0,"speed":27.0,"resonance":0.1,"resonance_max":0.3,"explosion_damage":140.0,"radius":100.0,"ai":["hold"]},
 	"arcane_archer":{"name":"奧術射手","role":"遠程·貫穿","type":"unit","faction":"magic","series":"magic","cost":7,"cooldown":6.0,"count":4,"hp":80.0,"damage":10.0,"interval":1.1,"range":180.0,"speed":36.0,"projectile":true,"pierce":true,"pierce_range_multiplier":2.0},
 	"chronomancer":{"name":"時滯術士","role":"控場·暈眩","type":"unit","faction":"magic","series":"magic","cost":8,"cooldown":8.0,"count":2,"hp":130.0,"damage":20.0,"interval":1.1,"range":140.0,"speed":36.0,"area_damage":20.0,"radius":52.0,"stun_on_hit":0.5,"ai":["no_defend"]},
@@ -77,7 +77,7 @@ const CARDS := {
 	"harvest":{"name":"豐收","role":"經濟·爆發","faction":"normal","type":"spell","cost":3,"cooldown":8.0,"radius":100.0},
 	"scarecrow":{"name":"稻草人","role":"誘敵·護田","faction":"normal","type":"building","ai":["guard","defend_building","obstacle"],"cost":3,"cooldown":3.0,"hp":900.0,"expires":-1.0},
 	"mob":{"name":"乾草叉暴民","role":"三路群攻","faction":"normal","type":"unit","ai":["raid"],"cost":14,"cooldown":6.0,"count":4,"spread":true,"hp":80.0,"damage":10.0,"interval":0.85,"range":47.0,"speed":65.0},
-	"hunter":{"name":"獵戶","role":"遠程輸出","type":"unit","projectile":true,"cost":4,"cooldown":4.0,"count":3,"hp":80.0,"damage":10.0,"interval":1.4,"range":300.0,"speed":36.0},
+	"hunter":{"name":"獵戶","role":"遠程輸出","type":"unit","projectile":true,"cost":7,"cooldown":4.0,"count":3,"hp":80.0,"damage":16.0,"interval":1.4,"range":300.0,"speed":36.0},
 	"spearbow":{"name":"槍弓混編","role":"遠近軍團","type":"unit","cost":13,"cooldown":6.0,"members":[["militia",4,0.0],["hunter",2,45.0]],"art":["militia","hunter"]},
 	"farm":{"name":"農田","role":"經濟·基礎","faction":"normal","type":"building","cost":6,"cooldown":30.0,"hp":250.0,"expires":-1.0},
 	"rain":{"name":"箭雨","role":"清群法術","type":"spell","ai":["defend_spell","wave_spell"],"cost":5,"cooldown":6.0,"radius":100.0,"damage":140.0,"building_damage":90.0,"gate_damage":90.0},

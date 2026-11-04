@@ -34,7 +34,7 @@ func run() -> void:
 				attacker.spawn_delay = 0
 			Arcane.update_traps(m)
 			var beasts: Array = m.units.filter(func(u: Dictionary) -> bool: return u.kind == "chimera")
-			check(beasts.size() == (charge+1)*3,"three beasts per group")
+			check(beasts.size() == (charge+1)*B.CARDS.summon_trap.summon_count,"beasts per group")
 			check(trap.charges == 2-charge,"one charge per group")
 			for beast: Dictionary in beasts:
 				check(beast.team == side and beast.lane == 2 and beast.card == "summon_trap","summon ownership and attribution")
@@ -44,7 +44,7 @@ func run() -> void:
 		var extra: Dictionary = m.spawn_unit(1-side,2,"militia",trap.pos)
 		extra.spawn_delay = 0
 		Arcane.update_traps(m)
-		check(m.units.filter(func(u: Dictionary) -> bool: return u.kind == "chimera").size() == 9,"spent trap never summons again")
+		check(m.units.filter(func(u: Dictionary) -> bool: return u.kind == "chimera").size() == 3*B.CARDS.summon_trap.summon_count,"spent trap never summons again")
 		var beast: Dictionary = m.units.filter(func(u: Dictionary) -> bool: return u.kind == "chimera")[0]
 		var hp: float = extra.hp
 		m.attack(beast,extra)
