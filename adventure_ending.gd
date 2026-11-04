@@ -56,9 +56,9 @@ func choose(g, kind: String) -> void:
 	error = ""
 	show(g)
 
-func portrait(g, texture: Texture2D, box: Rect2, dim: bool) -> void:
+func portrait(g, texture: Texture2D, box: Rect2, dim: bool, mirror: bool = true) -> void:
 	var rect: Rect2 = g.fitted_rect(texture.get_size(),box,true)
-	g.draw_set_transform(Vector2(rect.position.x*2+rect.size.x,0),0,Vector2(-1,1))
+	if mirror: g.draw_set_transform(Vector2(rect.position.x*2+rect.size.x,0),0,Vector2(-1,1))
 	g.draw_texture_rect(texture,rect,false,Color(0.60,0.57,0.51,0.75) if dim else Color.WHITE)
 	g.draw_set_transform(Vector2.ZERO)
 
@@ -66,7 +66,7 @@ func paint(g) -> void:
 	g.draw_rect(Rect2(28,28,1544,844),Color(0.18,0.15,0.10,0.18))
 	g.label_at(Vector2(80,85),"第一章 · 戰後抉擇",36)
 	g.label_at(Vector2(80,123),"抓到了俘虜，還有個路過的騎士。",22)
-	portrait(g,BANDIT,Rect2(125,150,600,430),step == 1 or (step == 3 and g.adventure.recruit == "knight"))
+	portrait(g,BANDIT,Rect2(125,150,600,430),step == 1 or (step == 3 and g.adventure.recruit == "knight"),false) # left side, art already faces right
 	if step >= 1:
 		portrait(g,KNIGHT,Rect2(875,135,600,445),step == 0 or (step == 3 and g.adventure.recruit == "bandit"))
 	g.panel(Rect2(80,590,1440,270),Color("eddfbc"))

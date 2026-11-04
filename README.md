@@ -2,10 +2,13 @@
 
 Godot 4.7.1 五路即時卡牌對戰。匯入 `project.godot` 後執行 `main.tscn`。
 
+Windows 玩家版請到此倉庫的 **Releases** 下載 `FiveLaneLords-Windows.zip`，解壓縮後雙擊 `FiveLaneLords.exe`；不需要安裝 Godot。
+匯出設定與驗收限制見 [Windows 打包紀錄](docs/Windows打包.md)。目前是試玩版，尚未通過全部回歸測試。
+
 - 1–4 選手牌，F 選常駐農田；點格子或拖曳出牌，右鍵取消。
 - Q 或右下技能按鈕施放領主技能；領主由 AI 移動與作戰。
 - 空白鍵暫停；Esc 取消選牌或切換暫停。暫停或結束後按 R 重玩。
-- 牌組為常駐農田、三選一領主、自選八張輪轉牌。
+- 牌組為一位領主、常駐專屬經濟牌（手牌 F 格）、自選八張輪轉牌；可選卡牌依領主陣營決定。
 - 戰場為九欄五路。部隊與建築只能放己方領地，法術可指定全場。
 - 建築本格及周圍八格（含斜角）提供領地，城牆也算。先佔先得；己方仍有建築覆蓋時不能被敵方覆蓋。
 - 建築或城牆被毀，失去所有己方覆蓋的格子會釋出；有敵方覆蓋就轉交敵方，否則變中立。重疊的己方建築仍可維持領地。
@@ -15,4 +18,4 @@ Godot 4.7.1 五路即時卡牌對戰。匯入 `project.godot` 後執行 `main.ts
 
 規格與開發流程見 `docs/企劃書.md`、`docs/交接給Codex.md`、`AGENTS.md`。
 
-測試：`godot_console --headless --path . -s smoke_test.gd`。
+測試：日常開發快速驗證 `godot_console --headless --path . -s tools/quick_test.gd`（< 1.5 秒）；發布全量回歸 `godot_console --headless --path . -s smoke_test.gd`（873 項）。

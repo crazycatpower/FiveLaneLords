@@ -1,27 +1,51 @@
 {
+	"arcane_archer": {
+		"revision": "team-material-v1",
+		"sha256": "b238c9faa6c28f66a867fdc93550592a8c45aa7cc2453816bf47e4f948667f5a",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/arcane_archer.png"
+	},
+	"arcane_golem": {
+		"revision": "team-material-v1",
+		"sha256": "7ec489b23684aca89ab9ffab2517c7b37129ba99fe0fe5c69338acc96e0d44db",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/arcane_golem.png"
+	},
 	"arcane_tower": {
 		"revision": "team-material-v1",
 		"sha256": "b1a394112a9ec78df9a767bbd3cc5a1cd1b6872e92f07fbb654f05e560269894",
-		"size": 384,
+		"size": 384.0,
 		"source": "res://assets/manuscript-v1/arcane_tower.png"
 	},
 	"artificer": {
 		"revision": "team-material-v1",
 		"sha256": "fe0f88bef9f4492daa76e6ab6de21976bea9f98f15fc63039a8082e3b60715b3",
-		"size": 384,
+		"size": 384.0,
 		"source": "res://assets/manuscript-v1/artificer.png"
+	},
+	"bandit": {
+		"revision": "team-material-v1",
+		"sha256": "145a1f4f36f8786940f47f43106ad9973f1b30f9fd4477e97a012c46ff4a091d",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/bandit.png"
 	},
 	"barricade": {
 		"revision": "team-material-v1",
 		"sha256": "c2e0512027ab56f60ed67c1f7d432d36abca82c2990d26eca94576ad08b77945",
-		"size": 384,
+		"size": 384.0,
 		"source": "res://assets/manuscript-v1/barricade.png"
 	},
 	"blast_trap": {
 		"revision": "team-material-v1",
 		"sha256": "684b1fadcd78b7215d09a942d81549dfd84964fc9150a4fb398a6b603689d72d",
-		"size": 384,
+		"size": 384.0,
 		"source": "res://assets/manuscript-v1/blast_trap.png"
+	},
+	"blink_blade": {
+		"revision": "team-material-v1",
+		"sha256": "c0a427665c5a2771a806642b40845b4e75796d4b0483804c737cee71534e103c",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/blink_blade.png"
 	},
 	"bonewall": {
 		"revision": "team-material-v1",
@@ -47,6 +71,18 @@
 		"size": 384.0,
 		"source": "res://assets/manuscript-v1/catapult.png"
 	},
+	"chimera": {
+		"revision": "team-material-v1",
+		"sha256": "e2fa8dedcd6aaaa3c00ac589a21f3f326a212dea2e9bd829dbe706e1dce50679",
+		"size": 384,
+		"source": "res://assets/manuscript-v1/chimera.png"
+	},
+	"chronomancer": {
+		"revision": "team-material-v1",
+		"sha256": "9ca988c1e1f4e0ede3d192c521985532a34fd2e933b3038cd1a4c414997b0747",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/chronomancer.png"
+	},
 	"corpse_giant": {
 		"revision": "team-material-v1",
 		"sha256": "13a24fbba72b1db51ed75451bd79779332cdab1fa3cd2a25d02ec266d3fd0996",
@@ -62,7 +98,7 @@
 	"crystal": {
 		"revision": "team-material-v1",
 		"sha256": "a99f8b59a990d5e0869009eac0c8293ba9ec11804b81b1b43932415c971b753a",
-		"size": 384,
+		"size": 384.0,
 		"source": "res://assets/manuscript-v1/crystal.png"
 	},
 	"curse": {
@@ -113,6 +149,12 @@
 		"size": 384.0,
 		"source": "res://assets/manuscript-v1/knight.png"
 	},
+	"lord_adventure": {
+		"revision": "team-material-v1",
+		"sha256": "f7f619c8d47b7a04351802b1b1746f0a37e2e2d366ec805e52ad24c736c41681",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/lord-adventure.png"
+	},
 	"lord_harvest": {
 		"revision": "team-material-v1",
 		"sha256": "fcbfae5357965af9afce29202f9292912ce9d41403e3d112109f1c32fc9a958a",
@@ -134,14 +176,26 @@
 	"lord_mage": {
 		"revision": "team-material-v1",
 		"sha256": "cea6a61c05d7e19b3298a08ac437ab2ed26085212f7e3e474882a920d3b8dd29",
-		"size": 384,
+		"size": 384.0,
 		"source": "res://assets/manuscript-v1/lord-mage.png"
+	},
+	"lord_rune": {
+		"revision": "team-material-v1",
+		"sha256": "4cc6c83add3d63865243cceec7920fd83e3fec99063b1ef23511e8d8dbea11d9",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/lord-rune.png"
 	},
 	"lord_underworld": {
 		"revision": "team-material-v1",
 		"sha256": "4fb3147177caaafc6c858554d8c361ec4b52b7ef9a998275ef8ff38c808751fa",
 		"size": 384.0,
 		"source": "res://assets/manuscript-v1/lord-underworld.png"
+	},
+	"lord_vampire": {
+		"revision": "team-material-v1",
+		"sha256": "45e3cc3f9808f478c7d9370bc597eae3a8a05079fdda1a6706d8d8b52ca8d8e5",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/lord-vampire.png"
 	},
 	"militia": {
 		"revision": "team-material-v1",
@@ -172,6 +226,12 @@
 		"sha256": "ddf95614796724f27e553c9de0187ea0bc94b614095ce0552b82e607b31c6f19",
 		"size": 384.0,
 		"source": "res://assets/manuscript-v1/ox.png"
+	},
+	"phase_rider": {
+		"revision": "team-material-v1",
+		"sha256": "afe28e5fb3630d3d504ef32748e60271a544496a8af79349f1760918d86acedc",
+		"size": 384.0,
+		"source": "res://assets/manuscript-v1/phase_rider.png"
 	},
 	"plague": {
 		"revision": "team-material-v1",
@@ -215,10 +275,16 @@
 		"size": 384.0,
 		"source": "res://assets/manuscript-v1/skeleton.png"
 	},
+	"summon_trap": {
+		"revision": "team-material-v1",
+		"sha256": "96be7463126843d3bb243a783376c5cfb59227c645581252081e8be171cdf1cc",
+		"size": 384,
+		"source": "res://assets/manuscript-v1/summon_trap.png"
+	},
 	"teleport_trap": {
 		"revision": "team-material-v1",
 		"sha256": "a1758c53c0703cd493fe1e0796d4696d0588f3668d4b9160827b39d917aa8349",
-		"size": 384,
+		"size": 384.0,
 		"source": "res://assets/manuscript-v1/teleport_trap.png"
 	},
 	"tower": {

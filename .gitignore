@@ -3,3 +3,11 @@
 tools/autobalance_runs/
 tools/__pycache__/
 tools/evolve_runs/
+
+# Local exports and downloaded engine templates are not source code.
+release/
+build/
+export_templates/
+*.exe
+*.pck
+*.tpz

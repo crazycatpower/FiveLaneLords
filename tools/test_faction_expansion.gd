@@ -5,9 +5,9 @@ const DS = preload("res://deck_store.gd")
 
 static func run(t: SceneTree) -> void:
 	for faction: String in B.FACTIONS:
-		t.check(B.CARDS.keys().filter(func(k: String) -> bool: return B.card_faction(k) == faction).size() == (17 if faction == "" else 10),"faction card count: "+faction)
+		t.check(B.CARDS.keys().filter(func(k: String) -> bool: return B.card_faction(k) == faction and not B.CARDS[k].get("summon_only",false)).size() == {"":12,"normal":10,"dark":10,"magic":11}[faction],"faction card count: "+faction) # magic becomes 10 with docs/法師新單位.md
 	for lord: String in B.LORDS:
-		t.check(DS.pool(lord).size() == (16 if lord == "mage" else 26),"lord rotating pool: "+lord)
+		t.check(DS.pool(lord).size() == (22 if B.lord_faction(lord) == "magic" else 21),"lord rotating pool: "+lord)
 	var p := L.cell_center(Vector2i(3,2))
 	var m = t.bare(42)
 	m.lord_active = [false,false]
@@ -33,26 +33,27 @@ static func run(t: SceneTree) -> void:
 	var victim: Dictionary = m.spawn_unit(1,2,"raven",p)
 	var far: Dictionary = m.spawn_unit(1,2,"militia",p+Vector2(B.CARDS.curse.radius+1,0))
 	m.cast_spell({"kind":"curse","team":0,"pos":p})
-	t.check(not ally.has("cursed_until") and not far.has("cursed_until") and victim.cursed_until == B.CARDS.curse.curse_duration,"curse marks enemy troops including flying, only inside radius")
-	m.elapsed = B.CARDS.curse.curse_duration
+	t.check(not ally.get("cursed",false) and not far.get("cursed",false) and victim.get("cursed",false),"curse marks enemy troops including flying, only inside radius")
+	m.elapsed = 999.0
 	m.damage(victim,victim.hp,0,"rain")
 	m.resolve_deaths()
-	t.check(not m.units.any(func(u: Dictionary) -> bool: return u.kind == "skeleton"),"curse expires at exact duration")
+	t.check(m.units.any(func(u: Dictionary) -> bool: return u.kind == "skeleton" and u.team == 0),"curse effect is permanent even after long elapsed time")
 	m.cast_spell({"kind":"curse","team":0,"pos":far.pos})
 	m.elapsed += 1
 	m.cast_spell({"kind":"curse","team":0,"pos":far.pos})
-	t.check(far.cursed_until == m.elapsed+B.CARDS.curse.curse_duration,"recasting curse refreshes duration")
+	t.check(far.get("cursed",false),"recasting curse maintains cursed status")
 	m.damage(far,far.hp,0,"rain")
 	m.resolve_deaths()
-	t.check(m.units.filter(func(u: Dictionary) -> bool: return u.kind == "skeleton").size() == 1,"recasting does not multiply death conversion")
+	t.check(m.units.filter(func(u: Dictionary) -> bool: return u.kind == "skeleton").size() == 2,"recasting does not multiply death conversion")
 	m = t.bare(44)
-	var catapult: Dictionary = m.add_building(0,Vector2i(3,2),"catapult")
+	var catapult: Dictionary = m.spawn_unit(0,2,"catapult",p)
+	t.check(catapult.kind == "catapult" and B.CARDS.catapult.type == "unit" and B.CARDS.catapult.speed == 20.0,"catapult is a unit with slowest move speed")
 	var near: Dictionary = m.spawn_unit(1,2,"knight",p+Vector2(B.CARDS.catapult.min_range-1,0))
 	var mid: Dictionary = m.spawn_unit(1,2,"knight",p+Vector2(150,0))
 	far = m.spawn_unit(1,2,"knight",p+Vector2(290,0))
 	m.build_lookups()
 	t.check(m.catapult_target(catapult) == far,"catapult selects farthest valid troop")
-	m.update_buildings(0)
+	m.update_unit(catapult,0)
 	t.check(m.projectiles.size() == 1 and far.hp == far.max_hp,"catapult damage waits for impact")
 	var impact: Vector2 = far.pos
 	far.pos += Vector2(200,0)
@@ -67,32 +68,35 @@ static func run(t: SceneTree) -> void:
 	t.check(m.catapult_target(catapult).is_empty(),"catapult cannot hit inside minimum range or beyond maximum")
 	near.pos = p+Vector2(B.CARDS.catapult.min_range,0)
 	t.check(m.catapult_target(catapult) == near,"catapult includes exact minimum range")
+	var other_lane: Dictionary = m.spawn_unit(1,1,"knight",p+Vector2(150,0))
+	m.damage(near,near.hp,0,"rain")
+	m.build_lookups()
+	t.check(m.catapult_target(catapult).is_empty(),"catapult only targets its own lane and ignores other lanes")
+	var foe_farm: Dictionary = m.add_building(1,Vector2i(5,2),"farm")
+	foe_farm.pos = p+Vector2(150,0)
+	m.build_lookups()
+	t.check(m.catapult_target(catapult) == foe_farm,"catapult can target enemy buildings in its lane")
 	for team: int in range(2):
 		m = t.bare(45)
 		var forward := 1.0 if team == 0 else -1.0
 		var drummer: Dictionary = m.spawn_unit(team,2,"drummer",p)
-		var troop: Dictionary = m.spawn_unit(team,2,"militia",p+Vector2(forward*L.CELL_SIZE.x,0))
+		var troop: Dictionary = m.spawn_unit(team,1,"militia",p+Vector2(forward*L.CELL_SIZE.x,0))
 		var normal: float = B.CARDS.militia.speed
 		var faster: float = B.TIERS.speed[B.TIERS.speed.find(normal)-1]
-		t.check(m.movement_speed(troop) == faster and m.movement_speed(drummer) == B.CARDS.drummer.speed,"drum buffs ahead ally but not itself on team "+str(team))
-		var second: Dictionary = m.spawn_unit(team,2,"drummer",p-Vector2(forward*10,0))
-		t.check(m.movement_speed(troop) == faster,"two drums do not stack")
-		troop.pos.x = p.x+forward*B.CARDS.drummer.inspire_cells*L.CELL_SIZE.x
-		t.check(m.movement_speed(troop) == faster,"drum includes exact two-cell boundary")
-		troop.pos.x += forward
-		t.check(m.movement_speed(troop) == normal,"drum stops immediately beyond two cells")
-		troop.pos = p-Vector2(forward*20,0)
-		t.check(m.movement_speed(troop) == normal,"drum never buffs troops behind it")
-		troop.pos = p+Vector2(forward*100,0)
-		troop.lane = 1
-		t.check(m.movement_speed(troop) == normal,"drum does not cross lanes")
-		troop.lane = 2
-		troop.march = B.TIERS.speed[0]
-		t.check(m.movement_speed(troop) == B.TIERS.speed[0],"drum caps at S speed")
-		troop.erase("march")
-		m.damage(drummer,drummer.hp,1-team,"rain")
-		m.damage(second,second.hp,1-team,"rain")
-		t.check(m.movement_speed(troop) == normal,"dead drummers give no aura")
+		t.check(m.movement_speed(troop) == faster,"drummer on enter boosts allies across all lanes")
+		t.check(m.movement_speed(drummer) == B.CARDS.drummer.speed,"drummer does not boost own move speed")
+		var normal_interval: float = B.CARDS.militia.interval
+		var faster_interval: float = B.TIERS.interval[B.TIERS.interval.find(normal_interval)-1]
+		t.check(m.attack_interval(troop) == faster_interval,"drummer boosts attack speed of allies")
+		t.check(m.attack_interval(drummer) == B.CARDS.drummer.interval,"drummer does not boost own attack speed")
+		t.check(B.CARDS.drummer.range == 140.0,"drummer attack range is 140.0")
+		m.elapsed = 3.1
+		t.check(m.movement_speed(troop) == normal and m.attack_interval(troop) == normal_interval,"speed and attack buffs expire after 3 seconds")
+		drummer.drum_cd = 0.05
+		m.step(0.1)
+		t.check(m.movement_speed(troop) == faster and m.attack_interval(troop) == faster_interval,"drummer periodic 10s trigger activates 3s speed and attack boost again")
+		troop.march = B.tier_value("speed","S")
+		t.check(m.movement_speed(troop) == B.tier_value("speed","S"),"drum caps at S speed")
 	m = t.bare(46)
 	var shield: Dictionary = m.spawn_unit(1,2,"shieldguard",p)
 	for hit: float in [6.0,10.0,45.0]:

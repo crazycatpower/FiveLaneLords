@@ -6,21 +6,21 @@ static func valid(deck: Array, lord: String = "", allow_duplicates: bool = false
 	if deck.size() != 8 or deck.any(func(k) -> bool: return B.is_home_card(str(k),lord)): return false
 	var unique := {}
 	for kind in deck:
-		if not kind is String or not B.CARDS.has(kind) or (unique.has(kind) and not allow_duplicates): return false
+		if not kind is String or not B.CARDS.has(kind) or B.CARDS[kind].get("summon_only",false) or (unique.has(kind) and not allow_duplicates): return false
 		if not lord.is_empty() and not B.card_allowed(kind,lord): return false
 		unique[kind] = true
 	return true
 
 # The cards a lord may put in the eight, in table order.
 static func pool(lord: String = "") -> Array:
-	return B.CARDS.keys().filter(func(k: String) -> bool: return not B.is_home_card(k,lord) and (lord.is_empty() or B.card_allowed(k,lord)))
+	return B.CARDS.keys().filter(func(k: String) -> bool: return not B.CARDS[k].get("summon_only",false) and not B.is_home_card(k,lord) and (lord.is_empty() or B.card_allowed(k,lord)))
 
 # The same deck with every card the lord may not take swapped for the first allowed card not yet in it.
 static func fit_to_lord(deck: Array, lord: String) -> Array:
 	var result: Array = deck.duplicate()
 	var spare: Array = pool(lord).filter(func(k: String) -> bool: return not k in deck)
 	for i: int in range(result.size()):
-		if (not B.card_allowed(result[i],lord) or B.is_home_card(result[i],lord)) and not spare.is_empty(): result[i] = spare.pop_front()
+		if (not B.card_allowed(result[i],lord) or B.is_home_card(result[i],lord) or B.CARDS[result[i]].get("summon_only",false)) and not spare.is_empty(): result[i] = spare.pop_front()
 	return result
 static func save_deck(deck: Array, path: String = "user://deck.json", lord: String = "lion") -> bool:
 	if not B.LORDS.has(lord) or not valid(deck,lord): return false

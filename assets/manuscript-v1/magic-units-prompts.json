@@ -1,0 +1,22 @@
+{
+  "blink_blade": {
+    "prompt": "Generate a single full body isolated game unit facing RIGHT, transparent background. Medieval illuminated manuscript, match the flat naive ink-outlined ochre tempera warriors in reference image, hand painted parchment texture only inside figure, restrained muted pigments, small readable silhouette. No ground, no text, no border, no UI, no photorealism, no glossy 3D. Complete anatomy and equipment, feet fully visible, generous transparent margin. Muted crimson clothing for automatic team recolor, purple crystal accents.\nAn agile young swordsman stepping right with a short sword held forward in his right hand, free left hand open behind. Small violet runes on sleeves, leather boots, hood down.",
+    "source": "C:\\Users\\q1q2q\\.codex\\generated_images\\01a182e7-bcc1-7c12-979e-f3cea5673837\\exec-060cbc4f-99e9-4f32-bd7a-a517343ce21f.png"
+  },
+  "arcane_golem": {
+    "prompt": "Generate a single full body isolated game unit facing RIGHT, transparent background. Medieval illuminated manuscript, match the flat naive ink-outlined ochre tempera warriors in reference image, hand painted parchment texture only inside figure, restrained muted pigments, small readable silhouette. No ground, no text, no border, no UI, no photorealism, no glossy 3D. Complete anatomy and equipment, feet fully visible, generous transparent margin. Muted crimson clothing for automatic team recolor, purple crystal accents.\nA heavy squat walking golem made of ochre carved stone blocks, two arms and two legs, violet crystal in chest and shoulders, red fabric belt, medieval rune carvings. No weapon.",
+    "source": "C:\\Users\\q1q2q\\.codex\\generated_images\\01a182e7-bcc1-7c12-979e-f3cea5673837\\exec-69f7992a-b4f8-4621-9c66-f36319c12657.png"
+  },
+  "arcane_archer": {
+    "prompt": "Generate a single full body isolated game unit facing RIGHT, transparent background. Medieval illuminated manuscript, match the flat naive ink-outlined ochre tempera warriors in reference image, hand painted parchment texture only inside figure, restrained muted pigments, small readable silhouette. No ground, no text, no border, no UI, no photorealism, no glossy 3D. Complete anatomy and equipment, feet fully visible, generous transparent margin. Muted crimson clothing for automatic team recolor, purple crystal accents.\nAn arcane archer in red hooded tunic drawing a wooden bow aimed horizontally right, left hand holds bow, right hand pulls string near cheek with one violet arrow. Two complete arms, leather boots.",
+    "source": "C:\\Users\\q1q2q\\.codex\\generated_images\\01a182e7-bcc1-7c12-979e-f3cea5673837\\exec-3d2f7b87-93a2-4b90-9bdd-f05cd05d03b9.png"
+  },
+  "chronomancer": {
+    "prompt": "Generate a single full body isolated game unit facing RIGHT, transparent background. Medieval illuminated manuscript, match the flat naive ink-outlined ochre tempera warriors in reference image, hand painted parchment texture only inside figure, restrained muted pigments, small readable silhouette. No ground, no text, no border, no UI, no photorealism, no glossy 3D. Complete anatomy and equipment, feet fully visible, generous transparent margin. Muted crimson clothing for automatic team recolor, purple crystal accents.\nAn elderly time scholar in red robes walking right, holding a staff topped with a small brass hourglass, other hand raised, violet belt charms. Two hands, feet visible.",
+    "source": "C:\\Users\\q1q2q\\.codex\\generated_images\\01a182e7-bcc1-7c12-979e-f3cea5673837\\exec-46a600d1-27f0-43ca-b9d1-1658396f9d2b.png"
+  },
+  "phase_rider": {
+    "prompt": "Generate a single full body isolated game unit facing RIGHT, transparent background. Medieval illuminated manuscript, match the flat naive ink-outlined ochre tempera warriors in reference image, hand painted parchment texture only inside figure, restrained muted pigments, small readable silhouette. No ground, no text, no border, no UI, no photorealism, no glossy 3D. Complete anatomy and equipment, feet fully visible, generous transparent margin. Muted crimson clothing for automatic team recolor, purple crystal accents.\nA medieval light cavalry rider on a complete horse walking right, red tabard and horsecloth, rider holds short spear forward and reins in other hand. Horse four anatomically clear legs and tail, subtle violet trim. Opaque character, phase transparency will be animated by game.",
+    "source": "C:\\Users\\q1q2q\\.codex\\generated_images\\01a182e7-bcc1-7c12-979e-f3cea5673837\\exec-d6effa88-9bc5-4f54-b697-c6afbd65d8b3.png"
+  }
+}

@@ -33,6 +33,12 @@ def make_sandbox(path):
     files = subprocess.run(["git", "ls-files", "*.gd", "project.godot"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
     archive = subprocess.run(["git", "archive", "HEAD"] + files, cwd=ROOT, capture_output=True, check=True).stdout
     tarfile.open(fileobj=io.BytesIO(archive)).extractall(path)
+    for f in files:
+        src = os.path.join(ROOT, f)
+        dst = os.path.join(path, f)
+        if os.path.exists(src):
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            shutil.copy2(src, dst)
 
 
 def play(job):
@@ -127,7 +133,7 @@ def main():
         rate = lambda xs: f"{sum(xs) / len(xs):.0%}（{len(xs)}）" if xs else "—"
         rows.append((rounded(mean) - start[k], k, start[k], mean, spread, rounded(mean), rate(first), rate(second)))
     rows.sort(key=lambda r: (-abs(r[0]), -r[3]))
-    text = [f"# 線上調費報告\n\n{time.strftime('%Y-%m-%d %H:%M')}：{args.matches} 場隨機牌組＋隨機領主的 AI 對戰；每場後只有贏方帶的牌 +{args.step:g}、只有輸方帶的牌 −{args.step:g} 金幣"
+    text = [f"# 線上調費報告\n\n{time.strftime('%Y-%m-%d %H:%M')}：{args.matches} 場隨機牌組＋隨機領主的 AI 對戰；每場後只有贏方帶的牌 +{args.step:g}、只有輸方帶的牌 -{args.step:g} 金幣"
             f"（平手 {draws} 場不調；Godot 啟動失敗略過 {skipped} 場）。每批 {args.workers} 場同時進行。期望費用＝第 {burn + 1}–{args.matches} 場的費用平均；常駐牌（農田、墓碑）不調。總耗時 {(time.time() - t0) / 60:.0f} 分鐘。\n\n"
             "| 卡牌 | 原費用 | 期望費用（平均） | 標準差 | 建議費用 | 前半勝率（場次） | 後半勝率（場次） |\n|---|---|---|---|---|---|---|\n"]
     for delta, k, s, mean, spread, new, r1, r2 in rows:

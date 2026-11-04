@@ -44,10 +44,14 @@ func run() -> void:
 	var problems := B.validate()
 	check(problems.is_empty(), "balance.gd validate: " + str(problems))
 
+	preload("res://tools/test_magic_units.gd").run(self)
+	check(finished.get("magic_units",false),"magic tests finished")
 	preload("res://tools/test_faction_expansion.gd").run(self)
 	preload("res://tools/test_card_library.gd").run(self)
 	preload("res://tools/test_attack_animation.gd").run(self)
 	preload("res://tools/test_dark_age.gd").run(self)
+	preload("res://tools/test_art_palette.gd").run(self)
+	preload("res://tools/test_no_rear_attack.gd").run(self)
 
 	if failures > 0:
 		printerr("FAIL: %d checks, %d failures" % [checks, failures])

@@ -37,10 +37,10 @@ func run() -> void:
 		game.model.spawn_unit(team,1,"shieldguard",L.cell_center(Vector2i(col,1)))
 		game.model.spawn_unit(team,2,"drummer",L.cell_center(Vector2i(col,2)))
 		game.model.spawn_unit(team,2,"militia",L.cell_center(Vector2i(col,2))+Vector2(60 if team == 0 else -60,0))
-		game.model.add_building(team,Vector2i(col,4),"catapult")
+		game.model.spawn_unit(team,4,"catapult",L.cell_center(Vector2i(col,4)))
 	game.model.cast_spell({"kind":"curse","team":0,"pos":L.cell_center(Vector2i(5,1))})
 	game.model.build_lookups()
-	game.model.update_buildings(0)
+	game.model.update_units(0)
 	game.model.update_projectiles(B.CARDS.catapult.flight_time*0.5)
 	game.consume_events()
 	game.notice = "三陣營擴充：屍爆、詛咒、拋射、鼓舞、盾牆"
@@ -60,7 +60,7 @@ func run() -> void:
 	for team: int in range(2):
 		var col := 3 if team == 0 else 5
 		game.model.add_building(team,Vector2i(col,0),"bonewall")
-		game.model.add_building(team,Vector2i(col,4),"catapult")
+		game.model.spawn_unit(team,4,"catapult",L.cell_center(Vector2i(col,4)))
 		var reaper: Dictionary = game.model.spawn_unit(team,2,"reaper",L.cell_center(Vector2i(col,2)))
 		game.model.event("slash",reaper.pos+Vector2(55 if team == 0 else -55,0),team,{"lane":2})
 	game.consume_events()

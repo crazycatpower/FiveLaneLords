@@ -21,6 +21,10 @@ REPORT = os.path.join(ROOT, "docs", "自動平衡報告.md")
 MIN_COST, MAX_COST = 1, 30
 
 
+def round_half_up(val):
+    return int(math.floor(val + 0.5))
+
+
 def read_cards():
     """{kind: (name, cost)} for every card line in balance.gd (lines that carry a "type")."""
     cards = {}
@@ -40,23 +44,25 @@ def write_costs(new_costs):
 
 
 def run_worker(args):
-    start, count, out, cap = args
+    start, count, out, cap, must_have, must_have_cards = args
     cmd = ["godot_console", "--headless", "--path", ROOT, "-s", "tools/random_sim.gd", "--",
            f"--start={start}", f"--count={count}", f"--out={out}", f"--cap={cap}"]
+    if must_have: cmd.append(f"--must-have-lords={must_have}")
+    if must_have_cards: cmd.append(f"--must-have-cards={must_have_cards}")
     result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", shell=(os.name == "nt"))
     if result.returncode != 0 or "SCRIPT ERROR" in result.stdout + result.stderr:
         raise RuntimeError(f"worker {start} failed:\n{result.stdout[-2000:]}\n{result.stderr[-2000:]}")
     return out
 
 
-def play_round(index, matches, workers, cap, seed_base):
+def play_round(index, matches, workers, cap, seed_base, must_have="", must_have_cards=""):
     os.makedirs(RUNS, exist_ok=True)
     per = math.ceil(matches / workers)
     jobs = []
     for w in range(workers):
         count = min(per, matches - w * per)
         if count <= 0: break
-        jobs.append((seed_base + w * per, count, os.path.join(RUNS, f"round{index}_w{w}.jsonl"), cap))
+        jobs.append((seed_base + w * per, count, os.path.join(RUNS, f"round{index}_w{w}.jsonl"), cap, must_have, must_have_cards))
     with ThreadPoolExecutor(len(jobs)) as pool:
         files = list(pool.map(run_worker, jobs))
     results = []
@@ -93,7 +99,7 @@ def card_details(results, cards):
 
 
 def analyse(results, cards):
-    stat = {k: [0.0, 0] for k in cards if k != "farm"}  # kind -> [wins, games]
+    stat = {k: [0.0, 0] for k in cards if not k in ["farm", "grave", "crystal"]}  # home cards not in deck pool
     lords = {}
     red = [0, 0]
     draws = 0
@@ -135,12 +141,12 @@ def analyse(results, cards):
     }
 
 
-def adjust(analysis, cards, threshold, step):
+def adjust(analysis, cards, threshold, step, min_games=25):
     """Cost change per card: proportional to how far from 50% it is, at least 1, at most 25% of cost."""
     changes = {}
     for kind, (rate, games) in analysis["cards"].items():
         gap = rate - 0.5
-        if abs(gap) < threshold or games < 50: continue
+        if abs(gap) < threshold or games < min_games: continue
         cost = cards[kind][1]
         delta = max(1, round(abs(gap) * cost * step))
         delta = min(delta, max(1, round(cost * 0.25)))
@@ -149,17 +155,32 @@ def adjust(analysis, cards, threshold, step):
     return changes
 
 
-def table(analysis, cards, changes):
-    rows = ["| 卡牌 | 費用 | 勝率 | 場次 | 平均出牌次數 | 每金幣傷害 | 平均第一次出牌時間 | 調整 |", "|---|---|---|---|---|---|---|---|"]
-    for kind, (rate, games) in sorted(analysis["cards"].items(), key=lambda kv: -kv[1][0]):
-        change = f"{cards[kind][1]} → {changes[kind]}" if kind in changes else ""
-        detail = analysis.get("card_details", {}).get(kind, {})
-        def metric(key, suffix=""):
-            value = detail.get(key)
-            return "—" if value is None else f"{value:.2f}{suffix}"
-        rows.append(f"| {cards[kind][0]} | {cards[kind][1]} | {rate:.1%} | {games} | "
-                    f"{metric('plays_per_match')} | {metric('damage_per_gold')} | "
-                    f"{metric('first_play', ' 秒')} | {change} |")
+def table(analysis, cards, changes, float_costs=None):
+    if float_costs is not None:
+        rows = ["| 卡牌 | 整數費用 | 浮點累積 | 勝率 | 場次 | 平均出牌次數 | 每金幣傷害 | 平均第一次出牌時間 | 調整 |",
+                "|---|---|---|---|---|---|---|---|---|"]
+        for kind, (rate, games) in sorted(analysis["cards"].items(), key=lambda kv: -kv[1][0]):
+            fc = float_costs.get(kind, float(cards[kind][1]))
+            change = f"{cards[kind][1]} → {changes[kind]}" if kind in changes else ""
+            detail = analysis.get("card_details", {}).get(kind, {})
+            def metric(key, suffix=""):
+                value = detail.get(key)
+                return "—" if value is None else f"{value:.2f}{suffix}"
+            rows.append(f"| {cards[kind][0]} | {cards[kind][1]} | {fc:.2f} | {rate:.1%} | {games} | "
+                        f"{metric('plays_per_match')} | {metric('damage_per_gold')} | "
+                        f"{metric('first_play', ' 秒')} | {change} |")
+    else:
+        rows = ["| 卡牌 | 費用 | 勝率 | 場次 | 平均出牌次數 | 每金幣傷害 | 平均第一次出牌時間 | 調整 |",
+                "|---|---|---|---|---|---|---|---|"]
+        for kind, (rate, games) in sorted(analysis["cards"].items(), key=lambda kv: -kv[1][0]):
+            change = f"{cards[kind][1]} → {changes[kind]}" if kind in changes else ""
+            detail = analysis.get("card_details", {}).get(kind, {})
+            def metric(key, suffix=""):
+                value = detail.get(key)
+                return "—" if value is None else f"{value:.2f}{suffix}"
+            rows.append(f"| {cards[kind][0]} | {cards[kind][1]} | {rate:.1%} | {games} | "
+                        f"{metric('plays_per_match')} | {metric('damage_per_gold')} | "
+                        f"{metric('first_play', ' 秒')} | {change} |")
     lords = ", ".join(f"{k} {v[0]:.1%}（{v[1]}）" for k, v in sorted(analysis["lords"].items(), key=lambda kv: -kv[1][0]))
     head = (f"{analysis['matches']} 場；平手 {analysis['draws']}；決勝局中位數 {analysis['median']:.0f} 秒；"
             f"紅方勝率 {analysis['red_rate']:.1%}\n\n"
@@ -173,6 +194,7 @@ def table(analysis, cards, changes):
 
 
 def main():
+    global REPORT, RUNS
     p = argparse.ArgumentParser()
     p.add_argument("--total", type=int, default=10000)
     p.add_argument("--rounds", type=int, default=5)
@@ -180,31 +202,79 @@ def main():
     p.add_argument("--cap", type=float, default=900)
     p.add_argument("--threshold", type=float, default=0.03, help="ignore cards within this of 50%%")
     p.add_argument("--step", type=float, default=1.0, help="cost change = gap x cost x step (damped later)")
+    p.add_argument("--per-match-delta", type=float, default=0.0, help="accumulate +- delta fee per match (round half-up)")
     p.add_argument("--dry-run", action="store_true", help="measure only, never edit balance.gd")
     p.add_argument("--adjust-last", action="store_true", help="the last round adjusts too (default: it only measures)")
+    p.add_argument("--report", default=REPORT)
+    p.add_argument("--runs-dir", default=RUNS)
+    p.add_argument("--only-cards", default="", help="comma-separated cards allowed to change cost")
+    p.add_argument("--must-have-lords", default="", help="comma-separated lord names where at least one side must be from this pool")
+    p.add_argument("--must-have-cards", default="", help="comma-separated card names that must be drafted in each match")
+    p.add_argument("--min-games", type=int, default=25, help="minimum non-mirror matches for a card to be adjusted")
     args = p.parse_args()
+    REPORT, RUNS = args.report, args.runs_dir
+    allowed = set(args.only_cards.split(",")) if args.only_cards else None
 
     per_round = args.total // args.rounds
     start_costs = {k: v[1] for k, v in read_cards().items()}
-    log = [f"# 自動平衡報告\n\n{time.strftime('%Y-%m-%d %H:%M')}：共 {args.total} 場隨機牌組＋隨機領主的 AI 對戰，"
-           f"分 {args.rounds} 輪，每輪 {per_round} 場。每輪後依卡牌勝率調整費用（只改費用，數值檔次不動）。"
+    float_costs = {k: float(v) for k, v in start_costs.items()} if args.per_match_delta > 0 else None
+    must_notes = []
+    if args.must_have_lords: must_notes.append(f"領主：{args.must_have_lords}")
+    if args.must_have_cards: must_notes.append(f"卡牌：{args.must_have_cards}")
+    rule_note = f"每場過後立刻 +- {args.per_match_delta} 費（持續累積，四捨五入）" if args.per_match_delta > 0 else "每輪後依卡牌勝率調整費用（只改費用，數值檔次不動）"
+    must_note = f"（每局必含{'，'.join(must_notes)}）" if must_notes else ""
+    log = [f"# 自動平衡報告\n\n{time.strftime('%Y-%m-%d %H:%M')}：共 {args.total} 場隨機牌組＋隨機領主的 AI 對戰{must_note}，"
+           f"分 {args.rounds} 輪，每輪 {per_round} 場。{rule_note}。"
            f"勝率只計算「只有一方帶這張牌」的對局；平手算半勝。\n"]
     for r in range(args.rounds):
         cards = read_cards()
         t0 = time.time()
-        results = play_round(r, per_round, args.workers, args.cap, seed_base=1 + r * 1_000_000)
+        results = play_round(r, per_round, args.workers, args.cap, seed_base=1 + r * 1_000_000, must_have=args.must_have_lords, must_have_cards=args.must_have_cards)
         analysis = analyse(results, cards)
         last = r == args.rounds - 1 and not args.adjust_last
-        # Damp later rounds so costs settle instead of swinging.
-        changes = {} if (args.dry_run or last) else adjust(analysis, cards, args.threshold, args.step / (1 + r))
-        section = f"\n## 第 {r + 1} 輪（{time.time() - t0:.0f} 秒）\n\n" + table(analysis, cards, changes) + "\n"
+
+        if args.per_match_delta > 0:
+            for r_match in results:
+                w = r_match["winner"]
+                if w < 0: continue
+                a = set(r_match["decks"][0])
+                b = set(r_match["decks"][1])
+                # Side 0 exclusive cards: a - b; Side 1 exclusive cards: b - a
+                if w == 0:
+                    for k in a - b:
+                        float_costs[k] = min(float(MAX_COST), float_costs[k] + args.per_match_delta)
+                    for k in b - a:
+                        float_costs[k] = max(float(MIN_COST), float_costs[k] - args.per_match_delta)
+                elif w == 1:
+                    for k in a - b:
+                        float_costs[k] = max(float(MIN_COST), float_costs[k] - args.per_match_delta)
+                    for k in b - a:
+                        float_costs[k] = min(float(MAX_COST), float_costs[k] + args.per_match_delta)
+            changes = {}
+            if not (args.dry_run or last):
+                for kind in cards:
+                    if kind in ["farm", "grave", "crystal"]: continue
+                    new_int = max(MIN_COST, min(MAX_COST, round_half_up(float_costs[kind])))
+                    if new_int != cards[kind][1]:
+                        changes[kind] = new_int
+        else:
+            # Damp later rounds so costs settle instead of swinging.
+            changes = {} if (args.dry_run or last) else adjust(analysis, cards, args.threshold, args.step / (1 + r), args.min_games)
+
+        if allowed is not None: changes = {k: v for k, v in changes.items() if k in allowed}
+        section = f"\n## 第 {r + 1} 輪（{time.time() - t0:.0f} 秒）\n\n" + table(analysis, cards, changes, float_costs) + "\n"
         print(section, flush=True)
         log.append(section)
         if changes: write_costs(changes)
         open(REPORT, "w", encoding="utf-8").write("".join(log))
+
     final = {k: v[1] for k, v in read_cards().items()}
-    diff = [f"| {read_cards()[k][0]} | {start_costs[k]} | {final[k]} |" for k in final if final[k] != start_costs[k]]
-    log.append("\n## 費用總變動\n\n| 卡牌 | 原費用 | 新費用 |\n|---|---|---|\n" + "\n".join(diff) + "\n" if diff else "\n## 費用總變動\n\n無。\n")
+    if float_costs is not None:
+        diff = [f"| {read_cards()[k][0]} | {start_costs[k]} | {float_costs[k]:.2f} | {final[k]} |" for k in final if final[k] != start_costs[k] or abs(float_costs[k] - start_costs[k]) > 0.001]
+        log.append("\n## 費用總變動\n\n| 卡牌 | 原費用 | 浮點累積 | 新費用 |\n|---|---|---|---|\n" + "\n".join(diff) + "\n" if diff else "\n## 費用總變動\n\n無。\n")
+    else:
+        diff = [f"| {read_cards()[k][0]} | {start_costs[k]} | {final[k]} |" for k in final if final[k] != start_costs[k]]
+        log.append("\n## 費用總變動\n\n| 卡牌 | 原費用 | 新費用 |\n|---|---|---|\n" + "\n".join(diff) + "\n" if diff else "\n## 費用總變動\n\n無。\n")
     open(REPORT, "w", encoding="utf-8").write("".join(log))
     print("report:", REPORT)
 

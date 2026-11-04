@@ -1,7 +1,7 @@
 extends RefCounted
 const B = preload("res://balance.gd")
 const Lore = preload("res://card_lore.gd")
-const INFO_RECT := Rect2(464,28,230,48)
+const INFO_RECT := Rect2(1418,28,148,48) # top-right corner: the top centre is kept for the clock
 var game
 var category := "all"
 var page := 0

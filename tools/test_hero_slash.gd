@@ -24,6 +24,9 @@ func run() -> void:
 		var neighbor: Dictionary = m.spawn_unit(1-team,3,"knight",origin+Vector2(direction*100,L.CELL_SIZE.y))
 		var ally: Dictionary = m.spawn_unit(team,2,"knight",origin+Vector2(direction*100,0))
 		var wall: Dictionary = m.add_building(1-team,Vector2i(5 if team == 0 else 3,2),"barricade")
+		assert(m.skill_cd[team] == B.SKILL_OPENING_COOLDOWN)
+		m.skill_cd[team] = 0.0
+		m.ink[team] = 4
 		assert(AI.skill_plan(m.skill_state(team)).save == false)
 		m.ink[team] = 9
 		assert(not m.cast_skill(team))

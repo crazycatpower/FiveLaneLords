@@ -1,7 +1,7 @@
 extends RefCounted
 const ROLES := {
  "economy":["crystal","farm","grave","farmer","mill","harvest"],
- "melee":["militia","mob","knight","shieldguard","corpse_giant","skeleton","ghoul","reaper","ox","ram","spearbow","raven"],
+ "melee":["bandit","militia","mob","knight","shieldguard","corpse_giant","skeleton","ghoul","reaper","ox","ram","spearbow","raven"],
  "ranged":["arcane_tower","hunter","catapult","tower","rain","fire"],
  "support":["artificer","healer","drummer","necromancer","guard"],
  "control":["teleport_trap","blast_trap","barricade","curse","plague","bonewall","scarecrow"]

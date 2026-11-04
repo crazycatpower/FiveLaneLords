@@ -3,6 +3,7 @@ const B = preload("res://balance.gd")
 const L = preload("res://layout.gd")
 const DeckStore = preload("res://deck_store.gd")
 const Battle = preload("res://battle.gd")
+const Arcane = preload("res://arcane_mechanics.gd")
 const ART = preload("res://manuscript_art.gd")
 const AttackAnimation = preload("res://attack_animation.gd")
 var attack_animation := AttackAnimation.new()
@@ -32,9 +33,16 @@ const PALETTE_REVISION := "team-material-v1"
 const ROMAN := ["I","II","III","IV","V"]
 var selected := -1
 var notice := "1–4 選牌 · 點戰場放置 · 右鍵取消 · 空白鍵暫停"
+# No text prompts in battle (producer 2026-11-03): events and refusals show as visual cues.
+# notice still records the last message for the review log and tests.
+var purse_alarm := 0.0 # missing coins flash and the heap shakes (not enough gold)
+var purse_need := 0.0 # gold the refused card or skill wanted
+var card_shake := {} # hand slot -> seconds left of a "still cooling" shake
+var place_flash := 0.0 # valid cells pulse after a placement on a wrong cell
+var skill_shake := 0.0
 var screen := "title"
 var player_deck: Array = []
-var player_lord := "iron"
+var player_lord := "adventure"
 var deck_path := "user://deck.json"
 var adventure_deck_mode := false
 var deck_tab := "unit"
@@ -49,6 +57,24 @@ var watch_source: Array = [0,0]
 const WATCH_SOURCES := ["隨機","向日葵流","穩健農莊","劫掠隊","我的牌組"]
 var start_button: Button
 var effects: Array[Dictionary] = []
+var adventure_attack_frames: Array[Texture2D] = [
+	preload("res://assets/manuscript-v1/adventure-lord-attack/frame-0.png"),
+	preload("res://assets/manuscript-v1/adventure-lord-attack/frame-1.png"),
+	preload("res://assets/manuscript-v1/adventure-lord-attack/frame-2.png"),
+	preload("res://assets/manuscript-v1/adventure-lord-attack/frame-3.png"),
+	preload("res://assets/manuscript-v1/adventure-lord-attack/frame-4.png"),
+	preload("res://assets/manuscript-v1/adventure-lord-attack/frame-5.png"),
+]
+var adventure_attack_frames_blue: Array[Texture2D] = []
+
+func get_adventure_frame(f: int, team: int = 0) -> Texture2D:
+	var idx := clampi(f, 0, adventure_attack_frames.size() - 1)
+	if team == 1:
+		if adventure_attack_frames_blue.is_empty():
+			for tex: Texture2D in adventure_attack_frames:
+				adventure_attack_frames_blue.append(recolor_blue(tex, 384, "lord_adventure"))
+		return adventure_attack_frames_blue[idx]
+	return adventure_attack_frames[idx]
 var seed_value := 1
 var ui: Array[Control] = []
 var fx_enabled := true
@@ -65,7 +91,8 @@ const RESULT_RECT := Rect2(380,170,840,380)
 const SPEEDS := [1,2,4,8]
 const SPEED_RECTS := [Rect2(1360,736,46,32),Rect2(1412,736,46,32),Rect2(1464,736,46,32),Rect2(1516,736,46,32)]
 const NEXT_RECT := Rect2(1102,748,96,128)
-const SKILL_RECT := Rect2(1212,734,356,54)
+const SKILL_RECT := Rect2(1212,734,350,54)
+const LORD_PLATE := Rect2(1206,726,360,152)
 
 # Shared by the asset preflight and the game; prepared palettes load directly at launch.
 static func prepare_art(progress: Callable = Callable()) -> void:
@@ -163,6 +190,9 @@ func enter_battle(message: String) -> void:
 	clear_ui()
 	queue_redraw()
 
+func say(text: String, _urgent: bool = false) -> void:
+	notice = text # kept for the review log; nothing is drawn as text
+
 func clear_ui() -> void:
 	for control: Control in ui:
 		remove_child(control)
@@ -205,15 +235,15 @@ func _physics_process(dt: float) -> void:
 func consume_events() -> void:
 	review.observe(model)
 	for e: Dictionary in model.events:
-		if e.kind == "breach": notice = ("我方第 %d 路城門被攻破！敵兵走進來就輸了。" if e.team == 1 else "攻破藍旗第 %d 路城門！派兵走進去就贏。") % (e.lane+1)
-		if e.kind == "skill": notice = "%s%s發動「%s」！" % ["紅方" if e.team == 0 else "藍方",B.LORDS[e.lord].name,B.LORDS[e.lord].skill]
-		if e.kind == "ramp": notice = "金幣產出與卡牌冷卻加快 ×%.1f" % e.multiplier
-		if e.kind == "overflow" and e.team == 0 and not spectating: notice = "金幣已滿 50，繼續產出的金幣會浪費。"
+		if e.kind == "breach": say(("我方第 %d 路城門被攻破！敵兵走進來就輸了" if e.team == 1 else "攻破藍旗第 %d 路城門！派兵走進去就贏") % (e.lane+1),e.team == 1)
+		if e.kind == "skill": say("%s%s發動「%s」" % ["紅方" if e.team == 0 else "藍方",B.LORDS[e.lord].name,B.LORDS[e.lord].skill])
+		if e.kind == "ramp": say("金幣產出與卡牌冷卻加快 ×%.1f" % e.multiplier)
+		if e.kind == "overflow" and e.team == 0 and not spectating: say("金幣袋滿了，繼續產出的金幣會浪費")
 		if sound != null: sound.cue(e.kind)
 		if e.kind == "breach" and shake_enabled: shake_left = 0.25
 		if fx_enabled:
 			var copy := e.duplicate()
-			copy.life = {"burn":5.0,"death":0.35,"play":0.45,"ink":0.6,"skill":1.0,"link":0.6,"slash":0.35}.get(e.kind,0.7)
+			copy.life = {"breach":2.0,"ramp":1.4,"burn":5.0,"death":0.35,"play":0.45,"ink":0.6,"skill":1.0,"link":0.6,"slash":0.35,"drum":0.6,"stone_impact":0.5,"catapult_fire":0.4,"curse_rise":0.5}.get(e.kind,0.7)
 			copy.duration = copy.life
 			effects.append(copy)
 	model.events.clear()
@@ -224,6 +254,12 @@ func _process(dt: float) -> void:
 		return
 	if model != null and model.paused: dt = 0
 	shake_left = maxf(0,shake_left-dt)
+	purse_alarm = maxf(0,purse_alarm-dt)
+	place_flash = maxf(0,place_flash-dt)
+	skill_shake = maxf(0,skill_shake-dt)
+	for k: int in card_shake.keys():
+		card_shake[k] -= dt
+		if card_shake[k] <= 0: card_shake.erase(k)
 	position = Vector2(sin(shake_left*180),cos(shake_left*210))*shake_left*18 if shake_enabled and shake_left > 0 else Vector2.ZERO
 	for e: Dictionary in effects: e.life -= dt
 	effects = effects.filter(func(e: Dictionary) -> bool: return e.life > 0)
@@ -245,7 +281,7 @@ func toggle_pause() -> void:
 
 func set_speed(value: int) -> void:
 	speed = value
-	notice = "觀戰速度 ×%d" % speed
+	say("觀戰速度 ×%d" % speed)
 
 # Buttons on the pause / result banner: [rect, caption, action].
 func overlay_buttons() -> Array:
@@ -263,7 +299,13 @@ func try_play(slot: int, pos: Vector2) -> bool:
 	if reason.is_empty() and model.play(0,slot,pos):
 		selected = -1
 		return true
-	notice = reason
+	say(reason)
+	match model.play_check(0,slot,pos):
+		Battle.Refusal.GOLD:
+			purse_alarm = 0.9
+			purse_need = B.CARDS[model.kind_at(0,slot)].cost
+		Battle.Refusal.COOLDOWN: card_shake[slot] = 0.45
+		Battle.Refusal.NOT_OURS, Battle.Refusal.OFF_GRID, Battle.Refusal.OCCUPIED: place_flash = 1.0
 	effects.append({"kind":"fail","pos":pos,"life":0.5,"duration":0.5})
 	if sound != null: sound.cue("fail")
 	return false
@@ -307,7 +349,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.keycode == KEY_SPACE: toggle_pause()
 		if event.keycode == KEY_R:
 			if model.paused or model.ended: restart()
-			else: notice = "戰鬥中 R 不重開；空白鍵暫停後可重玩。"
+			else: say("戰鬥中 R 不重開；空白鍵暫停後可重玩")
 	if event is InputEventMouseMotion:
 		hover_slot = -1 if spectating else card_at(event.position)
 	if event is InputEventMouseButton:
@@ -400,6 +442,7 @@ func ink_frame(rect: Rect2) -> void:
 
 func art(kind: String, team: int = 0) -> Texture2D:
 	if team == 1 and blue_art.has(kind): return blue_art[kind]
+	if kind == "lord_adventure": return get_adventure_frame(0, team)
 	return textures.get(kind,textures.militia)
 
 func lord_art(kind: String, team: int = 0) -> Texture2D:
@@ -436,7 +479,10 @@ static func recolor_blue(source: Texture2D, max_size: int, kind: String = "") ->
 			var texture: Texture2D = load(generated)
 			recolor_cache[key] = texture
 			return texture
-	var img := source.get_image()
+	# Read the source file itself when it exists: the imported texture can be stale right after the
+	# art was edited (that once left the blue bandit facing the old way). Exports fall back to it.
+	var img: Image = Image.load_from_file(source.resource_path) if FileAccess.file_exists(source.resource_path) else source.get_image()
+	if img == null: img = source.get_image()
 	if img.is_compressed(): img.decompress()
 	img.convert(Image.FORMAT_RGBA8)
 	var scale := minf(1.0,float(max_size)/maxf(img.get_width(),img.get_height())) if max_size > 0 else 1.0
@@ -462,10 +508,23 @@ static func fitted_rect(source_size: Vector2, box: Rect2, bottom: bool = false) 
 func draw_fitted(texture: Texture2D, box: Rect2, shade: Color = Color.WHITE, bottom: bool = false) -> void:
 	draw_texture_rect(texture,fitted_rect(texture.get_size(),box,bottom),false,shade)
 
+# Same as draw_fitted, mirrored left-right when face < 0. Unit art faces right (toward blue).
+func draw_fitted_facing(texture: Texture2D, box: Rect2, face: float, shade: Color = Color.WHITE) -> void:
+	var r := fitted_rect(texture.get_size(),box,false)
+	if face >= 0:
+		draw_texture_rect(texture,r,false,shade)
+		return
+	var c := r.get_center()
+	draw_set_transform(c,0,Vector2(-1,1))
+	draw_texture_rect(texture,Rect2(r.position-c,r.size),false,shade)
+	draw_set_transform(Vector2.ZERO)
+
 func actor_rect(kind: String) -> Rect2:
-	if kind in ["teleport_trap","blast_trap"]: return fitted_rect(art(kind).get_size(),Rect2(-45,-8,90,46),true)
+	if B.CARDS.get(kind,{}).get("series","") == "magic" and B.CARDS[kind].type == "unit": return fitted_rect(art(kind).get_size(),Rect2(-65,-95,130,112),true)
+	if B.CARDS.get(kind,{}).has("trap"): return fitted_rect(art(kind).get_size(),Rect2(-45,-8,90,46),true)
 	if kind == "arcane_tower": return fitted_rect(art(kind).get_size(),Rect2(-40,-65,80,100),true)
 	if kind == "corpse_giant": return fitted_rect(art(kind).get_size(),Rect2(-52,-85,104,104),true)
+	if kind == "lord_adventure": return fitted_rect(get_adventure_frame(0,0).get_size(),Rect2(-57,-75,114,102),true)
 	if kind.begins_with("lord_"): return fitted_rect(art(kind).get_size(),Rect2(-47,-67,94,94),true)
 	if kind in ["farm","mill","tower","scarecrow","grave","bonewall","barricade","crystal","catapult"]: return fitted_rect(art(kind).get_size(),Rect2(-45,-39,90,78),true)
 	var width := 112.0 if kind in ["ox","ram"] else 80.0
@@ -477,11 +536,17 @@ func draw_actor(kind: String, team: int, pos: Vector2, face: float, shade: Color
 	draw_set_transform(Vector2.ZERO)
 
 func draw_combat_actor(kind: String, actor: Dictionary, pos: Vector2, face: float, shade: Color = Color.WHITE) -> void:
+	if kind == "farm": shade *= Color(0.90,0.88,0.82)
 	if kind == "crystal":
 		var brightness := lerpf(0.30,1.0,clampf(actor.hp/actor.max_hp,0,1))
 		shade *= Color(brightness,brightness,brightness,1)
-	if kind in ["teleport_trap","blast_trap"]:
+	if B.CARDS.get(kind,{}).has("trap"):
 		draw_arc(pos+Vector2(0,17),35,0,TAU,32,RED if actor.team == 0 else BLUE,2,true)
+		if kind in ["teleport_trap","summon_trap"]:
+			var charges: int = actor.get("charges",3)
+			for i in range(3):
+				var p_col: Color = (Color("00e5ff") if i < charges else Color("555555",0.5))
+				draw_circle(pos+Vector2(-12+i*12,42),4.0,p_col)
 	var pose: Dictionary = attack_animation.pose(actor,model.actor_time(actor)) if fx_enabled else {}
 	if pose.is_empty():
 		draw_actor(kind,actor.team,pos,face,shade)
@@ -497,10 +562,18 @@ func draw_combat_actor(kind: String, actor: Dictionary, pos: Vector2, face: floa
 	var extent: float = absf(sin(angle))*rect.size.x*scale.x/2+absf(cos(angle))*rect.size.y*scale.y/2
 	pivot.y = maxf(pivot.y,L.GRID_ORIGIN.y+6+extent)
 	draw_set_transform(pivot,angle,Vector2(face,1)*scale)
-	draw_texture_rect(art(kind,actor.team),Rect2(-rect.size/2,rect.size),false,shade)
+	var tex := art(kind,actor.team)
+	if kind == "lord_adventure" and pose.has("frame"):
+		tex = get_adventure_frame(pose.frame,actor.team)
+	draw_texture_rect(tex,Rect2(-rect.size/2,rect.size),false,shade)
 	draw_set_transform(pos,0,Vector2(face,1))
 	var ink := Color(INK,pose.strength*0.8)
 	match pose.style:
+		"cleave":
+			if pose.get("frame",0) in [2,3]:
+				var slash_ink := Color(INK,pose.strength*0.85)
+				draw_arc(Vector2(20,-22),34.0,-1.3,0.8,14,slash_ink,2.8,true)
+				draw_line(Vector2(14,-36),Vector2(40,-6),slash_ink,2.4,true)
 		"heavy", "thrust":
 			var radius := 28.0 if pose.style == "heavy" else 17.0
 			draw_arc(Vector2(18,-25),radius,-1.15,0.9,12,ink,2.2,true)
@@ -537,16 +610,23 @@ func draw_card_art(kind: String, box: Rect2, team: int = 0, shade: Color = Color
 
 func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 	var data: Dictionary = B.CARDS[kind]
+	if card_shake.has(slot): rect.position.x += sin(card_shake[slot]*55)*5*clampf(card_shake[slot]/0.45,0,1)
 	var s := rect.size
 	var short: bool = screen == "battle" and model.ink[0] < data.cost
 	draw_texture_rect(ART.card(selected == slot and slot >= 0),rect,false,preload("res://command_style.gd").card_tint(kind))
 	if data.get("series","") == "dark": draw_rect(rect.grow(-3),Color("66506d"),false,2)
 	preload("res://command_style.gd").type_frame(self,rect,data.type)
+	# No countdowns or shortfall numbers on cards (producer 2026-11-03). Not enough gold: a still
+	# grey mask. Cooling: a grey curtain that slowly parts from the middle (drawn further down).
+	var cooling: bool = slot >= 0 and screen == "battle" and model.slot_cd(0,slot) > 0
+	var blocked: bool = short and slot >= 0
+	var art_box := Rect2(rect.position+s*Vector2(0.08,0.13),s*Vector2(0.84,0.5))
 	var shade := Color(0.45,0.45,0.45) if short else Color.WHITE
-	draw_card_art(kind,Rect2(rect.position+s*Vector2(0.08,0.13),s*Vector2(0.84,0.5)),0,shade)
+	draw_card_art(kind,art_box,0,shade)
+	if blocked: draw_rect(rect.grow(-3),Color(0.40,0.40,0.40,0.50))
 	# Name and type sit above the frame's bottom corner flowers (they start ~83% down).
-	draw_string(font,rect.position+Vector2(0,s.y*0.74),data.name,HORIZONTAL_ALIGNMENT_CENTER,s.x,17,INK)
-	draw_string(font,rect.position+Vector2(0,s.y*0.83),data.role,HORIZONTAL_ALIGNMENT_CENTER,s.x,12,Color("7a6446"))
+	draw_string(font,rect.position+Vector2(0,s.y*0.74),data.name,HORIZONTAL_ALIGNMENT_CENTER,s.x,17,Color("2e2219") if blocked else INK)
+	draw_string(font,rect.position+Vector2(0,s.y*0.83),data.role,HORIZONTAL_ALIGNMENT_CENTER,s.x,13,Color("33261a") if blocked else Color("5a4630"))
 	if screen != "battle":
 		# Outside battle the top-left corner shows the card's cooldown (in battle it shows the hand slot).
 		draw_rect(Rect2(rect.position+Vector2(7,7),Vector2(34,20)),Color("725138"))
@@ -554,23 +634,36 @@ func draw_card(kind: String, rect: Rect2, slot: int = -1) -> void:
 		# Faction tag (經典／黑暗／中立) between the cooldown and the cost.
 		var faction: String = B.card_faction(kind)
 		var tag := Rect2(rect.position+Vector2(s.x*0.5-18,8),Vector2(36,17))
-		draw_rect(tag,{"normal":Color("5f7a3a"),"dark":Color("5b4366")}.get(faction,Color("7d7466")))
+		draw_rect(tag,{"normal":Color("5f7a3a"),"dark":Color("5b4366"),"magic":Color("6a4c8c")}.get(faction,Color("7d7466")))
 		draw_string(font,tag.position+Vector2(0,13),B.FACTIONS[faction],HORIZONTAL_ALIGNMENT_CENTER,tag.size.x,12,Color("f3e6c4"))
+	if cooling: curtain(rect.grow(-3),clampf(model.slot_cd(0,slot)/maxf(0.1,data.cooldown),0,1))
 	# Ink cost badge, top right.
 	var badge := rect.position+Vector2(s.x-19,19)
 	draw_circle(badge,15,Color("2f3f5c"))
 	draw_arc(badge,15,0,TAU,24,Color("cfaa60"),2)
-	draw_string(font,badge+Vector2(-15,6),str(data.cost),HORIZONTAL_ALIGNMENT_CENTER,30,16,Color("f3e6c4"))
+	draw_string(font,badge+Vector2(-15,6),("-" if data.get("summon_only",false) else str(data.cost)),HORIZONTAL_ALIGNMENT_CENTER,30,16,Color("f3e6c4"))
 	if slot >= 0:
 		var key := "F" if slot == Battle.FARM_SLOT else str(slot+1)
 		draw_rect(Rect2(rect.position+Vector2(7,7),Vector2(22,22)),Color("3f5a2c") if slot == Battle.FARM_SLOT else Color("725138"))
 		draw_string(font,rect.position+Vector2(7,24),key,HORIZONTAL_ALIGNMENT_CENTER,22,14,Color("efdfb9"))
-	if short and slot >= 0:
-		draw_string(font,rect.position+Vector2(0,s.y*0.42),"差 %d" % ceili(data.cost-model.ink[0]),HORIZONTAL_ALIGNMENT_CENTER,s.x,20,Color("f3e6c4"))
-	if slot >= 0 and screen == "battle" and model.slot_cd(0,slot) > 0:
-		var left: float = model.slot_cd(0,slot)
-		draw_rect(Rect2(rect.position+Vector2(6,6),Vector2(rect.size.x-12,(rect.size.y-12)*clampf(left/maxf(0.1,data.cooldown),0,1))),Color(0.12,0.08,0.04,0.45))
-		draw_string(font,rect.position+Vector2(0,s.y*0.45),"%.0f" % ceilf(left),HORIZONTAL_ALIGNMENT_CENTER,s.x,30,Color("fff3dc"))
+
+# A grey stage curtain over r: two halves that part from the middle as `closed` goes 1 -> 0.
+# Soft folds (light and shade bands) and a pale hem on the leading edge, like drawn cloth.
+func curtain(r: Rect2, closed: float) -> void:
+	var half := r.size.x*0.5*closed
+	if half < 0.5: return
+	for side: int in range(2):
+		var cloth := Rect2(r.position.x if side == 0 else r.end.x-half,r.position.y,half,r.size.y)
+		draw_rect(cloth,Color(0.38,0.37,0.36,0.82))
+		var fold := 0
+		var x := cloth.position.x
+		while x < cloth.end.x:
+			var w := minf(7.0,cloth.end.x-x)
+			draw_rect(Rect2(x,cloth.position.y,w,cloth.size.y),Color(1,1,1,0.07) if fold%2 == 0 else Color(0,0,0,0.10))
+			x += 7.0
+			fold += 1
+		var edge: float = cloth.end.x if side == 0 else cloth.position.x
+		draw_line(Vector2(edge,r.position.y),Vector2(edge,r.end.y),Color(0.80,0.78,0.72,0.9),2)
 
 func _draw() -> void:
 	if font == null or model == null: return
@@ -580,7 +673,7 @@ func _draw() -> void:
 	if screen == "battle": draw_battle()
 	elif screen == "adventure": adventure.paint(self)
 	elif screen == "adventure_ending": adventure.ending.paint(self)
-	elif screen == "road_toll_story": adventure.road_story.paint(self)
+	elif screen == "road_toll_story": adventure.active_story().paint(self)
 	elif screen == "recap":
 		panel(Rect2(100,70,1400,700))
 		label_at(Vector2(140,128),"戰局復盤",38)
@@ -679,10 +772,18 @@ func draw_battle() -> void:
 	draw_texture_rect(ART.ornament(1),Rect2(Vector2(field.end.x-8-corner.x,field.position.y+8),corner),false,Color(1,1,1,0.85))
 	draw_texture_rect(ART.ornament(2),Rect2(Vector2(field.position.x+8,field.end.y-8-corner.y),corner),false,Color(1,1,1,0.85))
 	draw_texture_rect(ART.ornament(3),Rect2(field.end-Vector2(8,8)-corner,corner),false,Color(1,1,1,0.85))
-	draw_texture_rect(art("castle_wall",0),L.CASTLE_RECTS[0],false)
-	draw_mirrored(art("castle_wall",1),L.CASTLE_RECTS[1])
+	# The castles are scenery: drawn a little muted so the gates and troops lead the eye.
+	draw_texture_rect(art("castle_wall",0),L.CASTLE_RECTS[0],false,CASTLE_SHADE)
+	draw_mirrored(art("castle_wall",1),L.CASTLE_RECTS[1],CASTLE_SHADE)
 	var grid := Rect2(L.GRID_ORIGIN,L.GRID_SIZE)
 	draw_ground(grid)
+	for row: int in range(L.GRID_ROWS):
+		for col: int in range(L.GRID_COLUMNS):
+			var cell := Vector2i(col,row)
+			var owner: int = model.territory_owner(cell)
+			if owner < 0: continue
+			var r := Rect2(L.GRID_ORIGIN+Vector2(cell)*L.CELL_SIZE,L.CELL_SIZE)
+			draw_rect(r, Color(RED if owner == 0 else BLUE, 0.13))
 	for row: int in range(L.GRID_ROWS):
 		for col: int in range(L.GRID_COLUMNS):
 			var cell := Vector2i(col,row)
@@ -702,14 +803,19 @@ func draw_battle() -> void:
 				var cell := Vector2i(col,row)
 				if model.can_play(0,selected,L.cell_center(cell)):
 					var r := Rect2(L.GRID_ORIGIN+Vector2(cell)*L.CELL_SIZE,L.CELL_SIZE).grow(-5)
-					draw_rect(r,Color(1.0,0.93,0.55,0.22))
-					draw_rect(r,Color(0.85,0.65,0.15,0.7),false,2)
+					var glow := 0.0 if place_flash <= 0 else 0.5+0.5*sin(place_flash*18)
+					draw_rect(r,Color(1.0,0.93,0.55,0.22+0.30*glow))
+					draw_rect(r,Color(0.85,0.65,0.15,0.7+0.3*glow),false,2+3*glow)
 	for lane: int in range(6):
 		if not lane in model.active_lanes and not lane-1 in model.active_lanes: continue
 		var y := grid.position.y+lane*L.CELL_SIZE.y
 		ink_line(Vector2(grid.position.x,y),Vector2(grid.end.x,y),lane,Color(INK,0.55 if lane == 0 or lane == 5 else 0.38),2.0)
 	for lane: int in model.active_lanes:
-		draw_string(font,Vector2(grid.position.x+6,grid.position.y+lane*L.CELL_SIZE.y+20),ROMAN[model.active_lanes.find(lane)],HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color(INK,0.6))
+		var tab := Rect2(grid.position.x+4,grid.position.y+lane*L.CELL_SIZE.y+5,30,20)
+		draw_rect(tab,Color(0.95,0.90,0.78,0.85))
+		draw_rect(tab,Color(INK,0.5),false,1)
+		draw_string(font,tab.position+Vector2(0,15),ROMAN[model.active_lanes.find(lane)],HORIZONTAL_ALIGNMENT_CENTER,tab.size.x,14,INK)
+	review.draw_pressure(self) # danger glow sits on the ground, under the troops
 	for b: Dictionary in model.buildings:
 		team_shadow(b.pos+Vector2(0,30),40,Color(0.25,0.17,0.08))
 		draw_combat_actor(b.kind,b,b.pos,1.0 if b.team == 0 else -1.0)
@@ -720,7 +826,12 @@ func draw_battle() -> void:
 			bar(Rect2(b.pos+Vector2(-30,36),Vector2(60,5)),b.production,B.FARM_INTERVAL,Color("f2c230") if doubled else Color("c8962c"))
 		elif b.kind == "grave":
 			bar(Rect2(b.pos+Vector2(-30,36),Vector2(60,5)),b.production,B.CARDS.grave.period,Color("a885af"))
-		if b.boost_until > model.elapsed: draw_arc(b.pos,37,0,TAU,20,Color.GOLD,2)
+		elif b.kind == "crystal":
+			bar(Rect2(b.pos+Vector2(-30,36),Vector2(60,5)),b.production,Arcane.crystal_period(b),Color("4fc3f7"))
+		if b.boost_until > model.elapsed:
+			draw_set_transform(b.pos+Vector2(0,22),0,Vector2(1,0.38))
+			draw_circle(Vector2.ZERO,46+3*sin(model.elapsed*4),Color(1.0,0.82,0.30,0.30))
+			draw_set_transform(Vector2.ZERO)
 	draw_relations()
 	for zone: Dictionary in model.zones:
 		draw_circle(zone.pos,zone.radius,Color(0.35,0.42,0.19,0.20))
@@ -737,28 +848,49 @@ func draw_battle() -> void:
 		for team: int in range(2):
 			var x := L.gate_icon_x(team)
 			var standing: bool = model.gates[team][lane] > 0
-			var gate_rect := Rect2(x-27,y-30,54,50)
-			if standing: draw_texture_rect(art("gate",team),gate_rect,false)
+			var gate_rect := Rect2(x-33,y-40,66,62)
+			var side_color: Color = RED if team == 0 else BLUE
+			if standing:
+				draw_texture_rect(art("gate",team),gate_rect,false)
+				bar(Rect2(x-28,y+25,56,7),model.gates[team][lane],B.GATE_HP,side_color)
 			else:
-				draw_texture_rect(art("gate",team),gate_rect,false,Color(0.55,0.5,0.45,0.35))
-				for i: int in range(7): draw_circle(Vector2(x-18+i*6,y+16+sin(i*2.3)*3),3+(i%3),Color(0.45,0.38,0.3,0.8))
-			bar(Rect2(x-22,y+24,44,4),model.gates[team][lane],B.GATE_HP,RED if team == 0 else BLUE)
+				# Broken: a heap of rubble under a pulsing glow and an "已破" tag, so it cannot be missed.
+				draw_set_transform(Vector2(x,y+12),0,Vector2(1,0.45))
+				draw_circle(Vector2.ZERO,40+5*pulse,Color(side_color,0.18+0.14*pulse))
+				draw_set_transform(Vector2.ZERO)
+				draw_texture_rect(art("gate",team),gate_rect,false,Color(0.42,0.36,0.30,0.45))
+				for i: int in range(9):
+					var stone := Vector2(x-26+i*6.5,y+14+sin(i*2.3)*4)
+					draw_circle(stone,4+(i%3)*1.5,Color("6f6352"))
+					draw_arc(stone,4+(i%3)*1.5,0,TAU,10,Color(INK,0.7),1,true)
+				for d: float in [-1.0,1.0]: # two snapped planks across the doorway
+					draw_line(Vector2(x-20,y-24*d-4),Vector2(x-3,y-6*d-4),Color(side_color,0.95),5,true)
+					draw_line(Vector2(x+4,y+4*d-4),Vector2(x+20,y+22*d-4),Color(side_color,0.95),5,true)
 		var gx := L.gate_icon_x(0)
-		if model.alarm[lane] > 0: draw_arc(Vector2(gx,y-4),34+4*pulse,0,TAU,28,Color(RED,0.5+0.4*pulse),3)
-		elif model.building_alarm[lane] > 0: draw_arc(Vector2(gx,y-4),34,0,TAU,28,Color(0.85,0.6,0.1,0.7),2)
+		if model.alarm[lane] > 0: draw_arc(Vector2(gx,y-8),40+4*pulse,0,TAU,28,Color(RED,0.5+0.4*pulse),3)
+		elif model.building_alarm[lane] > 0: draw_arc(Vector2(gx,y-8),40,0,TAU,28,Color(0.85,0.6,0.1,0.7),2)
 	for arrow: Dictionary in model.projectiles:
 		if arrow.has("impact"):
 			var flight: float = clampf(1-arrow.remaining/arrow.flight,0,1)
+			var shadow_pos: Vector2 = arrow.start.lerp(arrow.impact,flight)
+			draw_circle(shadow_pos,5.0*flight,Color(0.2,0.16,0.10,0.35))
+			draw_arc(arrow.impact,arrow.radius,0,TAU,24,Color(0.8,0.35,0.15,0.3+0.15*sin(model.elapsed*12)),1.5)
 			var stone: Vector2 = arrow.pos-Vector2(0,sin(flight*PI)*65)
 			draw_circle(stone,6,Color("86745c"))
 			draw_arc(stone,6,0,TAU,12,INK,1.5,true)
-		else: draw_line(arrow.pos-Vector2(12,0),arrow.pos,INK,2)
+		elif arrow.get("piercing",false):
+			var tip: Vector2 = arrow.pos
+			var tail := Vector2(arrow.direction*24,0)
+			draw_line(tip-tail*1.6,tip,Color("8966b8",0.35),5)
+			draw_line(tip-tail,tip,Color("c5a4eb"),2)
+			draw_polyline(PackedVector2Array([tip-Vector2(arrow.direction*6,4),tip,tip-Vector2(arrow.direction*6,-4)]),Color("ead7ff"),2)
+		else: draw_line(arrow.pos-Vector2(12*arrow.get("direction",1.0),0),arrow.pos,INK,2)
 	draw_preview()
 	draw_effects()
 	draw_hud()
-	review.draw_pressure(self)
 	panel(library.INFO_RECT,Color("ecdcb6"))
-	draw_string(font,library.INFO_RECT.position+Vector2(0,30),["簡單","普通","困難"][model.difficulty]+" · 戰局資料",HORIZONTAL_ALIGNMENT_CENTER,library.INFO_RECT.size.x,20,INK)
+	draw_string(font,library.INFO_RECT.position+Vector2(0,21),"戰局資料",HORIZONTAL_ALIGNMENT_CENTER,library.INFO_RECT.size.x,16,INK)
+	draw_string(font,library.INFO_RECT.position+Vector2(0,39),["簡單","普通","困難"][model.difficulty],HORIZONTAL_ALIGNMENT_CENTER,library.INFO_RECT.size.x,13,Color("6f5a3e"))
 	if model.ended and not model.time_stopped(): draw_result()
 	elif model.paused:
 		panel(L.OVERLAY_RECT,Color("efe0bd"))
@@ -796,9 +928,12 @@ func result_value(team: int, key: String) -> float:
 
 # Ground under a soldier: a dark shadow with a ring in the team's colour, so sides read at a glance.
 func team_base(center: Vector2, radius: float, color: Color) -> void:
-	draw_set_transform(center,0,Vector2(1,0.34))
-	draw_circle(Vector2.ZERO,radius,Color(0.18,0.12,0.06,0.42))
-	draw_circle(Vector2.ZERO,radius,Color(color,0.55),false,4.0)
+	# A filled disc in the team colour (not just a thin ring): sides read at a glance even for
+	# brown or white troops such as farmers, bandits, oxen, rams and skeletons.
+	draw_set_transform(center,0,Vector2(1,0.36))
+	draw_circle(Vector2.ZERO,radius+2,Color(0.15,0.10,0.05,0.35))
+	draw_circle(Vector2.ZERO,radius,Color(color,0.62))
+	draw_circle(Vector2.ZERO,radius,Color(color.darkened(0.35),0.95),false,3.0)
 	draw_set_transform(Vector2.ZERO)
 
 # The battlefield floor: tinted zones, alternating lane shade, grass and pebbles, darker edges.
@@ -840,14 +975,49 @@ func draw_unit(u: Dictionary) -> void:
 	var bounce := sin(model.actor_time(u)*8+u.phase)*2
 	if u.get("flying",false): bounce = -20+sin(model.actor_time(u)*10+u.phase)*5
 	var top: float = actor_rect(u.kind).position.y+bounce
-	if u.get("cursed_until",0.0) > model.elapsed: top = minf(top,-84)
+	var is_cursed: bool = u.get("cursed",false) or u.get("cursed_until",0.0) > model.elapsed
+	if is_cursed: top = minf(top,-78)
 	if u.hp < u.max_hp: top = minf(top,-69)
 	pos.y = maxf(pos.y,L.GRID_ORIGIN.y-top+6)
+	if u.get("stealthed",false):
+		draw_arc(pos+Vector2(0,16),27,0,PI,16,Color("a8b5c7"),2)
 	team_base(pos+Vector2(0,16),24,RED if u.team == 0 else BLUE)
-	draw_combat_actor(u.kind,u,pos+Vector2(0,bounce),u.face,Color(1.6,1.6,1.6) if fx_enabled and u.flash > 0 else Color.WHITE)
-	if u.get("cursed_until",0.0) > model.elapsed:
-		draw_arc(pos-Vector2(0,50),13,0,TAU,20,Color("926c9d"),2,true)
-		bar(Rect2(pos-Vector2(17,83),Vector2(34,3)),u.cursed_until-model.elapsed,B.CARDS.curse.curse_duration,Color("926c9d"))
+	var tint := Color(1.6,1.6,1.6) if fx_enabled and u.flash > 0 else Color.WHITE
+	if u.get("phased",false):
+		draw_combat_actor(u.kind,u,pos+Vector2(-u.face*12,bounce),u.face,Color(0.65,0.55,1.0,0.16))
+		tint = Color(0.8,0.75,1.0,0.5)
+	draw_combat_actor(u.kind,u,pos+Vector2(0,bounce),u.face,tint)
+	if B.CARDS[u.kind].has("resonance"):
+		var strength: float = model.Arcane.resonance(model,u)/B.CARDS[u.kind].resonance_max
+		var center := pos+Vector2(0,-32)
+		draw_colored_polygon(PackedVector2Array([center+Vector2(0,-7),center+Vector2(5,0),center+Vector2(0,7),center+Vector2(-5,0)]),Color(0.55+0.4*strength,0.4+0.4*strength,0.8+0.2*strength,0.8))
+	if model.LordExpansion.active(model,u):
+		draw_arc(pos+Vector2(0,-30),25,0,TAU,24,Color(0.65,0.08,0.18,0.7),2)
+		var left: float = (model.vampire_until[u.team]-model.elapsed)/B.LORDS.vampire.blood_duration
+		draw_arc(pos+Vector2(0,16),25,-PI/2,-PI/2+TAU*left,24,Color("bd3d66"),2)
+	if is_cursed:
+		var halo_pos := pos-Vector2(0,50)
+		draw_arc(halo_pos,12,0,TAU,20,Color("926c9d"),2,true)
+		draw_circle(halo_pos,4,Color("5e3772"))
+		for i: int in range(4):
+			var a: float = model.elapsed*3.5+i*PI*0.5
+			draw_circle(halo_pos+Vector2(cos(a),sin(a))*12,2,Color("c89fe0"))
+	if u.get("inspired",false):
+		var trail_c := Color(1.0,0.82,0.28,0.7)
+		var dir: float = u.face
+		draw_line(pos-Vector2(dir*16,10),pos-Vector2(dir*32,10),trail_c,2.0)
+		draw_line(pos-Vector2(dir*12,22),pos-Vector2(dir*26,22),trail_c,1.5)
+		var chev := pos+Vector2(0,top-6)
+		draw_polyline(PackedVector2Array([chev-Vector2(dir*5,4),chev+Vector2(dir*3,0),chev-Vector2(dir*5,-4)]),trail_c,2.0)
+		draw_arc(pos+Vector2(0,16),18+2*sin(model.elapsed*10),0,TAU,16,Color(1.0,0.85,0.3,0.35),1.5)
+	if u.get("stun_left",0.0) > 0:
+		var stun_pos := pos-Vector2(0,48)
+		draw_polyline(PackedVector2Array([stun_pos+Vector2(-5,-7),stun_pos+Vector2(5,-7),stun_pos+Vector2(-5,7),stun_pos+Vector2(5,7),stun_pos+Vector2(-5,-7)]),Color("d8b9f3"),2)
+		for i: int in range(3):
+			var a: float = model.elapsed*6.0+i*TAU/3.0
+			draw_circle(stun_pos+Vector2(cos(a)*10,sin(a)*4),2.5,Color("f6d354"))
+	if u.get("slow_left",0.0) > 0:
+		draw_arc(pos+Vector2(0,16),20,0,TAU,16,Color("64b5f6",0.6),1.5)
 	if u.hp < u.max_hp: bar(Rect2(pos-Vector2(24,68),Vector2(48,5)),u.hp,u.max_hp,RED if u.team == 0 else BLUE)
 	var climb: float = u.get("climb",0.0)
 	if climb > 0 and climb < B.RUBBLE_TIME: bar(Rect2(pos-Vector2(24,75),Vector2(48,4)),climb,B.RUBBLE_TIME,Color.GOLD) # clearing the rubble
@@ -889,7 +1059,7 @@ func draw_preview() -> void:
 					if b.kind == "farm" and b.team == 0 and b.cell.y == cell.y and b.cell.x >= cell.x: draw_circle(b.pos,40,color,false,3)
 
 # Colours of the cause-and-effect links (battle.gd link()): one family per relation.
-const LINK_COLORS := {"repair":Color("c4a75f"),"soul":Color("b9a3d6"),"devour":Color("9b2f2f"),"summon":Color("7b4fa0"),"heal":Color("4f9a4a"),"harvest":Color("e2b23a")}
+const LINK_COLORS := {"repair":Color("c4a75f"),"soul":Color("b9a3d6"),"devour":Color("9b2f2f"),"summon":Color("7b4fa0"),"heal":Color("4f9a4a"),"harvest":Color("e2b23a"),"curse":Color("926c9d")}
 
 # A light travelling from cause to effect along a shallow arc, with a fading trail and a ring where
 # it lands, so the player sees what fed what.
@@ -912,6 +1082,13 @@ func draw_link(from: Vector2, to: Vector2, color: Color, progress: float) -> voi
 # Standing relations, drawn every frame: a mill's dashed gold line to the farms it boosts, and a
 # scarecrow's dashed red line to the enemies it is pulling in.
 func draw_relations() -> void:
+	# Catapult aiming trajectory line
+	for cat: Dictionary in model.units:
+		if cat.hp <= 0 or cat.kind != "catapult" or cat.spawn_delay > 0: continue
+		var target: Dictionary = model.catapult_target(cat)
+		if not target.is_empty():
+			dashed(cat.pos,target.pos,Color(0.85,0.50,0.20,0.45))
+			draw_arc(target.pos,14,0,TAU,16,Color(0.85,0.50,0.20,0.55),1.5)
 	# Buffed units already carry gold markers; avoid a web of field-wide lines.
 	for b: Dictionary in model.buildings:
 		if b.hp <= 0 or get_global_mouse_position().distance_to(b.pos) > 75: continue
@@ -957,17 +1134,49 @@ func draw_effects() -> void:
 					var center := start+Vector2(direction*reach*(i+1)/3.0,0)
 					draw_arc(center,20+progress*22,-1.1 if direction > 0 else PI-1.1,1.1 if direction > 0 else PI+1.1,18,glow,3,true)
 			"teleport":
+				if e.has("afterimage"): draw_actor(e.afterimage,e.team,e.pos,1.0 if e.team == 0 else -1.0,Color(0.7,0.5,1.0,(1-progress)*0.5))
 				for p: Vector2 in [e.pos,e.to]: draw_arc(p,12+progress*30,0,TAU,32,Color(0.5,0.4,0.8,1-progress),3,true)
 				dashed(e.pos,e.to,Color(0.5,0.4,0.8,(1-progress)*0.6))
 			"arcane_impact":
+				if e.get("clock",false):
+					var clock_color := Color(0.8,0.65,1.0,1-progress)
+					for hour in range(12):
+						var direction := Vector2.from_angle(hour*TAU/12)
+						draw_line(e.pos+direction*e.radius*.8,e.pos+direction*e.radius,clock_color,2)
+					draw_line(e.pos,e.pos+Vector2.from_angle(progress*TAU)*e.radius*.6,clock_color,2)
 				draw_line(e.from,e.pos,Color(0.55,0.55,0.9,1-progress),3,true)
 				draw_arc(e.pos,e.radius*progress,0,TAU,32,Color(0.6,0.5,0.9,1-progress),3,true)
 			"trap_blast":
 				draw_arc(e.pos,e.radius*progress,0,TAU,32,Color(0.85,0.35,0.12,1-progress),4,true)
+			"rune_summon":
+				draw_arc(e.pos,20+progress*35,0,TAU,24,Color(0.65,0.45,0.9,1-progress),3)
+				for i in range(6):
+					var v := Vector2.from_angle(i*TAU/6)*30
+					draw_line(e.pos+v*.7,e.pos+v,Color(0.8,0.65,1.0,1-progress),3)
+			"blood_gain":
+				draw_circle(e.pos+Vector2(0,-20-progress*25),3,Color(0.65,0.05,0.15,1-progress))
 			"repair":
 				draw_line(e.pos+Vector2(-6,-20-progress*15),e.pos+Vector2(6,-20-progress*15),Color(0.8,0.7,0.3,1-progress),3,true)
 				draw_line(e.pos+Vector2(0,-26-progress*15),e.pos+Vector2(0,-14-progress*15),Color(0.8,0.7,0.3,1-progress),3,true)
-			"stone_impact": draw_arc(e.pos,e.radius*progress,0,TAU,28,Color(0.40,0.30,0.18,1-progress),3,true)
+			"drum":
+				var r: float = progress*220.0
+				draw_arc(e.pos,r,0,TAU,36,Color(1.0,0.82,0.28,(1-progress)*0.8),3.0,true)
+				draw_arc(e.pos,r*0.65,0,TAU,28,Color(1.0,0.95,0.6,(1-progress)*0.5),2.0,true)
+				for i in range(8):
+					var ang: float = i*TAU/8.0+progress*0.5
+					draw_line(e.pos+Vector2(cos(ang),sin(ang))*(r*0.75),e.pos+Vector2(cos(ang),sin(ang))*(r*1.05),Color(1.0,0.85,0.3,(1-progress)*0.7),2.0,true)
+			"catapult_fire":
+				draw_arc(e.pos,12+progress*24,0,TAU,20,Color(0.65,0.55,0.40,1-progress),2.0,true)
+				for i in range(5):
+					draw_circle(e.pos+Vector2((i-2)*6,-sin(progress*PI)*18-i*2),2.5*(1-progress),Color(0.5,0.4,0.3,1-progress))
+			"curse_rise":
+				draw_arc(e.pos,10+progress*36,0,TAU,24,Color("926c9d",1-progress),2.5,true)
+				draw_circle(e.pos-Vector2(0,progress*28),5*(1-progress),Color("c89fe0",1-progress))
+			"stone_impact":
+				draw_arc(e.pos,e.radius*progress,0,TAU,28,Color(0.40,0.30,0.18,1-progress),3,true)
+				for i in range(8):
+					var a: float = i*TAU/8.0
+					draw_circle(e.pos+Vector2(cos(a),sin(a))*(progress*e.radius*0.8),3*(1-progress),Color(0.45,0.35,0.22,1-progress))
 			"summoned", "boneburst": draw_arc(e.pos,12+progress*36,0,TAU,24,Color(0.55,0.38,0.60,1-progress),2,true)
 			"skill": draw_skill_effect(e,progress)
 			"link": draw_link(e.pos,e.to,LINK_COLORS.get(e.style,INK),progress)
@@ -986,8 +1195,8 @@ func draw_effects() -> void:
 				death_pos.y = maxf(death_pos.y,L.GRID_ORIGIN.y-actor_rect(kind).position.y+6)
 				var face: float = e.get("face",1.0 if e.team == 0 else -1.0)
 				if B.CARDS.has(kind) and B.CARDS[kind].type == "building": face = 1.0 if e.team == 0 else -1.0
-				if adventure.is_opening() and e.team == 1 and kind in ["militia","mob"]:
-					draw_fitted(adventure.opening.BANDIT,Rect2(death_pos-Vector2(43,73),Vector2(86,104)),Color(1,1,1,1-progress))
+				if adventure.is_opening() and e.team == 1 and kind == "bandit":
+					draw_fitted_facing(adventure.opening.BANDIT,Rect2(death_pos-Vector2(43,73),Vector2(86,104)),-1.0,Color(1,1,1,1-progress))
 				else: draw_actor(kind,e.team,death_pos,face,Color(1,1,1,1-progress))
 				for i: int in range(5): draw_circle(e.pos+Vector2(cos(i*2),sin(i*2))*progress*24,3*(1-progress),INK)
 			"burn":
@@ -996,6 +1205,16 @@ func draw_effects() -> void:
 					for i: int in range(5): draw_circle(e.pos+Vector2((i-2)*10,-15-10*sin(e.life*12+i)),8,Color(0.9,0.4,0.05,0.6))
 			"breach":
 				for i: int in range(8): draw_line(e.pos+Vector2(cos(i),sin(i))*progress*55,e.pos+Vector2(cos(i),sin(i))*progress*65,Color("6e4825"),3)
+				# The whole lane flashes: red when it is our gate, gold when we broke theirs.
+				var ours: bool = e.team == 1
+				var flash := Color(RED if ours else Color("e0b02c"),(1-progress)*(0.22+0.16*sin(progress*40)))
+				var lane_y: float = L.GRID_ORIGIN.y+e.lane*L.CELL_SIZE.y
+				draw_rect(Rect2(L.FIELD_FRAME.position.x+6,lane_y,L.FIELD_FRAME.size.x-12,L.CELL_SIZE.y),flash)
+				var gate := Vector2(L.gate_icon_x(0 if ours else 1),L.cell_center(Vector2i(0,e.lane)).y)
+				for k: int in range(3): draw_arc(gate,30+fmod(progress*2+k/3.0,1.0)*110,0,TAU,40,Color(flash,(1-progress)*0.8),4)
+			"ramp":
+				var clock := L.CLOCK_FRAME.get_center()
+				for k: int in range(3): draw_arc(clock,40+fmod(progress*1.5+k/3.0,1.0)*70,0,TAU,40,Color(0.88,0.69,0.17,(1-progress)*0.7),3)
 			"heal": label_at(e.pos+Vector2(-10,-30-progress*20),"+",20,Color(0.2,0.5,0.25,1-progress))
 			"fail":
 				var c := Color(0.75,0.12,0.1,1-progress)
@@ -1012,7 +1231,7 @@ func draw_skill_effect(e: Dictionary, progress: float) -> void:
 	var direction := 1.0 if e.team == 0 else -1.0
 	for point: Vector2 in e.get("targets",[]):
 		match e.lord:
-			"lion", "underworld":
+			"lion", "underworld", "rune", "vampire":
 				draw_circle(point+Vector2(0,-20),18+progress*30,Color(1.0,0.85,0.45,strength*0.22))
 				draw_arc(point+Vector2(0,-20),14+progress*35,0,TAU,32,gold,2.0,true)
 				var tip := point+Vector2(direction*(25+progress*100),-18)
@@ -1035,9 +1254,10 @@ func draw_skill_effect(e: Dictionary, progress: float) -> void:
 					draw_line(Vector2(point.x-24,y),Vector2(point.x+24,y),Color(gold,strength*(1.0-i*0.2)),2.0,true)
 
 func draw_hud(single_lane: bool = false) -> void:
-	draw_rect(L.HUD_FRAME,Color("a6c9dc"))
+	# Lighter band and fainter diamonds: the red and blue team text needs the contrast.
+	draw_rect(L.HUD_FRAME,Color("c4dbe7"))
 	for x: int in range(48,1550,58):
-		draw_polyline(PackedVector2Array([Vector2(x,24),Vector2(x+16,34),Vector2(x,44),Vector2(x-16,34),Vector2(x,24)]),Color(0.92,0.97,1,0.23),1.2,true)
+		draw_polyline(PackedVector2Array([Vector2(x,24),Vector2(x+16,34),Vector2(x,44),Vector2(x-16,34),Vector2(x,24)]),Color(0.92,0.97,1,0.12),1.2,true)
 	draw_texture_rect(PAPER,L.HUD_FRAME,false,Color(1,1,1,0.06))
 	ink_frame(L.HUD_FRAME)
 	if not single_lane:
@@ -1052,11 +1272,14 @@ func draw_hud(single_lane: bool = false) -> void:
 	panel(Rect2(712,24,140,58),Color("f2e3c0"))
 	var time := int(model.elapsed)
 	label_at(Vector2(725,58),"%02d:%02d" % [time/60,time%60],30,RED if model.multiplier() > 1 else INK)
-	if model.multiplier() > 1: label_at(Vector2(735,76),"金幣 ×%.1f" % model.multiplier(),13,RED)
+	# Faster income shows as coins beside the clock: one for x1.5, two for x2.
+	for i: int in range(int(round((model.multiplier()-1.0)*2))):
+		draw_texture_rect(preload("res://economy_hud.gd").coin_texture(),Rect2(822,30+i*18,20,20),false)
 	panel(L.PAUSE_RECT)
 	label_at(L.PAUSE_RECT.position+Vector2(10,27),"Ⅱ",23)
 	preload("res://command_style.gd").stone(self,L.COMMAND_FRAME)
 	preload("res://economy_hud.gd").draw(self)
+	if not single_lane: panel(LORD_PLATE,Color(0.92,0.86,0.72,0.92),Color("8a6f4a")) # plain backing for the lord text
 	# Permanent farmland slot: green-washed frame and a "常駐" tag so it reads apart from the hand.
 	var farm_rect := card_rect(Battle.FARM_SLOT)
 	panel(farm_rect.grow(6),Color("cfdcae"),Color("3f5a2c"))
@@ -1075,9 +1298,10 @@ func draw_hud(single_lane: bool = false) -> void:
 		draw_card(model.decks[0][i],r,i)
 	# Next card: smaller, faded, labelled.
 	draw_line(Vector2(1093,728),Vector2(1093,888),Color(INK,0.35),2)
-	draw_string(font,Vector2(NEXT_RECT.position.x,742),"下一張",HORIZONTAL_ALIGNMENT_CENTER,NEXT_RECT.size.x,14,Color("6f5a3e"))
+	draw_string(font,Vector2(NEXT_RECT.position.x,742),"下一張",HORIZONTAL_ALIGNMENT_CENTER,NEXT_RECT.size.x,15,INK)
 	draw_card(model.decks[0][4],NEXT_RECT)
-	draw_rect(NEXT_RECT.grow(-4),Color(0.78,0.80,0.78,0.15))
+	# It cannot be played yet, so it recedes: a parchment wash keeps it readable but quiet.
+	draw_rect(NEXT_RECT.grow(-3),Color(0.86,0.81,0.70,0.55))
 	if spectating:
 		for i: int in range(SPEEDS.size()):
 			panel(SPEED_RECTS[i],Color("c9a96a") if speed == SPEEDS[i] else Color("e8d5ab"))
@@ -1095,8 +1319,7 @@ func draw_hud(single_lane: bool = false) -> void:
 		label_at(Vector2(1220,y),"%s · %s" % ["紅" if lord.team == 0 else "藍",info.name],16,color)
 		bar(Rect2(1220,y+8,170,6),lord.hp,lord.max_hp,color)
 		label_at(Vector2(1400,y+14),"%d / %d" % [maxi(0,int(lord.hp)),int(lord.max_hp)],14)
-		var cd: float = model.skill_cd[lord.team]
-		label_at(Vector2(1490,y+14),"技能 %ds" % ceili(cd) if cd > 0 else "技能就緒",13,Color("6f5a3e") if cd > 0 else color)
+		skill_mark(lord.team,Vector2(1500,y+6))
 
 # Our lord's skill: Q or click. Lit when it can be cast; shows the cooldown otherwise.
 func draw_skill_button() -> void:
@@ -1107,17 +1330,52 @@ func draw_skill_button() -> void:
 	draw_rect(Rect2(SKILL_RECT.position+Vector2(8,10),Vector2(24,24)),Color("725138"))
 	draw_string(font,SKILL_RECT.position+Vector2(8,28),"Q",HORIZONTAL_ALIGNMENT_CENTER,24,15,Color("efdfb9"))
 	label_at(SKILL_RECT.position+Vector2(42,24),"領主技能：%s" % info.skill,17,RED if ready else INK)
-	var cd: float = model.skill_cd[0]
-	var cost := B.skill_cost(model.lords[0].lord)
-	var state: String = "冷卻 %d 秒" % ceili(cd) if cd > 0 else ("可發動" if ready else "還差 %d 金幣" % ceili(cost-model.ink[0]) if model.ink[0] < cost else "領主倒下中")
-	if model.lords[0].hp > 0 and model.lords[0].lord == "underworld" and model.count_buildings(0,"grave") == 0: state = "沒有墓碑"
-	label_at(SKILL_RECT.position+Vector2(42,44),"%d 金幣 · %s" % [int(cost),state],13,Color("6f5a3e"))
+	# Ready: a slow golden glow. Cooling: the same parting curtain as the cards. Otherwise greyed.
+	if ready:
+		var glow := 0.5+0.5*sin(Time.get_ticks_msec()/260.0)
+		draw_rect(SKILL_RECT.grow(4+glow*2),Color(0.95,0.75,0.25,0.25+0.35*glow),false,3)
+	elif model.skill_cd[0] > 0: curtain(SKILL_RECT.grow(-2),clampf(model.skill_cd[0]/B.SKILL_COOLDOWN,0,1))
+	else: draw_rect(SKILL_RECT.grow(-2),Color(0.40,0.40,0.40,0.35))
+
+# A lord row's skill state as a small mark, no words: a glowing gem when it can be cast, a dial
+# filling up while it cools, a dull coin when gold is short, an empty ring when the lord is down.
+func skill_mark(team: int, at: Vector2) -> void:
+	var state := skill_state_text(team)
+	var color: Color = RED if team == 0 else BLUE
+	match state:
+		"可發動":
+			var glow := 0.5+0.5*sin(Time.get_ticks_msec()/260.0)
+			draw_circle(at,10+glow*2,Color(0.95,0.75,0.25,0.35))
+			draw_circle(at,7,color.lightened(0.25))
+			draw_arc(at,7,0,TAU,16,Color("e8c25a"),2,true)
+		"冷卻中":
+			var done := 1.0-clampf(model.skill_cd[team]/B.SKILL_COOLDOWN,0,1)
+			draw_circle(at,8,Color(0.30,0.30,0.31,0.8))
+			if done > 0: draw_colored_polygon(PackedVector2Array([at]+range(25).map(func(i: int) -> Vector2: return at+Vector2.from_angle(-PI/2+TAU*done*i/24.0)*8)),Color(color,0.85))
+		"金幣不足":
+			draw_texture_rect(preload("res://economy_hud.gd").coin_texture(),Rect2(at-Vector2(9,9),Vector2(18,18)),false,Color(0.45,0.45,0.45,0.8))
+		_:
+			draw_arc(at,7,0,TAU,16,Color(0.35,0.35,0.35,0.8),2,true)
+
+# The skill's state in words only (producer 2026-11-03: no countdowns or gold numbers on screen).
+# Hovering the button lights the coins it costs in the purse.
+func skill_state_text(team: int) -> String:
+	var lord: Dictionary = model.lords[team]
+	if lord.hp <= 0: return "領主倒下中"
+	if model.skill_cd[team] > 0: return "冷卻中"
+	if lord.lord == "underworld" and model.count_buildings(team,"grave") == 0: return "沒有墓碑"
+	if model.ink[team] < B.skill_cost(lord.lord): return "金幣不足"
+	return "可發動"
 
 func try_skill() -> bool:
 	if adventure.is_opening() and adventure.opening.active: return false
 	var reason: String = model.skill_error(0)
 	if reason.is_empty() and model.cast_skill(0): return true
-	notice = reason
+	say(reason)
+	skill_shake = 0.45
+	if model.skill_cd[0] <= 0 and model.ink[0] < B.skill_cost(model.lords[0].lord):
+		purse_alarm = 0.9
+		purse_need = B.skill_cost(model.lords[0].lord)
 	if sound != null: sound.cue("fail")
 	return false
 
@@ -1150,9 +1408,10 @@ func title_button(rect: Rect2, caption: String, action: Callable, primary: bool 
 	return control
 
 # The blue castle faces the red one: draw it flipped left-right inside the same rect.
-func draw_mirrored(tex: Texture2D, r: Rect2) -> void:
+const CASTLE_SHADE := Color(0.80,0.78,0.74)
+func draw_mirrored(tex: Texture2D, r: Rect2, shade: Color = Color.WHITE) -> void:
 	draw_set_transform(Vector2(2*r.position.x+r.size.x,0),0,Vector2(-1,1))
-	draw_texture_rect(tex,r,false)
+	draw_texture_rect(tex,r,false,shade)
 	draw_set_transform(Vector2.ZERO)
 
 func draw_title() -> void:
@@ -1235,7 +1494,7 @@ func lord_tooltip(kind: String) -> String:
 	return "%s（%s）\n%d 血 · 普攻 %d\n%s" % [info.name,info.role,int(info.hp),int(info.damage),B.skill_text(kind)]
 
 func lord_rect(index: int) -> Rect2:
-	return Rect2(1010+(index%2)*270,148+(index/2)*54,260,50)
+	return Rect2(1010+(index%4)*134,148+(index/4)*74,128,70)
 
 func save_choice() -> void:
 	if adventure_deck_mode:
@@ -1284,7 +1543,7 @@ func draw_deck() -> void:
 		label_at(Vector2(120,100),"村莊牌組",48)
 		var home: String = B.CARDS[B.home_card(player_lord)].name
 		label_at(Vector2(560,100),"%s＋領主固定，再選 8 張：%d / 8 · 平均 %.1f 金幣" % [home,player_deck.size(),DeckStore.average(player_deck)],22)
-		label_at(Vector2(560,128),"法師領主可用：中立牌" if player_lord == "mage" else "%s可用：%s牌與中立牌" % [B.LORDS[player_lord].name,B.FACTIONS[B.lord_faction(player_lord)]],16,Color("6f5a3e"))
+		label_at(Vector2(560,128),"%s可用：%s牌與中立牌" % [B.LORDS[player_lord].name,B.FACTIONS[B.lord_faction(player_lord)]],16,Color("6f5a3e"))
 		label_at(Vector2(1010,140),"選擇領主",18)
 		var lord_index := 0
 		for lord_kind: String in B.LORDS:
@@ -1292,10 +1551,10 @@ func draw_deck() -> void:
 			var info: Dictionary = B.LORDS[lord_kind]
 			panel(r,Color("f2e3c0") if lord_kind == player_lord else Color("e3d2aa"),RED if lord_kind == player_lord else INK)
 			if lord_kind == player_lord: draw_rect(r.grow(2),RED,false,3)
-			draw_fitted(lord_art(lord_kind),Rect2(r.position+Vector2(6,3),Vector2(44,44)))
-			label_at(r.position+Vector2(58,17),info.name,17)
-			label_at(r.position+Vector2(58,32),"%s · %d 血" % [info.role,int(info.hp)],11,Color("6f5a3e"))
-			label_at(r.position+Vector2(58,46),"%s · %d 金幣" % [info.skill,int(B.skill_cost(lord_kind))],11,RED)
+			draw_fitted(lord_art(lord_kind),Rect2(r.position+Vector2(4,3),Vector2(34,40)))
+			label_at(r.position+Vector2(42,19),info.name,14)
+			label_at(r.position+Vector2(42,35),"%s · %d 血" % [info.role,int(info.hp)],11,Color("6f5a3e"))
+			label_at(r.position+Vector2(6,62),"%s · %d 金幣" % [info.skill,int(B.skill_cost(lord_kind))],11,RED)
 			lord_index += 1
 	var pool: Array = adventure.unlocked_cards() if adventure_deck_mode else DeckStore.pool(player_lord)
 	var index := 0
@@ -1355,7 +1614,7 @@ func watch_card_rect(team: int, index: int) -> Rect2:
 	return Rect2(120+team*760+(index%4)*150,330+(index/4)*190,136,172)
 
 func watch_lord_rect(team: int, index: int) -> Rect2:
-	return Rect2(120+team*760+index*164,236,158,52)
+	return Rect2(120+team*760+(index%4)*150,220+(index/4)*52,144,48)
 
 func show_watch() -> void:
 	screen = "watch"
@@ -1415,7 +1674,7 @@ func card_description(kind: String) -> String:
 
 func help_columns() -> Array[String]:
 	return [
-		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐農田；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 有選牌時取消，沒選牌時切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩，戰鬥中按 R 不重開。\n\n[b]牌組與領主[/b]\n常駐牌＋領主四選一＋自選 8 張輪轉牌；常駐牌（農田，冥府為墓碑）不輪轉、不佔名額。經典領主帶經典與中立牌，冥府領主帶黑暗與中立牌。領主由 AI 移動，只在農田後方防守；按 Q 花 %s 金幣（冥府 %s、主角 %s）發動技能，冷卻 %s 秒。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2，等待時間會縮短。" % [B.number(B.SKILL_COST),B.number(B.skill_cost("underworld")),B.number(B.skill_cost("adventure")),B.number(B.SKILL_COOLDOWN),B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
+		"[b]選牌與放置[/b]\n1–4 選手牌，F 選常駐牌；點卡再點戰場，或拖曳放置。右鍵取消選牌。Esc 取消選牌或切換暫停。\n空白鍵暫停；暫停或結束後按 R 重玩。\n\n[b]牌組與領主[/b]\n選一位領主與 8 張輪轉牌，另有一張常駐經濟牌。依領主陣營使用經典、黑暗、魔法與中立牌。\n領主由 AI 移動防守；按 Q 發動技能，費用與效果見技能按鈕及圖鑑。冷卻 %s 秒。\n\n[b]金幣與冷卻[/b]\n金幣上限 %s。開局手牌無冷卻，後續每張牌各自冷卻。\n%s 分鐘後回復與冷卻速度 ×1.5；%s 分鐘後 ×2。" % [B.number(B.SKILL_COOLDOWN),B.number(B.MAX_INK),B.number(B.RAMP_1/60),B.number(B.RAMP_2/60)],
 		"[b]種田與防守[/b]\n農田自己產金幣；農民從田後方出發，順路耕田加速並回血。相同建築覆蓋自己的舊建築可補滿生命。\n部隊只往前走，不追身後範圍外的敵人；城門不反擊，靠領主、部隊與建築防守。\n\n[b]破門與勝負[/b]\n建築與部隊限己方領地：建築、城牆周圍八格先佔先得，失去所有己方建築覆蓋就釋出。敵兵破門後需停下拆殘垣 %s 秒，再向家門前進。\n任何敵兵走進家門就輸，沒有時間限制。\n\n[b]觀戰模式[/b]\n開戰前調整雙方牌組與領主（預設隨機），AI 出牌；1–4 切換 ×1／×2／×4／×8，＋／－ 逐級調速。空白鍵暫停。" % B.number(B.RUBBLE_TIME)
 	]
 

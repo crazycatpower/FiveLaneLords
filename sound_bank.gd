@@ -1,5 +1,5 @@
 extends Node
-const CUES := {"play":"bookFlip1","ink":"dropLeather","hoe":"chop","cultivate":"chop","hit":"chop","death":"dropLeather","burn":"creak1","spell":"bookPlace1","breach":"doorClose_1","arrow":"drawKnife1","heal":"handleCoins","overflow":"metalPot1","finish":"metalPot1","ramp":"metalPot1","invaded":"doorClose_1","fail":"dropLeather","skill":"doorClose_1"}
+const CUES := {"play":"bookFlip1","ink":"dropLeather","hoe":"chop","cultivate":"chop","hit":"chop","death":"dropLeather","burn":"creak1","spell":"bookPlace1","breach":"doorClose_1","arrow":"drawKnife1","heal":"handleCoins","overflow":"metalPot1","finish":"metalPot1","ramp":"metalPot1","invaded":"doorClose_1","fail":"dropLeather","skill":"doorClose_1","catapult_fire":"creak1","stone_impact":"doorClose_1","drum":"doorClose_1","curse_rise":"knifeSlice"}
 var enabled := true
 var players: Array[AudioStreamPlayer] = []
 var streams: Dictionary = {}

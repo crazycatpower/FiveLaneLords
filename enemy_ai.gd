@@ -33,7 +33,9 @@ static func skill_plan(k: Dictionary) -> Dictionary:
 	var wanted := false
 	var hoard: bool = pr.get("hoard",1.0) >= 0.5
 	match k.lord:
-		"mage": wanted = k.get("troops",0) >= 3 and k.elapsed >= 20.0
+		"rune": wanted = k.get("rune_lanes",0) > 0 and k.elapsed >= 30
+		"vampire": wanted = k.get("troops",0) >= 4
+		"mage": wanted = k.get("troops",0) >= pr.get("mage_min_troops",10)
 		"underworld": wanted = k.get("graves",0) >= 2
 		"adventure": wanted = k.get("slash_targets",0) > 0
 		"lion": wanted = k.elapsed >= pr.get("skill_after",45.0)
@@ -42,7 +44,7 @@ static func skill_plan(k: Dictionary) -> Dictionary:
 			wanted = k.broken > 0 or k.gate_share < pr.get("iron_gate_share",0.6)
 			hoard = pr.get("iron_hoard",1.0) >= 0.5
 	# Hoard only once the purse is fairly full, so the AI keeps attacking while it saves up.
-	return {"cast":wanted and k.ink >= B.skill_cost(k.lord),"save":wanted and hoard and k.ink >= pr.get("save_from",30.0)}
+	return {"cast":wanted and k.ink >= B.skill_cost(k.lord),"save":wanted and hoard and k.ink >= minf(pr.get("save_from",30.0), B.skill_cost(k.lord) - 5.0)}
 
 static func decide(s: Dictionary) -> Dictionary:
 	var pr: Dictionary = weights(s)
@@ -58,6 +60,8 @@ static func decide(s: Dictionary) -> Dictionary:
 	var their_farms := [0,0,0,0,0]
 	var their_guard := [0.0,0.0,0.0,0.0,0.0]
 	var farm_total := 0
+	var crystal_total := 0
+	var my_crystals := [0,0,0,0,0]
 	var own_buildings := 0
 	var my_troops := [0.0,0.0,0.0,0.0,0.0] # hp of our troops per lane (buildings excluded)
 	var my_guard := [0,0,0,0,0] # our towers and scarecrows per lane
@@ -83,28 +87,37 @@ static func decide(s: Dictionary) -> Dictionary:
 			if b.kind == "farm":
 				my_farms[b.cell.y] += 1
 				farm_total += 1
+			elif b.kind == "crystal":
+				my_crystals[b.cell.y] += 1
+				crystal_total += 1
 			if B.has_tag(b.kind,"guard"):
 				ours[b.cell.y] += b.hp
 				my_guard[b.cell.y] += 1
 		elif b.kind == "farm": their_farms[b.cell.y] += 1
 		elif B.has_tag(b.kind,"obstacle"): their_guard[b.cell.y] += b.hp
+	var active_lanes: Array = s.get("active_lanes", [0,1,2,3,4])
 	# Defence: the lane whose approaching enemies most outweigh what we have there.
 	var danger := -1
 	var largest := 0.0
-	for lane: int in range(5):
+	for lane: int in active_lanes:
 		if foe_reach[lane] > pr.get("defend_reach",DEFEND_REACH)*L.CELL_SIZE.x: continue
 		var need: float = urgency[lane]*(3.0 if s.gates[team][lane] <= 0 else 1.0)-ours[lane]
 		if need > largest:
 			largest = need
 			danger = lane
 	# Attack: score every lane instead of always hitting the lowest gate.
-	var attack := [0.0,0.0,0.0,0.0,0.0]
+	var attack := [-INF,-INF,-INF,-INF,-INF]
 	var recent: Array = s.get("recent",[])
-	for lane: int in range(5):
+	for lane: int in active_lanes:
 		var gate: float = s.gates[1-team][lane]
 		attack[lane] = (B.GATE_HP-gate)*pr.get("atk_gate",0.4)+ours[lane]*0.3-foes[lane]*pr.get("atk_foes",0.8)-their_guard[lane]*0.5-recent.count(lane)*pr.get("atk_recent",140.0)+jitter(lane,s.elapsed)
 		if gate <= 0 and foes[lane] < 150: attack[lane] += 600 # an open gate with nobody guarding it: walk in
-	var target_lane: int = attack.find(attack.max())
+	var target_lane: int = active_lanes[0]
+	var max_atk := -INF
+	for lane: int in active_lanes:
+		if attack[lane] > max_atk:
+			max_atk = attack[lane]
+			target_lane = lane
 	var farm_goal: int = int(pr.get("farm_goal",[3,6,99][s.difficulty]))
 	var threshold: float = float(pr.get("wave_at",[15.0,25.0,35.0][s.difficulty]))
 	var wave: bool = s.elapsed < s.wave_until or s.ink >= threshold
@@ -124,7 +137,12 @@ static func decide(s: Dictionary) -> Dictionary:
 				if not here.is_empty():
 					# Same building on top of ours = repair. Only worth it when it is badly hurt.
 					var health: float = here.hp/here.max_hp
-					if health < pr.get("repair_below",0.6):
+					var repair_below: float = pr.get("repair_below",0.6)
+					# Crystals wear down on their own every payout (producer 2026-11-03): build new ones
+					# up to the farm goal first and leave upkeep to artificers; only re-cast on a crystal
+					# that is nearly spent once the goal is met.
+					if here.kind == "crystal": repair_below = 0.3 if crystal_total >= farm_goal else -1.0
+					if health < repair_below:
 						score = 700.0+(1.0-health)*150.0
 						if score > best_score:
 							best_score = score
@@ -147,12 +165,19 @@ static func decide(s: Dictionary) -> Dictionary:
 				if c.kind == "farm" and farm_total < farm_goal:
 					# Spread farms over the lanes, back row first, away from lanes under pressure.
 					score = pr.get("farm_score",800.0)-my_farms[lane]*45-col*15-urgency[lane]*0.05+jitter(lane,s.elapsed)*0.2
-				elif c.kind == "crystal":
-					score = 710-col*12-urgency[lane]*0.1
+				elif c.kind == "crystal" and crystal_total < farm_goal:
+					score = pr.get("farm_score",800.0)-my_crystals[lane]*45-col*15-urgency[lane]*0.05
 				elif c.kind == "artificer":
+					# Played like the farmer (producer 2026-11-03): from the back of a lane whose crystals
+					# (or other buildings) are worn, so it walks up and keeps them repaired. One per lane.
+					var need := 0.0
 					for b: Dictionary in s.buildings:
-						if b.team == team and b.hp > 0 and b.hp < b.max_hp and not B.CARDS[b.kind].has("trap") and b.pos.distance_to(c.pos) <= data.repair_range:
-							score = maxf(score,720+(1-b.hp/b.max_hp)*100)
+						if b.team == team and b.hp > 0 and b.hp < b.max_hp and b.cell.y == lane and (b.pos.x-c.pos.x)*forward >= 0 and not B.CARDS[b.kind].has("trap"):
+							need += (1.0-b.hp/b.max_hp)*(2.0 if b.kind == "crystal" else 1.0)
+					var staffed := false
+					for u: Dictionary in s.units:
+						if u.team == team and u.kind == "artificer" and u.hp > 0 and u.lane == lane: staffed = true
+					if need > 0 and not staffed: score = pr.get("farmer_score",740.0)+need*60-col*6
 				elif c.kind == "farmer":
 					var ahead := 0
 					for b: Dictionary in s.buildings:
@@ -251,21 +276,25 @@ static func dark_card_score(c: Dictionary, s: Dictionary, ours: Array, foes: Arr
 			var data: Dictionary = B.CARDS[c.kind]
 			var targets := 0
 			for u: Dictionary in s.units:
-				if u.hp <= 0 or u.team == s.team: continue
+				if u.hp <= 0 or u.team == s.team or u.lane != lane: continue
 				var distance: float = c.pos.distance_to(u.pos)
+				if distance < data.min_range: return -INF
+				if distance <= data.range: targets += 1
+			for b: Dictionary in s.buildings:
+				if b.hp <= 0 or b.team == s.team or b.cell.y != lane: continue
+				var distance: float = c.pos.distance_to(b.pos)
 				if distance < data.min_range: return -INF
 				if distance <= data.range: targets += 1
 			if targets > 0: return 700.0+targets*15
 		"drummer":
 			var count := 0
-			for x: float in troop_x[lane]:
-				var ahead: float = (x-c.pos.x)*forward
-				if ahead > 0 and ahead <= B.CARDS.drummer.inspire_cells*L.CELL_SIZE.x: count += 1
+			for u: Dictionary in s.units:
+				if u.hp > 0 and u.team == s.team: count += 1
 			if count >= 2: return 700.0+count*12
 		"curse":
 			var count := 0
 			for u: Dictionary in s.units:
-				if u.hp > 0 and u.team != s.team and u.pos.distance_to(c.pos) <= B.CARDS.curse.radius and u.get("cursed_until",0.0) <= s.elapsed: count += 1
+				if u.hp > 0 and u.team != s.team and u.pos.distance_to(c.pos) <= B.CARDS.curse.radius and not u.get("cursed",false) and u.get("cursed_until",0.0) <= s.elapsed: count += 1
 			if count >= 2: return 670.0+count*25
 		"grave":
 			var activity: float = ours[lane]+foes[lane]

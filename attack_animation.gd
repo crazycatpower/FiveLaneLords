@@ -8,12 +8,13 @@ static func key(actor: Dictionary) -> String:
 
 static func style(kind: String) -> String:
 	match kind:
-		"hunter": return "bow"
+		"hunter", "arcane_archer": return "bow"
 		"tower": return "tower"
-		"arcane_tower": return "cast"
+		"lord_rune", "arcane_tower", "chronomancer": return "cast"
 		"catapult": return "siege"
 		"necromancer", "healer", "lord_mage", "lord_underworld", "lord_harvest": return "cast"
-		"corpse_giant", "knight", "reaper", "lord_lion", "lord_iron": return "heavy"
+		"lord_adventure": return "cleave"
+		"lord_vampire", "arcane_golem", "corpse_giant", "knight", "reaper", "lord_lion", "lord_iron": return "heavy"
 		"ram", "ox": return "ram"
 		"raven": return "peck"
 		"drummer": return "drum"
@@ -35,7 +36,7 @@ func observe(model: RefCounted) -> void:
 			if timers[i] > previous[id][i]+0.0001:
 				var kind: String = "lord_"+actor.lord if actor.kind == "lord" else actor.kind
 				var mode := style(kind) if i == 0 else ("drum" if i == 3 else "cast")
-				clips[id] = {"start":model.actor_time(actor),"duration":clampf(timers[i]*0.7,0.16,0.42),"style":mode}
+				clips[id] = {"start":model.actor_time(actor),"duration":clampf(timers[i]*0.92,0.28,0.42) if mode == "cleave" else clampf(timers[i]*0.7,0.16,0.42),"style":mode}
 				break
 		previous[id] = timers
 	for id: String in previous.keys():
@@ -57,7 +58,17 @@ static func sample(mode: String, progress: float) -> Dictionary:
 	var offset := Vector2.ZERO
 	var angle := 0.0
 	var scale := Vector2.ONE
+	var frame := 0
 	match mode:
+		"cleave":
+			if progress < 0.15: frame = 1
+			elif progress < 0.32: frame = 2
+			elif progress < 0.60: frame = 3
+			elif progress < 0.82: frame = 4
+			elif progress < 0.96: frame = 5
+			else: frame = 0
+			if progress >= 0.15 and progress < 0.65:
+				offset.x = 4.0 * sin((progress - 0.15) / 0.50 * PI)
 		"bow":
 			offset.x = -6*hit
 			angle = -0.07*hit
@@ -83,4 +94,4 @@ static func sample(mode: String, progress: float) -> Dictionary:
 		_:
 			offset.x = 9*hit
 			angle = 0.08*hit
-	return {"offset":offset,"angle":angle,"scale":scale,"strength":hit,"style":mode,"progress":progress}
+	return {"offset":offset,"angle":angle,"scale":scale,"strength":hit,"style":mode,"progress":progress,"frame":frame}

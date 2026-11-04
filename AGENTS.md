@@ -1,16 +1,56 @@
+# AGENTS.md — 羊皮紙戰記（five-lane-lords）開發 AI 必讀指南
+
+> 給接手的開發 AI（Claude、Codex、Antigravity 等）。請務必遵守以下規範，確保開發高效、不浪費時間、不踩破壞性陷阱。
+
+---
+
+## ⚡ 核心開發與測試原則（非常重要，避免低效！）
+
 > 製作人最新要求（2026-11-03）：單一卡牌／技能改動只跑專用測試與相關畫面驗收。全量回歸、黃金對局重錄及千場模擬留到正式整版發布，或製作人明確要求時才跑；不要每個小改動都執行。
 
-# AGENTS.md — 羊皮紙戰記（five-lane-lords）
+1. **🚫 嚴禁隨便小改動就跑全量測試（873 項）！**
+   - `smoke_test.gd` 包含 8 場完整對戰模擬（Golden Matches）、全量 UI/特效截圖生成與 30 個子系統，每次需耗時近 1 分鐘。
+   - **日常改動與機制開發**：使用專屬快速測試，**1.5 秒內完成 248 項核心檢查**：
+     ```bash
+     godot_console --headless --path . -s tools/quick_test.gd
+     ```
+   - **純文字 / 卡牌趣聞（`card_lore.gd`）改動**：**完全不需要跑戰鬥測試**，確認文字檔格式正確即可。
+   - **數值驗證**：只要 `B.validate()` 回傳空陣列（`quick_test.gd` 已內建檢查）即代表階級與欄位無誤。
+   - **全量測試（873 項）**：僅在「最終交付發布」、或是「製作人明確要求全量回歸」時才執行：
+     ```bash
+     godot_console --headless --path . -s smoke_test.gd
+     ```
 
-- **先讀 `docs/交接給Codex.md`**（現況、程式地圖、工作流程、陷阱、待辦），再讀 `docs/企劃書.md`（v6.9；最上方的版本紀錄是製作人一路下的決定）。
-- 照交接文件第 7 節的待辦做，一次一項、一項一個 commit；標「問」的先問製作人，不要自己決定。
-- Godot 4.7.1。測試：`godot_console --headless --path . -s smoke_test.gd`（回傳 0 才算完成）；新規則用 `check()` 加測試，數值從 `balance.gd` 讀。
-- 有畫面改動：不加 `--headless` 跑一次測試重拍 preview 圖，戰鬥中途用 `tools/capture_battle.gd` 截圖，看過再交。新增中文字：`python tools/build_font.py` 後重新 import。
-- 動到平衡：`python tools/autobalance.py --total 1000 --rounds 1 --dry-run` 只跑一次並回報（約 8 分鐘）；不要反覆長批次自己調數字。不加 `--dry-run` 會自動改費用，製作人要求時才用。
-- 停模擬只停命令列含 `random_sim.gd`／`autobalance.py` 的程序；不要關掉所有 Godot（製作人的編輯器會一起被關）。
-- 數值：部隊、箭樓、領主的攻擊／血量／射程／移速／攻擊間隔必須是 `B.TIERS` 的 S–E 檔次值（同檔同數值，測試會擋）；調強弱用費用、冷卻或換檔次。
-- Git 基線（v1）：ff32c1c；每個改動一個 commit。
-- 名詞：「墨水」已改名「金幣」（程式內部變數仍叫 ink）。牌組＝常駐農田（`Battle.FARM_SLOT`）＋領主（`B.LORDS` 四選一，Q 技能）＋自選 8 張。
-- 美術：雙方共用一套圖，藍方由 `game.gd` 的 `recolor_blue()` 把紅色換成藍色，不要整張染色；新素材 prompt 存進 `assets/manuscript-v1/`。
-- 新增卡牌／領主照 `docs/新增卡牌指南.md`；只改程式結構時黃金對局（`tools/golden_matches.json`）必須不變，有意改玩法才用 `tools/make_golden.gd` 重錄。
-- 不要改回去的設計見交接文件第 5 節。
+2. **進程管理安全規範**：
+   - 終止後台模擬或測試時，**只能停命令列含 `random_sim.gd`、`autobalance.py` 或特定腳本的程序**。
+   - **絕對不要執行全局 `taskkill /IM godot.exe /F`**！製作人的 Godot 編輯器通常保持開啟，殺掉會導致製作人未存檔工作丟失！
+
+---
+
+## 🗺️ 系統與規則關鍵常識
+
+- **先讀文件順序**：
+  1. 本文件（`AGENTS.md`）
+  2. `docs/交接給Codex.md`（架構地圖、工作流、已知陷阱、不要改回去的設計）
+  3. `docs/企劃書.md`（v6.9；最上方的版本紀錄是製作人一路以來的決策）
+- **卡牌體系（共 37 張牌 + 6 位領主）**：
+  - 10 張經典（`faction: "normal"`）、10 張黑暗（`faction: "dark"`）、5 張魔法（`faction: "magic"`，法師專屬；工匠、水晶、兩種法陣、祕法塔）、12 張中立（`faction: ""`）。魔法牌照 `docs/法師新單位.md` 補到 10 張。
+  - 牌組 = 1 張常駐專屬牌（手牌 F 格：經典/中立為農田，冥府領主為墓碑）+ 1 位領主（Q 技能）+ 8 張自選輪轉牌。
+- **嚴格數值階級（SSS–G 十檔，見 `docs/數值檔次.md`）**：
+  - 部隊、箭樓、領主的生命、傷害、射程、移速、攻擊間隔**必須完全落在 `B.TIERS` 的 SSS–G 數值上**（同檔同數值，`B.validate()` 會強制檢查）。SSS／SS 保留給 BOSS、城牆、攻城器與領主技能。程式取檔次用 `B.tier_value()`／`B.tier_index()`，不要寫死陣列位置。
+  - 調平衡只能調整「費用」、「冷卻」或「更換數值檔次」，絕對不能自創中間數字。
+- **最新核心機制確認（不要改回去！）**：
+  - **投石車 (Catapult)**：部隊單位（`type: "unit"`），移速最慢 $20.0$（G 檔）。**只能打單路（同路徑）**，**能鎖定並攻擊敵方建築**，巨石著彈造成 $90$ 點部隊與建築範圍傷害。
+  - **戰鼓手 (Drummer)**：登場及每 10 秒擊鼓，為全場友軍提供 3 秒攻速與移速雙加速。**戰鼓手自身不獲得加速**（以原速行軍）；攻擊距離為 $140.0$（C 檔）。
+  - **詛咒 (Curse)**：永久持續效果，受詛咒單位陣亡時原地轉化為施法方骷髏兵。
+- **黃金對局重錄（Golden Matches）**：
+  - `tools/golden_matches.json` 記錄 8 場固定種子對局結局。
+  - 若僅重構程式結構，其對局結果必須維持一致；若為**刻意變更戰鬥/移動/索敵機制**，請執行以下命令重錄黃金對局：
+    ```bash
+    godot_console --headless --path . -s tools/make_golden.gd
+    ```
+- **美術朝向**：部隊與領主原圖一律朝右；改圖後先跑 `tools/prepare_assets.gd` 再 `--import`，`tools/test_art_palette.gd`（已在快速測試內）會擋下過期或方向相反的藍方圖。
+- **字型與文字**：
+  - 新增任何中文字符後，必須執行 `python tools/build_font.py`，再以 `godot_console --headless --path . --import` 重新匯入，避免字體缺字。
+- **卡牌趣聞（Flavor Text）**：
+  - 位於 `card_lore.gd`，風格為暴雪/爐石風格的幽默諷刺，且內嵌「藍袖子、第五聲鼓、故鄉木橋、稅糧摻沙、名冊刻錯字」等核心暗線，修改時務必維持其隱含關聯與活人語調。

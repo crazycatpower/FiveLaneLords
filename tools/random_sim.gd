@@ -24,6 +24,8 @@ func _initialize() -> void:
 	var cap := 900.0
 	var out := "user://random_sim.jsonl"
 	var mirror := false
+	var must_have_lords: Array = []
+	var must_have_cards: Array = []
 	var paths := {"red":"","blue":"","cand":"","base":""}
 	for arg: String in OS.get_cmdline_user_args():
 		var value := arg.get_slice("=",1)
@@ -32,6 +34,14 @@ func _initialize() -> void:
 		elif arg.begins_with("--cap="): cap = float(value)
 		elif arg.begins_with("--out="): out = value
 		elif arg == "--mirror": mirror = true
+		elif arg.begins_with("--must-have-lords="):
+			for item: String in value.split(","):
+				var k := item.strip_edges()
+				if B.LORDS.has(k): must_have_lords.append(k)
+		elif arg.begins_with("--must-have-cards="):
+			for item: String in value.split(","):
+				var k := item.strip_edges()
+				if B.CARDS.has(k): must_have_cards.append(k)
 		elif arg.begins_with("--params-red="): paths.red = value
 		elif arg.begins_with("--params-blue="): paths.blue = value
 		elif arg.begins_with("--cand="): paths.cand = value
@@ -44,8 +54,41 @@ func _initialize() -> void:
 	for seed_value: int in range(start,start+count):
 		var rng := RandomNumberGenerator.new()
 		rng.seed = seed_value
-		var picks: Array = [lords[rng.randi_range(0,lords.size()-1)],lords[rng.randi_range(0,lords.size()-1)]]
+		var picks: Array = []
+		if not must_have_lords.is_empty():
+			var must_side := rng.randi_range(0,1)
+			var must_pick: String = must_have_lords[rng.randi_range(0,must_have_lords.size()-1)]
+			var other_pick: String = ""
+			if not must_have_cards.is_empty():
+				var can_must_take: bool = must_have_cards.all(func(c: String) -> bool: return B.card_allowed(c,must_pick))
+				if can_must_take:
+					other_pick = lords[rng.randi_range(0,lords.size()-1)]
+				else:
+					var eligible: Array = lords.filter(func(l: String) -> bool: return must_have_cards.all(func(c: String) -> bool: return B.card_allowed(c,l)))
+					other_pick = eligible[rng.randi_range(0,eligible.size()-1)] if not eligible.is_empty() else lords[rng.randi_range(0,lords.size()-1)]
+			else:
+				other_pick = lords[rng.randi_range(0,lords.size()-1)]
+			picks = [must_pick,other_pick] if must_side == 0 else [other_pick,must_pick]
+		else:
+			picks = [lords[rng.randi_range(0,lords.size()-1)],lords[rng.randi_range(0,lords.size()-1)]]
 		var decks: Array = [DeckStore.random_deck(rng,picks[0]),DeckStore.random_deck(rng,picks[1])]
+		if not must_have_cards.is_empty():
+			for card: String in must_have_cards:
+				var sides: Array = []
+				for side: int in range(2):
+					if B.card_allowed(card,picks[side]): sides.append(side)
+				if not sides.is_empty():
+					var has_card: bool = sides.any(func(s: int) -> bool: return card in decks[s])
+					if not has_card:
+						var target_side: int = sides[rng.randi_range(0,sides.size()-1)]
+						var d: Array = decks[target_side]
+						var replace_idx := -1
+						for i: int in range(d.size()-1,-1,-1):
+							if B.CARDS[d[i]].type != "unit":
+								replace_idx = i
+								break
+						if replace_idx == -1: replace_idx = d.size()-1
+						d[replace_idx] = card
 		if mirror:
 			decks[1] = decks[0].duplicate()
 			picks[1] = picks[0]

@@ -29,22 +29,21 @@ static func pressure(model, team: int, lane: int) -> int:
 	if nearby: return 2 if model.gates[team][lane] <= 0 else 1
 	return 0
 func draw_pressure(game) -> void:
+	# Danger near our gates only (warnings about the enemy's gates are theirs, not ours): the whole
+	# lane pulses red, harder and faster once that gate is already broken. No words.
+	var t: float = Time.get_ticks_msec()/1000.0
 	for lane: int in range(5):
-		var counts := [0,0]
-		for u: Dictionary in game.model.units:
-			if u.hp > 0 and u.lane == lane and u.get("spawn_delay",0) <= 0: counts[u.team] += 1
-		if counts[0]+counts[1] >= 8:
-			var y: float = L.GRID_ORIGIN.y+lane*L.CELL_SIZE.y+22
-			game.label_at(Vector2(690,y),"紅 %d · 藍 %d" % [counts[0],counts[1]],15,Color("463529"))
-	for team: int in range(2):
-		for lane: int in range(5):
-			var level := pressure(game.model,team,lane)
-			if level == 0: continue
-			var y: float = L.GRID_ORIGIN.y+lane*L.CELL_SIZE.y
-			var x := L.GRID_ORIGIN.x+6 if team == 0 else L.GRID_ORIGIN.x+L.GRID_SIZE.x-84
-			var color := Color("a73b2d") if level == 2 else Color("936b25")
-			game.panel(Rect2(x,y+5,78,24),Color("f3dfaf"),color)
-			game.draw_string(game.font,Vector2(x,y+22),"即將突破" if level == 2 else "敵軍逼近",HORIZONTAL_ALIGNMENT_CENTER,78,15,color)
+		var level := pressure(game.model,0,lane)
+		if level == 0: continue
+		var beat := 0.5+0.5*sin(t*(9.0 if level == 2 else 5.0))
+		var alpha := (0.16+0.16*beat) if level == 1 else (0.28+0.24*beat)
+		var y: float = L.GRID_ORIGIN.y+lane*L.CELL_SIZE.y
+		# Red from our gate fading toward the middle of the field: it points at where the danger is.
+		var x0: float = L.GRID_ORIGIN.x-60
+		var x1: float = L.GRID_ORIGIN.x+L.GRID_SIZE.x*0.55
+		var red := Color(0.82,0.12,0.08,alpha)
+		var clear := Color(0.82,0.12,0.08,0.0)
+		game.draw_polygon(PackedVector2Array([Vector2(x0,y),Vector2(x1,y),Vector2(x1,y+L.CELL_SIZE.y),Vector2(x0,y+L.CELL_SIZE.y)]),PackedColorArray([red,clear,clear,red]))
 func report(model) -> String:
 	var result := "突破紀錄："+(breakthrough if not breakthrough.is_empty() else "本局沒有部隊入城紀錄。")+"\n\n"
 	for team: int in range(2):

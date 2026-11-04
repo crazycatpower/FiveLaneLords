@@ -43,7 +43,7 @@ static func run(t: SceneTree) -> void:
 		victim = m.spawn_unit(i%2,2,"farmer",p+Vector2(5,0))
 		m.damage(victim,victim.hp,1-i%2,"rain")
 	m.resolve_deaths()
-	t.check(ghoul.hp == ghoul.max_hp and ghoul.damage == B.TIERS.damage[B.CARDS.ghoul.max_damage_tier],"ghoul consumes either team, heals and caps attack at A")
+	t.check(ghoul.hp == ghoul.max_hp and ghoul.damage == B.tier_value("damage",B.CARDS.ghoul.max_damage_tier),"ghoul consumes either team, heals and caps attack at A")
 	var hp: float = ghoul.hp
 	victim = m.spawn_unit(1,2,"farmer",p+Vector2(B.CARDS.ghoul.radius+1,0))
 	ghoul.hp -= 10
@@ -122,6 +122,8 @@ static func run(t: SceneTree) -> void:
 	t.check(victim.hp == victim.max_hp-B.CARDS.bonewall.explosion_damage and ally.hp == ally.max_hp and far.hp == far.max_hp,"bonewall explosion damages only enemies inside radius")
 	t.check(m.stats[0].damage.bonewall == B.CARDS.bonewall.explosion_damage,"bonewall explosion attributes damage correctly")
 	m = fixture(t)
+	t.check(m.skill_cd[0] == B.SKILL_OPENING_COOLDOWN,"underworld lord starts with opening skill cooldown")
+	m.skill_cd[0] = 0.0
 	m.ink[0] = B.skill_cost("underworld")
 	t.check(m.skill_error(0) == "沒有墓碑" and not m.cast_skill(0),"underworld skill requires a living grave")
 	m.add_building(0,Vector2i(1,0),"grave")

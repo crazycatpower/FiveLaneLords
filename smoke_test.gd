@@ -158,6 +158,8 @@ func test_ai_cards() -> void:
 
 func test_lord_skills() -> void:
 	var m := bare(4,[],[],"lion","iron")
+	check(is_equal_approx(m.skill_cd[0],B.SKILL_OPENING_COOLDOWN),"opening cooldown starts at SKILL_OPENING_COOLDOWN")
+	m.skill_cd[0] = 0.0
 	m.ink[0] = B.SKILL_COST-1
 	check(not m.skill_error(0).is_empty() and not m.cast_skill(0),"a skill needs the full price")
 	m.ink[0] = B.SKILL_COST
@@ -175,6 +177,7 @@ func test_lord_skills() -> void:
 	check(not m.cast_skill(0),"a fallen lord cannot cast")
 	# 鐵壁: every gate back, rubble progress lost.
 	m = bare(4,[],[],"lion","iron")
+	m.skill_cd[1] = 0.0
 	m.gates[1] = [0.0,100.0,B.GATE_HP,0.0,50.0]
 	var raider := m.spawn_unit(0,0,"militia",Vector2(L.gate_stop(1),L.cell_center(Vector2i(0,0)).y))
 	raider.climb = 2.0
@@ -182,6 +185,7 @@ func test_lord_skills() -> void:
 	check(m.cast_skill(1) and m.gates[1].all(func(g: float) -> bool: return g == B.GATE_HP) and raider.climb == 0.0,"重築城牆 restores every gate and resets the rubble")
 	# 豐收: a farm in every lane with room, every farm healed and doubled.
 	m = bare(4,[],[],"harvest","iron")
+	m.skill_cd[0] = 0.0
 	var old := m.add_building(0,Vector2i(0,2),"farm")
 	old.hp = 10
 	m.ink[0] = B.SKILL_COST
@@ -193,6 +197,7 @@ func test_lord_skills() -> void:
 	check(old.hp == old.max_hp and farms.all(func(b: Dictionary) -> bool: return is_equal_approx(m.farm_speed(b),2.0)),"豐年祭 heals every farm and doubles its output")
 	# The AI saves up, then casts.
 	m = bare(4,[],[],"lion","lion")
+	m.skill_cd[1] = 0.0
 	m.ai_enabled = [false,true]
 	m.elapsed = 60.0
 	m.ink[1] = B.SKILL_COST
@@ -269,7 +274,7 @@ func test_factions() -> void:
 	check(DS.valid(deck,"lion") and not DS.valid(deck,"underworld"),"the underworld lord cannot take 豐收")
 	var fitted: Array = DS.fit_to_lord(deck,"underworld")
 	check(DS.valid(fitted,"underworld") and fitted.size() == 8,"fit_to_lord swaps out other-faction cards and keeps eight")
-	check(DS.pool("lion").all(func(k: String) -> bool: return B.card_faction(k) != "dark") and DS.pool("underworld").all(func(k: String) -> bool: return B.card_faction(k) != "normal"),"each lord's pool is its faction plus neutral")
+	check(DS.pool("lion").all(func(k: String) -> bool: return B.card_faction(k) != "dark") and DS.pool("underworld").all(func(k: String) -> bool: return B.card_faction(k) != "normal") and DS.pool("mage").all(func(k: String) -> bool: return B.card_faction(k) in ["","magic"]),"each lord's pool is its faction plus neutral")
 	var m := Battle.new(3,[],[],"underworld","lion")
 	check(m.kind_at(0,m.FARM_SLOT) == "grave" and m.kind_at(1,m.FARM_SLOT) == "farm","the F slot holds each lord's home card")
 	check(m.buildings.filter(func(b: Dictionary) -> bool: return b.team == 0).all(func(b: Dictionary) -> bool: return b.kind == "grave") and m.buildings.filter(func(b: Dictionary) -> bool: return b.team == 1).all(func(b: Dictionary) -> bool: return b.kind == "farm"),"the underworld lord starts with tombstones instead of farms")
@@ -297,8 +302,14 @@ func test_factions() -> void:
 	var far := m.spawn_unit(1,2,"militia",L.cell_center(Vector2i(4,2)))
 	var other_lane := m.spawn_unit(1,0,"militia",L.cell_center(Vector2i(2,0)))
 	m.build_lookups()
-	check(is_same(m.choose_target(crow,B.CARDS.raven),straw) and is_same(m.choose_target(raider,B.CARDS.militia),straw),"a scarecrow draws enemies in the lanes and columns next to it, ravens too")
-	check(not is_same(m.choose_target(far,B.CARDS.militia),straw) and not is_same(m.choose_target(other_lane,B.CARDS.militia),straw),"enemies two columns or two lanes away are not drawn")
+	check(is_same(m.taunting_scarecrow(crow),straw) and is_same(m.taunting_scarecrow(raider),straw),"a scarecrow attracts enemies in the lanes and columns next to it, ravens too")
+	check(not is_same(m.taunting_scarecrow(far),straw) and not is_same(m.taunting_scarecrow(other_lane),straw),"enemies two columns or two lanes away are not drawn")
+	check(m.choose_target(raider,B.CARDS.militia).is_empty(),"out-of-range raider does not attack scarecrow across lanes")
+	var in_range := m.spawn_unit(1,2,"militia",straw.pos+Vector2(30,0))
+	m.build_lookups()
+	check(is_same(m.choose_target(in_range,B.CARDS.militia),straw),"when within attack range, scarecrow is prioritized")
+	tick(m,3.0)
+	check(raider.lane == 2 and crow.lane == 2,"attracted units move into scarecrow lane")
 	finished["factions"] = true
 
 func test_core() -> void:
@@ -568,7 +579,7 @@ func test_cards() -> void:
 			if B.tier(stat,B.LORDS[kind][stat]).is_empty(): off_tier.append(kind+"."+stat)
 	for pair: Array in [["range",B.LORD_RANGE],["interval",B.LORD_INTERVAL],["speed",B.OX_SLOW_SPEED]]:
 		if B.tier(pair[0],pair[1]).is_empty(): off_tier.append(str(pair))
-	check(off_tier.is_empty(),"every troop, tower and lord stat sits exactly on an S-E tier value: %s" % str(off_tier))
+	check(off_tier.is_empty(),"every troop, tower and lord stat sits exactly on a tier value: %s" % str(off_tier))
 	var costs: Array = B.CARDS.values().map(func(c: Dictionary) -> int: return c.cost)
 	check(costs.min() >= 1 and costs.max() <= 30,"card costs stay within 1 to 30")
 	check(B.CARDS.values().all(func(c: Dictionary) -> bool: return c.has("role") and not c.role.is_empty()),"every card has a role")
@@ -659,7 +670,7 @@ func test_cards() -> void:
 	var sorted_speeds := speeds.duplicate()
 	sorted_speeds.sort()
 	sorted_speeds.reverse()
-	check(speeds == sorted_speeds and speeds[0] == B.TIERS.speed[2] and speeds[-1] == B.TIERS.speed[5],"troop speeds are clearly different (mob tier B fastest, ram tier E slowest)")
+	check(speeds == sorted_speeds and speeds[0] == B.tier_value("speed","C") and speeds[-1] == B.tier_value("speed","G"),"troop speeds are clearly different (mob tier C fastest, ram tier G slowest)")
 	m = bare(2)
 	for lane: int in range(4): m.add_building(0,Vector2i(1,lane),"farm")
 	m.decks[1] = ["fire","militia","rain","tower","farm","farmer","ox","mob"]
@@ -1088,6 +1099,7 @@ func test_skill_visuals() -> void:
 	for kind: String in B.LORDS:
 		for team: int in range(2):
 			game.model = Battle.new(5,[],[],kind,kind)
+			game.model.skill_cd[team] = 0.0
 			if kind == "underworld": game.model.add_building(team,Vector2i(1 if team == 0 else 7,2),"grave")
 			game.model.ink[team] = B.SKILL_COST
 			game.effects.clear()
@@ -1108,6 +1120,7 @@ func test_skill_visuals() -> void:
 			check(game.effects.is_empty() and game.model.ink[team] == gold,"skill visuals expire without changing gold")
 	game.model = Battle.new(5)
 	game.fx_enabled = false
+	game.model.skill_cd[0] = 0.0
 	game.model.ink[0] = B.SKILL_COST
 	game.model.cast_skill(0)
 	game.consume_events()
@@ -1176,20 +1189,24 @@ func test_territory() -> void:
 	check(m.territory_owner(Vector2i(0,1)) == -1 and m.territory_owner(Vector2i(0,2)) == 0,"wall loss releases unsupported tiles but adjacent walls retain coverage")
 	m.lords[0].lord = "iron"
 	m.ink[0] = B.SKILL_COST
+	m.skill_cd[0] = 0.0
 	m.cast_skill(0)
 	check(m.territory_owner(Vector2i(0,1)) == 0,"rebuilt walls reclaim unowned territory")
 	m = Battle.new(2,[],[],"lion","harvest")
 	m.claim_around(0,Vector2i(3,2))
 	m.ink[0] = B.SKILL_COST
+	m.skill_cd[0] = 0.0
 	m.cast_skill(0)
-	check(m.units.any(func(u: Dictionary) -> bool: return u.lane == 2 and u.pos == L.cell_center(Vector2i(4,2))),"lion summons at the actual territorial frontier")
+	check(m.units.any(func(u: Dictionary) -> bool: return u.lane == 2 and u.pos == L.spawn_position(0, 2) and u.get("march", 0.0) == B.LION_KNIGHT_SPEED),"lion summons knights from the gate marching slowly")
 	m.ink[1] = B.SKILL_COST
+	m.skill_cd[1] = 0.0
 	m.cast_skill(1)
 	check(m.buildings.all(func(b: Dictionary) -> bool: return m.territory_owner(b.cell) == b.team),"harvest farms stay on their own territory")
 	m = Battle.new(3,[],[],"lion","iron")
 	m.buildings.clear()
 	for lane: int in range(5): m.hit_gate(0,lane,B.GATE_HP)
 	m.ink[0] = B.SKILL_COST
+	m.skill_cd[0] = 0.0
 	m.cast_skill(0)
 	check(m.units.is_empty(),"lion cannot summon onto neutral or enemy land after losing all territory")
 	finished["territory"] = true
