@@ -428,10 +428,10 @@ func test_lords() -> void:
 	lord.hp = B.LORDS.lion.hp*0.2
 	lord.last_hit = m.elapsed
 	tick(m,0.6)
-	check(lord.retreating and is_equal_approx(lord.target.y,L.spawn_position(0,2).y) and lord.target.x <= m.Lord.zone(0).y,"low health retreats to the middle of the back strip")
+	check(not lord.retreating and is_equal_approx(lord.target.y,L.spawn_position(0,2).y) and lord.target.x <= m.Lord.zone(0).y,"low health holds position without a threat")
 	lord.hp = B.LORDS.lion.hp*0.35
 	tick(m,0.6)
-	check(lord.retreating,"retreat persists until the lord is back above the return threshold")
+	check(not lord.retreating,"low health does not trigger retreat")
 	lord.hp = B.LORDS.lion.hp*0.5
 	tick(m,0.6)
 	check(not lord.retreating,"recovered lord resumes")

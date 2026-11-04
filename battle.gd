@@ -638,19 +638,9 @@ func nearest(pos: Vector2, team: int, radius: float, candidates: Array, lane: in
 			best = minf(best,d) if absf(d-best) <= SERIAL_TIE else d
 	return found
 
-# A lord hits the enemy in reach that has pushed furthest toward its gate; level ones go by the
-# higher serial.
+# Movement and attacks share frontmost-then-nearest priority.
 func lord_target(lord: Dictionary) -> Dictionary:
-	var found: Dictionary = {}
-	var toward_gate := -1.0 if lord.team == 0 else 1.0 # enemies of red walk left
-	for u: Dictionary in foe_units[lord.team]:
-		if u.hp <= 0 or u.get("stealthed",false) or lord.pos.distance_to(u.pos) > B.LORD_RANGE: continue
-		if found.is_empty():
-			found = u
-			continue
-		var ahead: float = (u.pos.x-found.pos.x)*toward_gate
-		if ahead > SERIAL_TIE or (ahead >= -SERIAL_TIE and u.serial > found.serial): found = u
-	return found
+	return Lord.AI.select_target(lord,units,B.LORD_RANGE)
 
 func attack(u: Dictionary, target: Dictionary) -> void:
 	Arcane.reveal(self,u)

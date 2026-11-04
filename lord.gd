@@ -21,14 +21,9 @@ static func step(m: RefCounted, lord: Dictionary, dt: float) -> void:
 		return
 	lord.flash = maxf(0,lord.flash-dt)
 	if m.elapsed-lord.last_hit >= B.LORD_REGEN_DELAY: lord.hp = minf(lord.max_hp,lord.hp+B.LORD_REGEN*dt)
-	lord.think -= dt
-	if lord.think <= 0:
-		lord.think = B.AI_TICK
-		var plan: Dictionary = AI.destination(lord,m.units,m.gates)
-		var target: Vector2 = plan.pos
-		if plan.urgent or lord.retreating or m.elapsed-lord.changed >= B.LORD_HYSTERESIS:
-			if target != lord.target: lord.changed = m.elapsed
-			lord.target = target
+	# Respond immediately without lane scores, low-health retreat or switch delay.
+	lord.retreating = false
+	lord.target = AI.destination(lord,m.units,m.gates).pos
 	# Lords stay behind their farms, next to the gate (producer decision 2026-10-29).
 	var min_x: float = zone(lord.team).x
 	var max_x: float = zone(lord.team).y
