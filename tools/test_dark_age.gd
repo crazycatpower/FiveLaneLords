@@ -44,6 +44,11 @@ static func run(t: SceneTree) -> void:
 		m.damage(victim,victim.hp,1-i%2,"rain")
 	m.resolve_deaths()
 	t.check(ghoul.hp == ghoul.max_hp and ghoul.damage == B.tier_value("damage",B.CARDS.ghoul.max_damage_tier),"ghoul consumes either team, heals and caps attack at A")
+	ghoul.hp = 50
+	var ally_victim := m.spawn_unit(0,2,"farmer",p+Vector2(10,0))
+	m.damage(ally_victim,ally_victim.hp,1,"rain")
+	m.resolve_deaths()
+	t.check(ghoul.hp == 50+B.CARDS.ghoul.devour_heal,"ghoul heals when friendly ally dies nearby")
 	var hp: float = ghoul.hp
 	victim = m.spawn_unit(1,2,"farmer",p+Vector2(B.CARDS.ghoul.radius+1,0))
 	ghoul.hp -= 10
@@ -112,15 +117,26 @@ static func run(t: SceneTree) -> void:
 	m.add_zone(p,0,B.CARDS.plague.radius,B.CARDS.plague.duration)
 	m.update_zones(B.CARDS.plague.duration)
 	t.check(survivor.hp == survivor.max_hp-B.CARDS.plague.tick_damage*B.CARDS.plague.duration/B.CARDS.plague.tick_interval and ally.hp == ally.max_hp and m.zones.is_empty(),"plague ticks exactly six times, spares allies and expires")
+	# Test plague lingering poison (2 additional hits after cloud ends)
+	var hp_pre_linger: float = survivor.hp
+	m.update_zones(1.0)
+	t.check(survivor.hp == hp_pre_linger - B.CARDS.plague.tick_damage, "plague deals 1st lingering tick after cloud expires")
+	m.update_zones(1.0)
+	t.check(survivor.hp == hp_pre_linger - B.CARDS.plague.tick_damage * 2.0, "plague deals 2nd lingering tick after cloud expires")
+	m.update_zones(1.0)
+	t.check(survivor.hp == hp_pre_linger - B.CARDS.plague.tick_damage * 2.0, "plague lingering damage stops after 2 ticks")
 	m = fixture(t)
 	wall = m.add_building(0,Vector2i(3,2),"bonewall")
 	victim = m.spawn_unit(1,2,"knight",p)
 	ally = m.spawn_unit(0,2,"knight",p)
-	var far := m.spawn_unit(1,2,"knight",p+Vector2(B.CARDS.bonewall.radius+1,0))
+	m.damage(wall,wall.max_hp*0.2,1,"fire")
+	t.check(m.units.filter(func(u): return u.kind == "skeleton").size() == 1,"bonewall summons 1 skeleton on 20% hp lost")
+	var skel: Dictionary = m.units.filter(func(u): return u.kind == "skeleton")[0]
+	t.check(skel.pos.x < wall.pos.x,"skeleton positioned safely behind bonewall")
 	m.damage(wall,wall.hp,1,"fire")
 	m.resolve_deaths()
-	t.check(victim.hp == victim.max_hp-B.CARDS.bonewall.explosion_damage and ally.hp == ally.max_hp and far.hp == far.max_hp,"bonewall explosion damages only enemies inside radius")
-	t.check(m.stats[0].damage.bonewall == B.CARDS.bonewall.explosion_damage,"bonewall explosion attributes damage correctly")
+	t.check(m.units.filter(func(u): return u.kind == "skeleton").size() == 5,"bonewall completes 5 skeleton summons on full destruction")
+	t.check(victim.hp == victim.max_hp,"bonewall does not explode on death")
 	m = fixture(t)
 	t.check(m.skill_cd[0] == B.SKILL_OPENING_COOLDOWN,"underworld lord starts with opening skill cooldown")
 	m.skill_cd[0] = 0.0
@@ -154,4 +170,14 @@ static func run(t: SceneTree) -> void:
 	snap = m.snapshot(0)
 	var s_stacked: float = m.AI.dark_card_score(cand_active, snap, ours, foes, troop_x)
 	t.check(s_stacked > s_active, "stacking grave on same active lane grants synergy bonus")
+	t.check(B.skill_cost("harvest") == 45.0,"harvest lord skill cost is 45")
+	t.check(B.CARDS.artificer.hp == 130.0,"artificer hp tiered down to E 130")
+	# Spell can be played outside grid cell centers, e.g. near gate
+	var spell_m := Battle.new(100,["plague","fire","militia","farmer","scarecrow","harvest","rain","curse"],[],"harvest","iron")
+	spell_m.decks[0][0] = "plague"
+	spell_m.hand_cd[0][0] = 0.0
+	spell_m.ink[0] = 30.0
+	var off_grid_pos := Vector2(L.FIELD_FRAME.position.x + 50.0, L.cell_center(Vector2i(0,2)).y)
+	t.check(spell_m.can_play(0,0,off_grid_pos),"spell can be played off grid center near gate")
+	t.check(spell_m.play(0,0,off_grid_pos),"spell plays successfully at free position")
 	t.finished.dark_age = true

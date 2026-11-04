@@ -51,7 +51,7 @@ const CARDS := {
 	"arcane_archer":{"name":"奧術射手","role":"遠程·貫穿","type":"unit","faction":"magic","series":"magic","cost":7,"cooldown":6.0,"count":4,"hp":80.0,"damage":10.0,"interval":1.1,"range":180.0,"speed":36.0,"projectile":true,"pierce":true,"pierce_range_multiplier":2.0},
 	"chronomancer":{"name":"時滯術士","role":"控場·暈眩","type":"unit","faction":"magic","series":"magic","cost":8,"cooldown":8.0,"count":2,"hp":130.0,"damage":20.0,"interval":1.1,"range":140.0,"speed":36.0,"area_damage":20.0,"radius":52.0,"stun_on_hit":0.5,"ai":["no_defend"]},
 	"phase_rider":{"name":"相位騎兵","role":"穿陣·破門","type":"unit","faction":"magic","series":"magic","cost":13,"cooldown":10.0,"count":3,"hp":210.0,"damage":42.0,"interval":1.1,"range":47.0,"speed":90.0,"phase":true,"ai":["raid"]},
-	"artificer":{"name":"工匠","role":"維修·支援","faction":"magic","type":"unit","ai":["no_defend"],"cost":3,"cooldown":8.0,"count":1,"hp":210.0,"damage":6.0,"interval":1.9,"range":47.0,"speed":50.0,"repair_range":100.0,"repair_amount":50.0,"repair_interval":1.7},
+	"artificer":{"name":"工匠","role":"維修·支援","faction":"magic","type":"unit","ai":["no_defend"],"cost":3,"cooldown":8.0,"count":1,"hp":130.0,"damage":6.0,"interval":1.9,"range":47.0,"speed":50.0,"repair_range":100.0,"repair_amount":50.0,"repair_interval":1.7},
 	"crystal":{"name":"水晶","role":"耗能·經濟","faction":"magic","type":"building","cost":7,"cooldown":10.0,"hp":350.0,"expires":-1.0,"period":10.0,"max_period":20.0,"income":2.0,"decay_fraction":0.05},
 	"teleport_trap":{"name":"傳送法陣","role":"陷阱·轉移","faction":"magic","type":"building","ai":["defend_building"],"cost":1,"cooldown":12.0,"hp":80.0,"expires":-1.0,"trap":"teleport","trigger_radius":26.0,"radius":100.0,"charges":3,"stun_duration":10.0,"slow_duration":10.0},
 	"blast_trap":{"name":"爆炸法陣","role":"陷阱·爆破","faction":"magic","type":"building","ai":["defend_building"],"cost":4,"cooldown":12.0,"hp":80.0,"expires":-1.0,"trap":"blast","charges":3,"trigger_radius":26.0,"radius":100.0,"explosion_damage":140.0},
@@ -71,7 +71,7 @@ const CARDS := {
 	"reaper":{"name":"收割者","role":"直劈·三路","faction":"dark","series":"dark","type":"unit","splash":"column","cost":15,"cooldown":10.0,"count":1,"hp":350.0,"damage":110.0,"interval":1.9,"range":100.0,"speed":50.0},
 	"raven":{"name":"烏鴉群","role":"飛行·拆田","faction":"dark","series":"dark","type":"unit","hits":"buildings","prefers":"farm","cost":6,"cooldown":6.0,"count":6,"hp":50.0,"damage":6.0,"interval":0.65,"range":47.0,"speed":160.0,"flying":true},
 	"plague":{"name":"瘟疫","role":"毒霧·擴散","faction":"dark","series":"dark","type":"spell","ai":["defend_spell"],"cost":4,"cooldown":10.0,"radius":100.0,"tick_damage":35.0,"tick_interval":1.0,"duration":10.0,"spread_duration":3.0,"spread_radius":75.0},
-	"bonewall":{"name":"骨牆","role":"阻擋·反擊","faction":"dark","series":"dark","type":"building","ai":["defend_building"],"cost":2,"cooldown":8.0,"hp":3000.0,"expires":-1.0,"explosion_damage":140.0,"radius":100.0},
+	"bonewall":{"name":"骨牆","role":"阻擋·生骸","faction":"dark","series":"dark","type":"building","ai":["defend_building"],"cost":2,"cooldown":8.0,"hp":3000.0,"expires":-1.0},
 	"farmer":{"name":"農民","role":"經濟·耕田","faction":"normal","type":"unit","ai":["no_defend"],"cost":7,"cooldown":0.0,"count":3,"hp":80.0,"damage":6.0,"interval":1.1,"range":47.0,"speed":50.0},
 	"militia":{"name":"民兵隊","role":"循環·擋路","type":"unit","cost":14,"cooldown":2.0,"count":5,"hp":130.0,"damage":26.0,"interval":0.85,"range":47.0,"speed":50.0},
 	"harvest":{"name":"豐收","role":"經濟·爆發","faction":"normal","type":"spell","cost":3,"cooldown":8.0,"radius":100.0},
@@ -222,7 +222,7 @@ const LORDS := {
 	"adventure":{"name":"邊境領主","role":"主角型","faction":"normal","hp":900.0,"damage":110.0,"speed":65.0,"skill":"破陣斬","skill_cost":6.0,"skill_cells":3,"skill_damage":600.0,"skill_desc":"向前斬出長 %s 格、寬一格的劍氣，對範圍內敵軍、建築與領主造成 %s 傷害。"},
 	"underworld":{"name":"冥府領主","role":"亡者型","faction":"dark","home_card":"grave","hp":900.0,"damage":70.0,"speed":50.0,"skill":"亡者大軍","skill_cost":20.0,"summon_count":4,"skill_desc":"我方每座墓碑各召喚 %s 隻骷髏兵；沒有墓碑時無法發動。"},
 	"lion":{"name":"紅獅領主","role":"進攻型","faction":"normal","hp":900.0,"damage":70.0,"speed":65.0,"skill":"獅王號令","skill_desc":"每路從己方城門各召喚一名騎士，緩步進軍。"},
-	"harvest":{"name":"豐收領主","role":"經濟型","faction":"normal","hp":900.0,"damage":42.0,"speed":50.0,"skill":"豐年祭","skill_desc":"每路在己方領地空格種一塊農田，全部農田回滿血。"},
+	"harvest":{"name":"豐收領主","role":"經濟型","faction":"normal","hp":900.0,"damage":42.0,"speed":50.0,"skill":"豐年祭","skill_cost":45.0,"skill_desc":"每路在己方領地空格種一塊農田，全部農田回滿血。"},
 	"iron":{"name":"鐵壁領主","role":"防守型","faction":"normal","hp":900.0,"damage":70.0,"speed":36.0,"skill":"重築城牆","skill_cost":40.0,"skill_desc":"五座城門回滿血，已破的城門重建，城門前拆殘垣的敵兵要重新開始。"}
 }
 # Lord skills (producer 2026-10-29): lords have no passive effects; each has one strong skill the
@@ -422,12 +422,12 @@ static func card_description(kind: String, cards: Dictionary = CARDS) -> String:
 		"drummer": lines.append("登場時與之後每 10 秒擊鼓，全場友軍（不含自身）移速與攻速各升一檔，持續 3 秒，最高 S。多名戰鼓手不疊加時間。")
 		"shieldguard": lines.append("每次受到傷害減少 %s，最低仍受 1 傷害。" % number(d.armor))
 		"grave": lines.append("每 %s 秒產出 %s 金幣；本路每名敵我部隊死亡，提前 %s 秒，超出的時間不保留。" % [number(d.period),number(d.income),number(d.death_advance)])
-		"ghoul": lines.append("半徑 %s 內每名部隊死亡，回復 %s 生命，攻擊升一檔，最高 A 檔 %s。" % [number(d.radius),number(d.devour_heal),number(tier_value("damage",d.max_damage_tier))])
+		"ghoul": lines.append("半徑 %s 內每名敵我部隊死亡，回復 %s 生命，攻擊升一檔，最高 A 檔 %s。" % [number(d.radius),number(d.devour_heal),number(tier_value("damage",d.max_damage_tier))])
 		"necromancer": lines.append("上場時與之後每 %s 秒，在本路與相鄰路同一欄各召喚 %d 名骷髏兵。" % [number(d.summon_interval),d.summon_per_lane])
 		"reaper": lines.append("揮鐮直劈：每次攻擊也打中目標那一欄、本路與上下相鄰兩路的所有敵兵。")
 		"raven": lines.append("飛越近戰部隊，只攻擊建築與城門，優先本路農田；遠程與領主仍可攻擊它。")
-		"plague": lines.append("毒霧持續 %s 秒，每 %s 秒對敵兵造成 %s 傷害；毒死的敵兵產生半徑 %s、持續 %s 秒的小毒霧。" % [number(d.duration),number(d.tick_interval),number(d.tick_damage),number(d.spread_radius),number(d.spread_duration)])
-		"bonewall": lines.append("摧毀時對半徑 %s 內敵兵造成 %s 傷害。" % [number(d.radius),number(d.explosion_damage)])
+		"plague": lines.append("毒霧持續 %s 秒，每 %s 秒對敵兵造成 %s 傷害，離開毒霧後仍會持續受到 2 次傷害；毒死的敵兵產生半徑 %s、持續 %s 秒的小毒霧。" % [number(d.duration),number(d.tick_interval),number(d.tick_damage),number(d.spread_radius),number(d.spread_duration)])
+		"bonewall": lines.append("不具攻擊力；每失去 20% 生命在後方安全位置召喚 1 隻骷髏兵守護，被摧毀時不爆炸。")
 		"farm": lines.append("常駐卡，不輪轉。種下 %s 秒後啟動，每 %s 秒產出 %s 金幣（未加成）。" % [number(FARM_START),number(FARM_INTERVAL),number(FARM_DROP)])
 		"farmer": lines.append("順路耕田 %s 秒，農田回復 %s 生命，%s 秒內產出加倍。" % [number(CULTIVATE_TIME),number(FARMER_HEAL),number(BOOST_TIME)])
 		"mill": lines.append("同一路農田產出 ×%s；多座磨坊不疊加。" % number(MILL_BONUS))

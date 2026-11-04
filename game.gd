@@ -798,14 +798,17 @@ func draw_battle() -> void:
 				var edge: int = [3,0,1,2][side]
 				ink_line(corners[edge],corners[(edge+1)%4],row*37+col*11+side,color,1.7)
 	if selected >= 0:
-		for row: int in range(5):
-			for col: int in range(9):
-				var cell := Vector2i(col,row)
-				if model.can_play(0,selected,L.cell_center(cell)):
-					var r := Rect2(L.GRID_ORIGIN+Vector2(cell)*L.CELL_SIZE,L.CELL_SIZE).grow(-5)
-					var glow := 0.0 if place_flash <= 0 else 0.5+0.5*sin(place_flash*18)
-					draw_rect(r,Color(1.0,0.93,0.55,0.22+0.30*glow))
-					draw_rect(r,Color(0.85,0.65,0.15,0.7+0.3*glow),false,2+3*glow)
+		var sel_kind: String = model.kind_at(0,selected)
+		var is_spell: bool = B.CARDS.get(sel_kind,{}).get("type","") == "spell"
+		if not is_spell:
+			for row: int in range(5):
+				for col: int in range(9):
+					var cell := Vector2i(col,row)
+					if model.can_play(0,selected,L.cell_center(cell)):
+						var r := Rect2(L.GRID_ORIGIN+Vector2(cell)*L.CELL_SIZE,L.CELL_SIZE).grow(-5)
+						var glow := 0.0 if place_flash <= 0 else 0.5+0.5*sin(place_flash*18)
+						draw_rect(r,Color(1.0,0.93,0.55,0.22+0.30*glow))
+						draw_rect(r,Color(0.85,0.65,0.15,0.7+0.3*glow),false,2+3*glow)
 	for lane: int in range(6):
 		if not lane in model.active_lanes and not lane-1 in model.active_lanes: continue
 		var y := grid.position.y+lane*L.CELL_SIZE.y
@@ -1042,25 +1045,26 @@ func layout_formations() -> void:
 func draw_preview() -> void:
 	if selected < 0: return
 	var pos := get_global_mouse_position()
-	var cell: Vector2i = model.cell_at(pos)
-	if cell.x < 0: return
 	var kind: String = model.kind_at(0,selected)
 	var data: Dictionary = B.CARDS[kind]
 	var color := Color(0.2,0.7,0.3,0.35) if model.can_play(0,selected,pos) else Color(0.8,0.1,0.1,0.35)
-	if data.type == "spell": draw_circle(pos,data.radius,color)
-	else:
-		draw_card_art(kind,Rect2(L.cell_center(cell)-Vector2(45,40),Vector2(90,80)),0,Color(1,1,1,0.5))
-		if data.type == "unit":
-			var lanes: Array = [cell.y]
-			if data.get("spread",false):
-				var middle := clampi(cell.y,1,3)
-				lanes = [middle-1,middle,middle+1]
-			for lane: int in lanes:
-				var col: int = model.deployment_column(0,lane,cell.x)
-				if col >= 0: draw_line(L.cell_center(Vector2i(col,lane)),Vector2(L.gate_stop(1),L.cell_center(Vector2i(0,lane)).y),color,3)
-			if kind == "farmer":
-				for b: Dictionary in model.buildings:
-					if b.kind == "farm" and b.team == 0 and b.cell.y == cell.y and b.cell.x >= cell.x: draw_circle(b.pos,40,color,false,3)
+	if data.type == "spell":
+		draw_circle(pos,data.radius,color)
+		return
+	var cell: Vector2i = model.cell_at(pos)
+	if cell.x < 0: return
+	draw_card_art(kind,Rect2(L.cell_center(cell)-Vector2(45,40),Vector2(90,80)),0,Color(1,1,1,0.5))
+	if data.type == "unit":
+		var lanes: Array = [cell.y]
+		if data.get("spread",false):
+			var middle := clampi(cell.y,1,3)
+			lanes = [middle-1,middle,middle+1]
+		for lane: int in lanes:
+			var col: int = model.deployment_column(0,lane,cell.x)
+			if col >= 0: draw_line(L.cell_center(Vector2i(col,lane)),Vector2(L.gate_stop(1),L.cell_center(Vector2i(0,lane)).y),color,3)
+		if kind == "farmer":
+			for b: Dictionary in model.buildings:
+				if b.kind == "farm" and b.team == 0 and b.cell.y == cell.y and b.cell.x >= cell.x: draw_circle(b.pos,40,color,false,3)
 
 # Colours of the cause-and-effect links (battle.gd link()): one family per relation.
 const LINK_COLORS := {"repair":Color("c4a75f"),"soul":Color("b9a3d6"),"devour":Color("9b2f2f"),"summon":Color("7b4fa0"),"heal":Color("4f9a4a"),"harvest":Color("e2b23a"),"curse":Color("926c9d")}

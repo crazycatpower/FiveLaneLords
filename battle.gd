@@ -265,9 +265,13 @@ func play_check(team: int, slot: int, pos: Vector2) -> Refusal:
 	if card.get("summon_only",false): return Refusal.NO_CARD
 	if slot_cd(team,slot) > 0.00001: return Refusal.COOLDOWN
 	if ink[team] < card.cost: return Refusal.GOLD
+	if card.type == "spell":
+		var lane := int((pos.y-L.GRID_ORIGIN.y)/L.CELL_SIZE.y)
+		if not lane in active_lanes or pos.x < L.FIELD_FRAME.position.x or pos.x > L.FIELD_FRAME.end.x:
+			return Refusal.OFF_GRID
+		return Refusal.OK
 	var cell := cell_at(pos)
 	if cell.x < 0 or not cell.y in active_lanes: return Refusal.OFF_GRID
-	if card.type == "spell": return Refusal.OK
 	if territory_owner(cell) != team: return Refusal.NOT_OURS
 	if card.type == "building":
 		var here := building_at(cell)
@@ -314,7 +318,7 @@ func play(team: int, slot: int, pos: Vector2) -> bool:
 		else: refresh_building(here)
 	elif card.type == "unit": deploy(team,kind,cell)
 	else: spells.append({"kind":kind,"team":team,"pos":pos,"delay":B.SPELL_DELAY})
-	memory[1-team] = {"card":kind,"lane":cell.y}
+	memory[1-team] = {"card":kind,"lane":cell.y if cell.y in active_lanes else clampi(int((pos.y-L.GRID_ORIGIN.y)/L.CELL_SIZE.y),0,4)}
 	if card.type == "unit":
 		recent_lanes[team].append(cell.y)
 		if recent_lanes[team].size() > 3: recent_lanes[team].pop_front()
@@ -338,6 +342,7 @@ func refresh_building(b: Dictionary) -> void:
 	b.hp = b.max_hp
 	if data.has("charges"): b.charges = data.charges
 	if data.expires > 0: b.expires = elapsed+data.expires
+	if b.kind == "bonewall": b.thresholds_spawned = 0
 	stats[b.team].repairs = stats[b.team].get("repairs",0)+1
 	event("heal",b.pos,b.team)
 
@@ -423,6 +428,20 @@ func damage(target: Dictionary, amount: float, team: int, kind: String, source: 
 		target.last_hit = elapsed
 		if target.hp <= 0: target.respawn = B.LORD_RESPAWN
 	target.flash = 0.08
+	if target.kind == "bonewall":
+		var hp_lost: float = target.max_hp - maxf(0.0, target.hp)
+		var threshold_reached: int = clampi(int(hp_lost / (target.max_hp * 0.2)), 0, 5)
+		var spawned: int = target.get("thresholds_spawned", 0)
+		while spawned < threshold_reached:
+			spawned += 1
+			var forward := 1.0 if target.team == 0 else -1.0
+			var spawn_pos: Vector2 = target.pos - Vector2(forward * 45.0, 0.0)
+			spawn_pos.x = clampf(spawn_pos.x, L.GRID_ORIGIN.x, L.GRID_ORIGIN.x + L.GRID_SIZE.x)
+			var skel := spawn_unit(target.team, target.cell.y, "skeleton", spawn_pos)
+			skel.card = "bonewall"
+			event("summoned", skel.pos, skel.team)
+			link(target.pos, skel.pos, target.team, "summon")
+		target.thresholds_spawned = spawned
 	if not sacrifice: stats[team].damage[kind] = stats[team].damage.get(kind,0.0)+dealt
 	event("hit",target.pos,target.team)
 	if target.hp <= 0 and not sacrifice: DarkSorcery.rescue(self,target)
@@ -437,8 +456,6 @@ func damage(target: Dictionary, amount: float, team: int, kind: String, source: 
 				if B.CARDS[target.kind].has("resonance"):
 					death_queue.append({"explosion":true,"pos":target.pos,"team":target.team,"kind":target.kind})
 				death_queue.append({"lane":target.lane,"pos":target.pos,"team":target.team,"kind":target.kind,"serial":old_serial,"poison_team":team if kind == "plague" else -1,"curse_team":target.get("curse_team",-1) if (target.get("cursed",false) or target.get("cursed_until",0.0) > elapsed) else -1,"spawn":B.CARDS[target.kind].get("on_death_spawn",[]),"card":target.get("card",target.kind)})
-			elif target.kind == "bonewall":
-				death_queue.append({"explosion":true,"pos":target.pos,"team":target.team})
 		if target.has("cell"): refresh_territory()
 		if target.kind == "farm" and elapsed < 180.0: stats[target.team].farms_lost_early += 1
 		var art_kind: String = "lord_"+target.lord if target.kind == "lord" else target.kind
@@ -479,7 +496,29 @@ func update_zones(dt: float) -> void:
 			for u: Dictionary in units:
 				if u.hp > 0 and u.team != zone.team and u.pos.distance_to(zone.pos) <= zone.radius:
 					damage(u,B.CARDS.plague.tick_damage,zone.team,"plague")
+		for u: Dictionary in units:
+			if u.hp > 0 and u.team != zone.team and u.pos.distance_to(zone.pos) <= zone.radius:
+				u.in_poison_zone = true
+				u.poison_remaining = 2
+				u.poison_team = zone.team
+				u.poison_timer = B.CARDS.plague.tick_interval
 	zones = zones.filter(func(z: Dictionary) -> bool: return z.left > 0.000001)
+
+	for u: Dictionary in units:
+		if u.hp <= 0: continue
+		if u.get("in_poison_zone",false):
+			u.in_poison_zone = false
+			continue
+		if u.get("poison_remaining",0) > 0:
+			u.poison_timer = u.get("poison_timer",B.CARDS.plague.tick_interval)-dt
+			while u.poison_timer <= 0.000001 and u.poison_remaining > 0:
+				u.poison_timer += B.CARDS.plague.tick_interval
+				u.poison_remaining -= 1
+				damage(u,B.CARDS.plague.tick_damage,u.poison_team,"plague")
+				if u.hp <= 0: break
+			if u.poison_remaining <= 0:
+				u.poison_remaining = 0
+				u.poison_team = -1
 
 func resolve_deaths() -> void:
 	# Append-only during processing: explosions may add more deaths, in deterministic order.
