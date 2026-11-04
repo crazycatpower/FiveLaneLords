@@ -8,7 +8,7 @@ func _initialize() -> void:
 	call_deferred("run")
 func run() -> void:
 	assert(B.validate().is_empty())
-	assert(B.skill_cost("adventure") == 10 and B.tier("area_damage",B.LORDS.adventure.skill_damage) == "S")
+	assert(B.skill_cost("adventure") == 6 and B.tier("area_damage",B.LORDS.adventure.skill_damage) == "S")
 	for team in [0,1]:
 		var m = M.new(13,[],[],"adventure","adventure")
 		m.units.clear()
@@ -26,11 +26,11 @@ func run() -> void:
 		var wall: Dictionary = m.add_building(1-team,Vector2i(5 if team == 0 else 3,2),"barricade")
 		assert(m.skill_cd[team] == B.SKILL_OPENING_COOLDOWN)
 		m.skill_cd[team] = 0.0
-		m.ink[team] = 4
+		m.ink[team] = 0
 		assert(AI.skill_plan(m.skill_state(team)).save == false)
-		m.ink[team] = 9
+		m.ink[team] = 5
 		assert(not m.cast_skill(team))
-		m.ink[team] = 10
+		m.ink[team] = 6
 		assert(AI.skill_plan(m.skill_state(team)).cast)
 		var count: int = m.units.size()
 		assert(m.cast_skill(team) and m.ink[team] == 0)
@@ -39,5 +39,5 @@ func run() -> void:
 		assert(m.units.size() == count,"Skill no longer summons troops")
 		assert(m.skill_cd[team] == B.SKILL_COOLDOWN and not m.cast_skill(team))
 		assert(m.events.any(func(e): return e.kind == "hero_slash" and e.length == length and e.team == team))
-	print("PASS: 10 gold, S-tier 600 damage, three-cell boundary, both directions, building damage, friendly/behind/adjacent exclusion, no summons, cooldown and AI")
+	print("PASS: 6 gold, S-tier 600 damage, three-cell boundary, both directions, building damage, friendly/behind/adjacent exclusion, no summons, cooldown and AI")
 	quit()

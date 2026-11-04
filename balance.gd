@@ -219,7 +219,7 @@ const LORDS := {
 	"rune":{"name":"符文領主","role":"法陣型","faction":"magic","home_card":"crystal","hp":900.0,"damage":70.0,"speed":50.0,"skill":"符文前線","skill_cost":15.0,"skill_desc":"在每條開放路線領地最前方的空格，各召喚一個隨機陷阱法陣；不覆蓋建築。"},
 	"vampire":{"name":"吸血領主","role":"血契型","faction":"dark","home_card":"grave","hp":900.0,"damage":70.0,"speed":50.0,"skill":"鮮血盟約","skill_cost":30.0,"blood_duration":20.0,"skill_desc":"所有友方部隊攻速、移速升一檔（最高 S），持續 %s 秒；造成實際傷害時等量增加自身目前及最大生命，已獲得生命保留。"},
 	"mage":{"name":"法師領主","role":"時空型","faction":"magic","home_card":"crystal","hp":900.0,"damage":70.0,"speed":50.0,"skill":"時空凝滯","skill_cost":15.0,"freeze_duration":10.0,"skill_desc":"空間波動後凍結時間 %s 秒，只有友方軍隊與施法領主可以行動；產金、冷卻、投射物與選單全部暫停。"},
-	"adventure":{"name":"邊境領主","role":"主角型","faction":"normal","hp":900.0,"damage":110.0,"speed":65.0,"skill":"破陣斬","skill_cost":10.0,"skill_cells":3,"skill_damage":600.0,"skill_desc":"向前斬出長 %s 格、寬一格的劍氣，對範圍內敵軍、建築與領主造成 %s 傷害。"},
+	"adventure":{"name":"邊境領主","role":"主角型","faction":"normal","hp":900.0,"damage":110.0,"speed":65.0,"skill":"破陣斬","skill_cost":6.0,"skill_cells":3,"skill_damage":600.0,"skill_desc":"向前斬出長 %s 格、寬一格的劍氣，對範圍內敵軍、建築與領主造成 %s 傷害。"},
 	"underworld":{"name":"冥府領主","role":"亡者型","faction":"dark","home_card":"grave","hp":900.0,"damage":70.0,"speed":50.0,"skill":"亡者大軍","skill_cost":20.0,"summon_count":4,"skill_desc":"我方每座墓碑各召喚 %s 隻骷髏兵；沒有墓碑時無法發動。"},
 	"lion":{"name":"紅獅領主","role":"進攻型","faction":"normal","hp":900.0,"damage":70.0,"speed":65.0,"skill":"獅王號令","skill_desc":"每路從己方城門各召喚一名騎士，緩步進軍。"},
 	"harvest":{"name":"豐收領主","role":"經濟型","faction":"normal","hp":900.0,"damage":42.0,"speed":50.0,"skill":"豐年祭","skill_desc":"每路在己方領地空格種一塊農田，全部農田回滿血。"},
