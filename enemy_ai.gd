@@ -62,6 +62,8 @@ static func decide(s: Dictionary) -> Dictionary:
 	var farm_total := 0
 	var crystal_total := 0
 	var my_crystals := [0,0,0,0,0]
+	var my_graves := [0,0,0,0,0]
+	var grave_total := 0
 	var own_buildings := 0
 	var my_troops := [0.0,0.0,0.0,0.0,0.0] # hp of our troops per lane (buildings excluded)
 	var my_guard := [0,0,0,0,0] # our towers and scarecrows per lane
@@ -90,6 +92,9 @@ static func decide(s: Dictionary) -> Dictionary:
 			elif b.kind == "crystal":
 				my_crystals[b.cell.y] += 1
 				crystal_total += 1
+			elif b.kind == "grave":
+				my_graves[b.cell.y] += 1
+				grave_total += 1
 			if B.has_tag(b.kind,"guard"):
 				ours[b.cell.y] += b.hp
 				my_guard[b.cell.y] += 1
@@ -112,6 +117,7 @@ static func decide(s: Dictionary) -> Dictionary:
 		var gate: float = s.gates[1-team][lane]
 		attack[lane] = (B.GATE_HP-gate)*pr.get("atk_gate",0.4)+ours[lane]*0.3-foes[lane]*pr.get("atk_foes",0.8)-their_guard[lane]*0.5-recent.count(lane)*pr.get("atk_recent",140.0)+jitter(lane,s.elapsed)
 		if gate <= 0 and foes[lane] < 150: attack[lane] += 600 # an open gate with nobody guarding it: walk in
+		if my_graves[lane] > 0: attack[lane] += my_graves[lane] * 80.0 # fighting where graves are concentrated feeds their soul harvest
 	var target_lane: int = active_lanes[0]
 	var max_atk := -INF
 	for lane: int in active_lanes:
@@ -297,11 +303,27 @@ static func dark_card_score(c: Dictionary, s: Dictionary, ours: Array, foes: Arr
 				if u.hp > 0 and u.team != s.team and u.pos.distance_to(c.pos) <= B.CARDS.curse.radius and not u.get("cursed",false) and u.get("cursed_until",0.0) <= s.elapsed: count += 1
 			if count >= 2: return 670.0+count*25
 		"grave":
+			var col: int = c.cell.x if s.team == 0 else 8-c.cell.x
 			var activity: float = ours[lane]+foes[lane]
 			var existing := 0
+			var total_graves := 0
 			for b: Dictionary in s.buildings:
-				if b.hp > 0 and b.team == s.team and b.kind == "grave" and b.cell.y == lane: existing += 1
-			return 660.0+minf(activity,1500)*0.08-existing*90 if activity > 0 else 510.0-existing*90
+				if b.hp > 0 and b.team == s.team and b.kind == "grave":
+					total_graves += 1
+					if b.cell.y == lane: existing += 1
+			if activity > 0:
+				# Graves only profit when units die in the SAME lane.
+				# Stacking graves on the same active lane multiplies the return (each death advances ALL graves in this lane).
+				var clash_intensity: float = minf(activity,1500.0)*0.08
+				if ours[lane] > 0 and foes[lane] > 0: clash_intensity += 50.0
+				var stack_bonus: float = existing * 65.0
+				var cap_penalty: float = maxf(0.0, total_graves - 3) * 65.0
+				return 670.0 + clash_intensity + stack_bonus - cap_penalty - col * 12.0
+			else:
+				# Quiet lane: units don't die here, so graves get zero death advance.
+				if total_graves == 0:
+					return 580.0 - existing * 80.0 - col * 12.0
+				return 390.0 - existing * 80.0 - col * 12.0
 		"necromancer", "ghoul":
 			var score := -INF
 			for x: float in troop_x[lane]:

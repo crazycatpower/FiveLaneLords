@@ -139,4 +139,19 @@ static func run(t: SceneTree) -> void:
 		for stat: String in ["hp","damage","interval","range","speed","radius"]:
 			if data.has(stat): t.check(not B.tier(stat,data[stat]).is_empty(),"dark card stat is tiered "+kind+"."+stat)
 	t.check(not B.tier("radius",B.CARDS.plague.spread_radius).is_empty(),"secondary poison radius is tiered")
+	var u_ally := m.spawn_unit(0, 2, "militia", L.cell_center(Vector2i(3, 2)))
+	var u_foe := m.spawn_unit(1, 2, "militia", L.cell_center(Vector2i(5, 2)))
+	var snap := m.snapshot(0)
+	var cand_active := {"slot": Battle.FARM_SLOT, "kind": "grave", "cell": Vector2i(1, 2), "pos": L.cell_center(Vector2i(1, 2))}
+	var cand_quiet := {"slot": Battle.FARM_SLOT, "kind": "grave", "cell": Vector2i(1, 0), "pos": L.cell_center(Vector2i(1, 0))}
+	var ours := [0.0, 0.0, u_ally.hp, 0.0, 0.0]
+	var foes := [0.0, 0.0, u_foe.hp, 0.0, 0.0]
+	var troop_x: Array = [[], [], [u_ally.pos.x], [], []]
+	var s_active: float = m.AI.dark_card_score(cand_active, snap, ours, foes, troop_x)
+	var s_quiet: float = m.AI.dark_card_score(cand_quiet, snap, ours, foes, troop_x)
+	t.check(s_active > s_quiet, "grave scores higher in active combat lane than quiet lane")
+	m.add_building(0, Vector2i(0, 2), "grave")
+	snap = m.snapshot(0)
+	var s_stacked: float = m.AI.dark_card_score(cand_active, snap, ours, foes, troop_x)
+	t.check(s_stacked > s_active, "stacking grave on same active lane grants synergy bonus")
 	t.finished.dark_age = true
