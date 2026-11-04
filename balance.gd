@@ -223,7 +223,7 @@ const LORDS := {
 	"underworld":{"name":"冥府領主","role":"亡者型","faction":"dark","home_card":"grave","hp":900.0,"damage":70.0,"speed":50.0,"skill":"亡者大軍","skill_cost":20.0,"summon_count":4,"skill_desc":"我方每座墓碑各召喚 %s 隻骷髏兵；沒有墓碑時無法發動。"},
 	"lion":{"name":"紅獅領主","role":"進攻型","faction":"normal","hp":900.0,"damage":70.0,"speed":65.0,"skill":"獅王號令","skill_desc":"每路從己方城門各召喚一名騎士，緩步進軍。"},
 	"harvest":{"name":"豐收領主","role":"經濟型","faction":"normal","hp":900.0,"damage":42.0,"speed":50.0,"skill":"豐年祭","skill_desc":"每路在己方領地空格種一塊農田，全部農田回滿血。"},
-	"iron":{"name":"鐵壁領主","role":"防守型","faction":"normal","hp":900.0,"damage":70.0,"speed":36.0,"skill":"重築城牆","skill_desc":"五座城門回滿血，已破的城門重建，城門前拆殘垣的敵兵要重新開始。"}
+	"iron":{"name":"鐵壁領主","role":"防守型","faction":"normal","hp":900.0,"damage":70.0,"speed":36.0,"skill":"重築城牆","skill_cost":40.0,"skill_desc":"五座城門回滿血，已破的城門重建，城門前拆殘垣的敵兵要重新開始。"}
 }
 # Lord skills (producer 2026-10-29): lords have no passive effects; each has one strong skill the
 # player casts with Q (the AI casts its own). It costs a full purse and has a long cooldown.
