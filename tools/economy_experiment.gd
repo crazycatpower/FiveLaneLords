@@ -3,12 +3,13 @@ const Battle = preload("res://tools/economy_experiment_battle.gd")
 const B = preload("res://balance.gd")
 const DS = preload("res://deck_store.gd")
 const LORDS = ["lion","iron","harvest","adventure","underworld","vampire","mage","rune"]
+
 func _initialize() -> void:
-	var options := {"lord":"lion","goal":2,"repeat":0,"out":"","opponents":8,"opponent-picks":""}
+	var options := {"lord":"underworld","goal":4,"repeat":0,"out":"","opponents":3,"opponent-picks":"iron,underworld,mage","lane-cap":99}
 	for arg: String in OS.get_cmdline_user_args():
 		var key := arg.get_slice("=",0).trim_prefix("--")
 		var value := arg.get_slice("=",1)
-		if key in ["goal","repeat","opponents"]: options[key] = int(value)
+		if key in ["goal","repeat","opponents","lane-cap"]: options[key] = int(value)
 		elif key in ["lord","out","opponent-picks"]: options[key] = value
 	var out := FileAccess.open(options.out,FileAccess.WRITE)
 	if out == null: quit(2); return
@@ -29,9 +30,11 @@ func _initialize() -> void:
 			m.record_events = false
 			m.difficulty = 1
 			m.economy_goals = [options.goal,6] if side == 0 else [6,options.goal]
+			m.max_per_lane = [options["lane-cap"],99] if side == 0 else [99,options["lane-cap"]]
 			m.ai_params = [{"farm_goal":m.economy_goals[0]},{"farm_goal":m.economy_goals[1]}]
 			var home: String = B.home_card(options.lord)
 			var peak := m.count_buildings(side,home)
+			var peak_in_one_lane := 0
 			var sum_count := 0.0
 			var count_samples := 0
 			var checkpoints := {}
@@ -42,6 +45,11 @@ func _initialize() -> void:
 				if m.elapsed >= next_sample:
 					var count := m.count_buildings(side,home)
 					peak = maxi(peak,count)
+					var lane_counts := [0,0,0,0,0]
+					for b: Dictionary in m.buildings:
+						if b.hp > 0 and b.team == side and b.kind == home:
+							lane_counts[b.cell.y] += 1
+					peak_in_one_lane = maxi(peak_in_one_lane,lane_counts.max())
 					sum_count += count
 					count_samples += 1
 					if count >= options.goal and reached < 0: reached = m.elapsed
@@ -49,7 +57,31 @@ func _initialize() -> void:
 						if m.elapsed >= t and not checkpoints.has(str(t)): checkpoints[str(t)] = count
 					next_sample += 1.0
 				m.events.clear()
-			var result := {"seed":seed_value,"repeat":options.repeat,"faction":B.lord_faction(options.lord),"lord":options.lord,"opponent":opponent,"side":side,"goal":options.goal,"opponent_goal":6,"deck":own_deck,"opponent_deck":opponent_deck,"score":(1.0 if m.winner == side else 0.0) if m.ended else 0.5,"draw":not m.ended,"seconds":snappedf(m.elapsed,.01),"produced":m.stats[side].produced,"wasted":m.stats[side].wasted,"economy_spent":m.stats[side].spent.get(home,0),"economy_plays":m.stats[side].used.get(home,0),"peak":peak,"mean_count":sum_count/maxi(1,count_samples),"reached_seconds":reached,"checkpoints":checkpoints}
+			var result := {
+				"seed":seed_value,
+				"repeat":options.repeat,
+				"faction":B.lord_faction(options.lord),
+				"lord":options.lord,
+				"opponent":opponent,
+				"side":side,
+				"goal":options.goal,
+				"lane_cap":options["lane-cap"],
+				"opponent_goal":6,
+				"deck":own_deck,
+				"opponent_deck":opponent_deck,
+				"score":(1.0 if m.winner == side else 0.0) if m.ended else 0.5,
+				"draw":not m.ended,
+				"seconds":snappedf(m.elapsed,.01),
+				"produced":m.stats[side].produced,
+				"wasted":m.stats[side].wasted,
+				"economy_spent":m.stats[side].spent.get(home,0),
+				"economy_plays":m.stats[side].used.get(home,0),
+				"peak":peak,
+				"peak_in_one_lane":peak_in_one_lane,
+				"mean_count":sum_count/maxi(1,count_samples),
+				"reached_seconds":reached,
+				"checkpoints":checkpoints
+			}
 			out.store_line(JSON.stringify(result))
 			out.flush()
 	out.close()
