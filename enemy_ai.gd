@@ -1,5 +1,6 @@
 extends RefCounted
 const B = preload("res://balance.gd")
+const Frontier = preload("res://frontier_cards.gd")
 const L = preload("res://layout.gd")
 
 # Pure decision: snapshot in, legal play out. No model mutation or random globals.
@@ -158,7 +159,7 @@ static func decide(s: Dictionary) -> Dictionary:
 			if data.get("rolling",false):
 				var value := 0.0
 				for actor: Dictionary in s.units+s.buildings+s.get("lords",[]):
-					if actor.hp <= 0 or absf(actor.pos.y-c.pos.y) > data.radius or (actor.pos.x-c.pos.x)*forward < -data.radius: continue
+					if actor.hp <= 0 or absf(actor.pos.y-c.pos.y) > data.radius or (actor.pos.x-Frontier.start_x(team))*forward < -data.radius: continue # the rock rolls the whole lane from start_x
 					value += minf(actor.hp,data.damage)*(1.0 if actor.team != team else -2.0)
 				if value > 0 and (defend < 0 or lane == defend):
 					score = 720+minf(value,1000)*0.15

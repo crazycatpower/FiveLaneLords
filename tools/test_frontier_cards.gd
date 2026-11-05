@@ -54,7 +54,8 @@ func run() -> void:
 		m.lords[side].pos = p+Vector2(170*forward,0)
 		m.lords[1-side].pos = p+Vector2(200*forward,0)
 		m.cast_spell({"kind":"rolling_boulder","pos":p,"team":side})
-		m.update_projectiles(1.0)
+		check(is_equal_approx(m.projectiles[0].pos.x,preload("res://frontier_cards.gd").start_x(side)),"rock always starts just past our lord zone")
+		m.update_projectiles(3.0)
 		var amount: float = B.CARDS.rolling_boulder.damage
 		check(ally.hp == ally.max_hp-amount and enemy.hp == enemy.max_hp-amount,"swept boulder hits friend and enemy")
 		check(building.hp == building.max_hp-amount,"boulder damages friendly buildings")
@@ -76,7 +77,11 @@ func run() -> void:
 		m.decks[side][0] = "rolling_boulder"
 		m.hand_cd[side][0] = 0
 		m.ink[side] = 50
-		check(m.play(side,0,p),"boulder uses normal card play")
+		var start := L.cell_center(Vector2i(0 if side == 0 else 8,2))
+		check(not m.can_play(side,0,p),"boulder cannot be placed mid-lane")
+		check(not m.can_play(side,0,L.cell_center(Vector2i(8 if side == 0 else 0,2))),"boulder cannot start at the enemy end")
+		check(m.can_play(side,0,start),"boulder starts at the first cell of the lane")
+		check(m.play(side,0,start),"boulder uses normal card play")
 		check(m.ink[side] == 50-B.CARDS.rolling_boulder.cost,"normal cost paid")
 		m.update_spells(B.SPELL_DELAY+0.01)
 		check(m.projectiles.size() == 1,"normal delayed spell launches rock")
@@ -85,11 +90,18 @@ func run() -> void:
 		m.ink[side] = 50
 		var victim: Dictionary = m.spawn_unit(1-side,2,"knight",p+Vector2(150*forward,0))
 		var state: Dictionary = m.snapshot(side)
-		state.candidates = [{"slot":0,"kind":"rolling_boulder","pos":p,"cell":Vector2i(4,2)}]
+		state.candidates = [{"slot":0,"kind":"rolling_boulder","pos":L.cell_center(Vector2i(0 if side == 0 else 8,2)),"cell":Vector2i(0 if side == 0 else 8,2)}]
 		check(not m.AI.decide(state).is_empty(),"AI uses rock on enemy lane")
 		m.spawn_unit(side,2,"knight",p+Vector2(100*forward,0))
 		state = m.snapshot(side)
-		state.candidates = [{"slot":0,"kind":"rolling_boulder","pos":p,"cell":Vector2i(4,2)}]
+		state.candidates = [{"slot":0,"kind":"rolling_boulder","pos":L.cell_center(Vector2i(0 if side == 0 else 8,2)),"cell":Vector2i(0 if side == 0 else 8,2)}]
 		check(m.AI.decide(state).is_empty(),"AI avoids greater friendly damage")
+		m.units = m.units.filter(func(u: Dictionary) -> bool: return u.team != side)
+		var zone: Vector2 = preload("res://lord.gd").zone(side)
+		m.lords[side].pos = Vector2(zone.y if side == 0 else zone.x,L.cell_center(Vector2i(0,2)).y) # deepest spot our lord can reach
+		m.lords[side].hp = m.lords[side].max_hp
+		state = m.snapshot(side)
+		state.candidates = [{"slot":0,"kind":"rolling_boulder","pos":L.cell_center(Vector2i(0 if side == 0 else 8,2)),"cell":Vector2i(0 if side == 0 else 8,2)}]
+		check(not m.AI.decide(state).is_empty(),"our lord at the gate does not count as friendly damage")
 	print("Frontier cards: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)

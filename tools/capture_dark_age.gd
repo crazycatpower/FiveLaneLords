@@ -23,7 +23,7 @@ func run() -> void:
 	game.player_lord = "underworld"
 	for tab: String in ["unit","building","spell"]:
 		game.deck_tab = tab
-		for page: int in range(ceili(game.tab_size()/8.0)):
+		for page: int in range(ceili(game.tab_size()/float(game.POOL_PAGE))):
 			game.deck_page = page
 			game.show_deck()
 			await shot(game,"deck-"+tab+str(page))

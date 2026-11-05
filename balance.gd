@@ -43,55 +43,55 @@ const LORD_HYSTERESIS := 1.5
 # and "spread": true to deploy "count" troops in each of three adjacent lanes.
 # "cooldown": seconds a card must wait after it enters the hand before it can be played (0..30).
 const CARDS := {
-	"manor_retainer":{"name":"莊園扈從","role":"領地·巡邏","faction":"normal","type":"unit","patrol":true,"cost":14,"cooldown":12.0,"count":2,"hp":560.0,"damage":42.0,"interval":1.1,"range":47.0,"speed":36.0},
-	"axe_thrower":{"name":"投斧手","role":"遠程·破甲","type":"unit","projectile":true,"ignore_armor":true,"cost":12,"cooldown":14.0,"count":1,"hp":350.0,"damage":180.0,"interval":1.9,"range":80.0,"speed":36.0},
+	"manor_retainer":{"name":"莊園扈從","role":"領地·巡邏","faction":"normal","type":"unit","patrol":true,"cost":12,"cooldown":12.0,"count":2,"hp":560.0,"damage":42.0,"interval":1.1,"range":47.0,"speed":36.0},
+	"axe_thrower":{"name":"投斧手","role":"遠程·破甲","type":"unit","projectile":true,"ignore_armor":true,"cost":10,"cooldown":14.0,"count":1,"hp":350.0,"damage":180.0,"interval":1.9,"range":100.0,"speed":36.0},
 	"rolling_boulder":{"name":"巨石滾滾","role":"直線·敵我傷害","type":"spell","rolling":true,"cost":10,"cooldown":16.0,"radius":37.0,"damage":230.0,"building_damage":230.0,"gate_damage":230.0,"roll_speed":240.0},
-	"dark_wizard":{"name":"黑暗巫師","role":"高傷·噬魂","faction":"dark","series":"dark","type":"unit","projectile":true,"soul_bargain":true,"cost":18,"cooldown":14.0,"count":1,"hp":210.0,"damage":110.0,"interval":1.9,"range":230.0,"speed":36.0},
+	"dark_wizard":{"name":"黑暗巫師","role":"高傷·噬魂","faction":"dark","series":"dark","type":"unit","projectile":true,"soul_bargain":true,"cost":15,"cooldown":14.0,"count":1,"hp":210.0,"damage":110.0,"interval":1.9,"range":230.0,"speed":36.0},
 	"summon_trap":{"name":"召喚法陣","role":"陷阱·召獸","faction":"magic","series":"magic","type":"building","ai":["defend_building"],"cost":6,"cooldown":12.0,"hp":80.0,"expires":-1.0,"trap":"summon","charges":3,"trigger_radius":26.0,"radius":52.0,"summon_kind":"chimera","summon_count":1},
 	"chimera":{"name":"嵌合獸","role":"召喚物·近戰","faction":"magic","series":"magic","type":"unit","summon_only":true,"cost":1,"cooldown":0.0,"count":1,"hp":210.0,"damage":26.0,"interval":1.1,"range":60.0,"speed":65.0},
-	"blink_blade":{"name":"閃現劍士","role":"突進·穿陣","type":"unit","faction":"magic","series":"magic","cost":13,"cooldown":8.0,"count":3,"hp":210.0,"damage":42.0,"interval":0.85,"range":47.0,"speed":65.0,"blink_step":0.25},
-	"arcane_golem":{"name":"奧術魔像","role":"重裝·共鳴","type":"unit","faction":"magic","series":"magic","cost":17,"cooldown":15.0,"count":1,"hp":1500.0,"damage":42.0,"interval":1.4,"range":47.0,"speed":27.0,"resonance":0.1,"resonance_max":0.3,"explosion_damage":140.0,"radius":100.0,"ai":["hold"]},
-	"arcane_archer":{"name":"奧術射手","role":"遠程·貫穿","type":"unit","faction":"magic","series":"magic","cost":7,"cooldown":6.0,"count":4,"hp":80.0,"damage":10.0,"interval":1.1,"range":180.0,"speed":36.0,"projectile":true,"pierce":true,"pierce_range_multiplier":2.0},
+	"blink_blade":{"name":"閃現劍士","role":"突進·穿陣","type":"unit","faction":"magic","series":"magic","cost":10,"cooldown":8.0,"count":3,"hp":210.0,"damage":42.0,"interval":0.85,"range":47.0,"speed":65.0,"blink_step":0.25},
+	"arcane_golem":{"name":"奧術魔像","role":"重裝·共鳴","type":"unit","faction":"magic","series":"magic","cost":13,"cooldown":15.0,"count":1,"hp":1500.0,"damage":42.0,"interval":1.4,"range":47.0,"speed":27.0,"resonance":0.1,"resonance_max":0.3,"explosion_damage":140.0,"radius":100.0,"ai":["hold"]},
+	"arcane_archer":{"name":"奧術射手","role":"遠程·貫穿","type":"unit","faction":"magic","series":"magic","cost":5,"cooldown":6.0,"count":4,"hp":80.0,"damage":10.0,"interval":1.1,"range":180.0,"speed":36.0,"projectile":true,"pierce":true,"pierce_range_multiplier":2.0},
 	"chronomancer":{"name":"時滯術士","role":"控場·暈眩","type":"unit","faction":"magic","series":"magic","cost":8,"cooldown":8.0,"count":2,"hp":130.0,"damage":20.0,"interval":1.1,"range":140.0,"speed":36.0,"area_damage":20.0,"radius":52.0,"stun_on_hit":0.5,"ai":["no_defend"]},
-	"phase_rider":{"name":"相位騎兵","role":"穿陣·破門","type":"unit","faction":"magic","series":"magic","cost":13,"cooldown":10.0,"count":3,"hp":210.0,"damage":42.0,"interval":1.1,"range":47.0,"speed":90.0,"phase":true,"ai":["raid"]},
-	"artificer":{"name":"工匠","role":"維修·支援","faction":"magic","type":"unit","ai":["no_defend"],"cost":3,"cooldown":8.0,"count":1,"hp":130.0,"damage":6.0,"interval":1.9,"range":47.0,"speed":50.0,"repair_range":100.0,"repair_amount":50.0,"repair_interval":1.7},
+	"phase_rider":{"name":"相位騎兵","role":"穿陣·破門","type":"unit","faction":"magic","series":"magic","cost":12,"cooldown":10.0,"count":3,"hp":210.0,"damage":42.0,"interval":1.1,"range":47.0,"speed":90.0,"phase":true,"ai":["raid"]},
+	"artificer":{"name":"工匠","role":"維修·支援","faction":"magic","type":"unit","ai":["no_defend"],"cost":1,"cooldown":8.0,"count":1,"hp":130.0,"damage":6.0,"interval":1.9,"range":47.0,"speed":50.0,"repair_range":100.0,"repair_amount":50.0,"repair_interval":1.7},
 	"crystal":{"name":"水晶","role":"耗能·經濟","faction":"magic","type":"building","cost":7,"cooldown":10.0,"hp":350.0,"expires":-1.0,"period":10.0,"max_period":20.0,"income":2.0,"decay_fraction":0.05},
 	"teleport_trap":{"name":"傳送法陣","role":"陷阱·轉移","faction":"magic","type":"building","ai":["defend_building"],"cost":1,"cooldown":12.0,"hp":80.0,"expires":-1.0,"trap":"teleport","trigger_radius":26.0,"radius":100.0,"charges":3,"stun_duration":10.0,"slow_duration":10.0},
 	"blast_trap":{"name":"爆炸法陣","role":"陷阱·爆破","faction":"magic","type":"building","ai":["defend_building"],"cost":4,"cooldown":12.0,"hp":80.0,"expires":-1.0,"trap":"blast","charges":3,"trigger_radius":26.0,"radius":100.0,"explosion_damage":140.0},
 	"arcane_tower":{"name":"祕法塔","role":"範圍·防守","faction":"magic","type":"building","ai":["guard","defend_building","obstacle"],"cost":20,"cooldown":10.0,"hp":350.0,"expires":-1.0,"range":230.0,"interval":1.9,"radius":75.0,"area_damage":90.0},
 
 	"barricade":{"name":"木拒馬","role":"耐久·阻擋","type":"building","ai":["defend_building","obstacle"],"cost":2,"cooldown":6.0,"hp":1500.0,"expires":-1.0},
-	"bandit":{"name":"強盜","role":"潛行·突襲","type":"unit","cost":5,"cooldown":6.0,"count":4,"hp":80.0,"damage":10.0,"interval":0.85,"range":47.0,"speed":65.0,"stealth":true},
-	"corpse_giant":{"name":"腐屍巨人","role":"重裝·屍爆","faction":"dark","series":"dark","type":"unit","cost":20,"cooldown":12.0,"count":1,"hp":1500.0,"damage":42.0,"interval":1.1,"range":47.0,"speed":27.0,"on_death_spawn":["skeleton",4]},
+	"bandit":{"name":"強盜","role":"潛行·突襲","type":"unit","cost":1,"cooldown":6.0,"count":4,"hp":80.0,"damage":10.0,"interval":0.85,"range":47.0,"speed":65.0,"stealth":true},
+	"corpse_giant":{"name":"腐屍巨人","role":"重裝·屍爆","faction":"dark","series":"dark","type":"unit","cost":22,"cooldown":12.0,"count":1,"hp":1500.0,"damage":42.0,"interval":1.1,"range":47.0,"speed":27.0,"on_death_spawn":["skeleton",4]},
 	"curse":{"name":"詛咒","role":"死後·為奴","faction":"dark","series":"dark","type":"spell","ai":["defend_spell","wave_spell"],"cost":2,"cooldown":10.0,"radius":100.0},
-	"catapult":{"name":"投石車","role":"遠程·拋射","type":"unit","ai":["hold"],"cost":22,"cooldown":12.0,"count":1,"hp":350.0,"damage":90.0,"area_damage":90.0,"interval":1.9,"range":430.0,"min_range":100.0,"radius":75.0,"flight_time":0.8,"speed":20.0},
-	"drummer":{"name":"戰鼓手","role":"鼓舞·進軍","type":"unit","ai":["no_defend"],"cost":3,"cooldown":8.0,"count":1,"hp":210.0,"damage":6.0,"interval":1.1,"range":140.0,"speed":36.0,"inspire_duration":3.0,"inspire_period":10.0},
-	"shieldguard":{"name":"盾衛","role":"盾牆·減傷","type":"unit","cost":9,"cooldown":4.0,"count":3,"hp":210.0,"damage":10.0,"interval":1.1,"range":47.0,"speed":36.0,"armor":10.0},
+	"catapult":{"name":"投石車","role":"遠程·拋射","type":"unit","ai":["hold"],"cost":24,"cooldown":12.0,"count":1,"hp":350.0,"damage":90.0,"area_damage":90.0,"interval":1.9,"range":430.0,"min_range":100.0,"radius":75.0,"flight_time":0.8,"speed":20.0},
+	"drummer":{"name":"戰鼓手","role":"鼓舞·進軍","type":"unit","ai":["no_defend"],"cost":6,"cooldown":8.0,"count":1,"hp":210.0,"damage":6.0,"interval":1.1,"range":140.0,"speed":36.0,"inspire_duration":3.0,"inspire_period":10.0},
+	"shieldguard":{"name":"盾衛","role":"盾牆·減傷","type":"unit","cost":5,"cooldown":4.0,"count":3,"hp":210.0,"damage":10.0,"interval":1.1,"range":47.0,"speed":36.0,"armor":10.0},
 	"grave":{"name":"墓碑","role":"死亡·經濟","faction":"dark","series":"dark","type":"building","cost":5,"cooldown":30.0,"hp":350.0,"expires":-1.0,"period":60.0,"income":6.0,"death_advance":5.0},
-	"skeleton":{"name":"骷髏兵","role":"廉價·纏鬥","faction":"dark","series":"dark","type":"unit","cost":5,"cooldown":2.0,"count":4,"hp":50.0,"damage":10.0,"interval":0.65,"range":47.0,"speed":65.0},
-	"ghoul":{"name":"食屍鬼","role":"吞噬·成長","faction":"dark","series":"dark","type":"unit","cost":16,"cooldown":6.0,"count":2,"hp":210.0,"damage":26.0,"interval":0.85,"range":47.0,"speed":65.0,"radius":100.0,"devour_heal":50.0,"max_damage_tier":"A"},
-	"necromancer":{"name":"死靈法師","role":"三路·招魂","faction":"dark","series":"dark","type":"unit","projectile":true,"cost":14,"cooldown":12.0,"count":1,"hp":210.0,"damage":10.0,"interval":1.1,"range":230.0,"speed":36.0,"summon_interval":10.0,"summon_per_lane":2},
-	"reaper":{"name":"收割者","role":"直劈·三路","faction":"dark","series":"dark","type":"unit","splash":"column","cost":15,"cooldown":10.0,"count":1,"hp":350.0,"damage":110.0,"interval":1.9,"range":100.0,"speed":50.0},
-	"raven":{"name":"烏鴉群","role":"飛行·拆田","faction":"dark","series":"dark","type":"unit","hits":"buildings","prefers":"farm","cost":6,"cooldown":6.0,"count":6,"hp":50.0,"damage":6.0,"interval":0.65,"range":47.0,"speed":160.0,"flying":true},
+	"skeleton":{"name":"骷髏兵","role":"廉價·纏鬥","faction":"dark","series":"dark","type":"unit","cost":9,"cooldown":2.0,"count":4,"hp":50.0,"damage":10.0,"interval":0.65,"range":47.0,"speed":65.0},
+	"ghoul":{"name":"食屍鬼","role":"吞噬·成長","faction":"dark","series":"dark","type":"unit","cost":17,"cooldown":6.0,"count":2,"hp":210.0,"damage":26.0,"interval":0.85,"range":47.0,"speed":65.0,"radius":100.0,"devour_heal":50.0,"max_damage_tier":"A"},
+	"necromancer":{"name":"死靈法師","role":"三路·招魂","faction":"dark","series":"dark","type":"unit","projectile":true,"cost":19,"cooldown":12.0,"count":1,"hp":210.0,"damage":10.0,"interval":1.1,"range":230.0,"speed":36.0,"summon_interval":10.0,"summon_per_lane":2},
+	"reaper":{"name":"收割者","role":"直劈·三路","faction":"dark","series":"dark","type":"unit","splash":"column","cost":19,"cooldown":10.0,"count":1,"hp":350.0,"damage":110.0,"interval":1.9,"range":100.0,"speed":50.0},
+	"raven":{"name":"烏鴉群","role":"飛行·拆田","faction":"dark","series":"dark","type":"unit","hits":"buildings","prefers":"farm","cost":11,"cooldown":6.0,"count":6,"hp":50.0,"damage":6.0,"interval":0.65,"range":47.0,"speed":160.0,"flying":true},
 	"plague":{"name":"瘟疫","role":"毒霧·擴散","faction":"dark","series":"dark","type":"spell","ai":["defend_spell"],"cost":4,"cooldown":10.0,"radius":100.0,"tick_damage":35.0,"tick_interval":1.0,"duration":10.0,"spread_duration":3.0,"spread_radius":75.0},
 	"bonewall":{"name":"骨牆","role":"阻擋·生骸","faction":"dark","series":"dark","type":"building","ai":["defend_building"],"cost":2,"cooldown":8.0,"hp":3000.0,"expires":-1.0},
-	"farmer":{"name":"農民","role":"經濟·耕田","faction":"normal","type":"unit","ai":["no_defend"],"cost":7,"cooldown":0.0,"count":3,"hp":80.0,"damage":6.0,"interval":1.1,"range":47.0,"speed":50.0},
-	"militia":{"name":"民兵隊","role":"循環·擋路","type":"unit","cost":14,"cooldown":2.0,"count":5,"hp":130.0,"damage":26.0,"interval":0.85,"range":47.0,"speed":50.0},
+	"farmer":{"name":"農民","role":"經濟·耕田","faction":"normal","type":"unit","ai":["no_defend"],"cost":6,"cooldown":0.0,"count":3,"hp":80.0,"damage":6.0,"interval":1.1,"range":47.0,"speed":50.0},
+	"militia":{"name":"民兵隊","role":"循環·擋路","type":"unit","cost":16,"cooldown":2.0,"count":5,"hp":130.0,"damage":26.0,"interval":0.85,"range":47.0,"speed":50.0},
 	"harvest":{"name":"豐收","role":"經濟·爆發","faction":"normal","type":"spell","cost":3,"cooldown":8.0,"radius":100.0},
 	"scarecrow":{"name":"稻草人","role":"誘敵·護田","faction":"normal","type":"building","ai":["guard","defend_building","obstacle"],"cost":3,"cooldown":3.0,"hp":900.0,"expires":-1.0},
-	"mob":{"name":"乾草叉暴民","role":"三路群攻","faction":"normal","type":"unit","ai":["raid"],"cost":14,"cooldown":6.0,"count":4,"spread":true,"hp":80.0,"damage":10.0,"interval":0.85,"range":47.0,"speed":65.0},
-	"hunter":{"name":"獵戶","role":"遠程輸出","type":"unit","projectile":true,"cost":7,"cooldown":4.0,"count":3,"hp":80.0,"damage":16.0,"interval":1.4,"range":300.0,"speed":36.0},
-	"spearbow":{"name":"槍弓混編","role":"遠近軍團","type":"unit","cost":13,"cooldown":6.0,"members":[["militia",4,0.0],["hunter",2,45.0]],"art":["militia","hunter"]},
+	"mob":{"name":"乾草叉暴民","role":"三路群攻","faction":"normal","type":"unit","ai":["raid"],"cost":9,"cooldown":6.0,"count":4,"spread":true,"hp":80.0,"damage":10.0,"interval":0.85,"range":47.0,"speed":65.0},
+	"hunter":{"name":"獵戶","role":"遠程輸出","type":"unit","projectile":true,"cost":1,"cooldown":4.0,"count":3,"hp":80.0,"damage":16.0,"interval":1.4,"range":300.0,"speed":36.0},
+	"spearbow":{"name":"槍弓混編","role":"遠近軍團","type":"unit","cost":15,"cooldown":6.0,"members":[["militia",4,0.0],["hunter",2,45.0]],"art":["militia","hunter"]},
 	"farm":{"name":"農田","role":"經濟·基礎","faction":"normal","type":"building","cost":6,"cooldown":30.0,"hp":250.0,"expires":-1.0},
 	"rain":{"name":"箭雨","role":"清群法術","type":"spell","ai":["defend_spell","wave_spell"],"cost":5,"cooldown":6.0,"radius":100.0,"damage":140.0,"building_damage":90.0,"gate_damage":90.0},
 	"tower":{"name":"箭樓","role":"防守","type":"building","ai":["guard","defend_building","obstacle"],"cost":13,"cooldown":8.0,"hp":350.0,"expires":-1.0,"range":300.0,"damage":26.0,"interval":0.65},
-	"healer":{"name":"草藥婆","role":"支援·治療","faction":"normal","type":"unit","ai":["no_defend","hold"],"cost":4,"cooldown":8.0,"count":1,"hp":210.0,"damage":6.0,"interval":1.1,"range":140.0,"speed":36.0},
-	"ox":{"name":"耕牛","role":"衝鋒·拆建","faction":"normal","type":"unit","ai":["raid"],"cost":11,"cooldown":10.0,"count":2,"hp":350.0,"damage":26.0,"interval":1.9,"range":47.0,"speed":120.0},
+	"healer":{"name":"草藥婆","role":"支援·治療","faction":"normal","type":"unit","ai":["no_defend","hold"],"cost":3,"cooldown":8.0,"count":1,"hp":210.0,"damage":6.0,"interval":1.1,"range":140.0,"speed":36.0},
+	"ox":{"name":"耕牛","role":"衝鋒·拆建","faction":"normal","type":"unit","ai":["raid"],"cost":8,"cooldown":10.0,"count":2,"hp":350.0,"damage":26.0,"interval":1.9,"range":47.0,"speed":120.0},
 	"fire":{"name":"火罐","role":"燒田法術","type":"spell","ai":["defend_spell","wave_spell","raid"],"cost":9,"cooldown":15.0,"radius":100.0,"damage":370.0,"building_damage":600.0,"gate_damage":140.0},
-	"knight":{"name":"騎士","role":"主坦","faction":"normal","type":"unit","cost":26,"cooldown":15.0,"count":2,"hp":900.0,"damage":70.0,"interval":1.9,"range":47.0,"speed":27.0},
-	"guard":{"name":"聖堂護衛","role":"重裝軍團","faction":"normal","type":"unit","cost":28,"cooldown":18.0,"members":[["knight",2,0.0],["healer",2,50.0]],"art":["knight","healer"]},
+	"knight":{"name":"騎士","role":"主坦","faction":"normal","type":"unit","cost":24,"cooldown":15.0,"count":2,"hp":900.0,"damage":70.0,"interval":1.9,"range":47.0,"speed":27.0},
+	"guard":{"name":"聖堂護衛","role":"重裝軍團","faction":"normal","type":"unit","cost":30,"cooldown":18.0,"members":[["knight",2,0.0],["healer",2,50.0]],"art":["knight","healer"]},
 	"mill":{"name":"磨坊","role":"大型經濟","faction":"normal","type":"building","ai":["obstacle"],"cost":16,"cooldown":20.0,"hp":900.0,"expires":-1.0},
-	"ram":{"name":"攻城槌","role":"終結·破門","type":"unit","hits":"buildings","ai":["hold"],"cost":20,"cooldown":30.0,"members":[["ram",1,0.0],["militia",4,-40.0]],"art":["ram","militia"],"count":1,"hp":1500.0,"damage":360.0,"interval":2.4,"range":47.0,"speed":20.0}
+	"ram":{"name":"攻城槌","role":"終結·破門","type":"unit","hits":"buildings","ai":["hold"],"cost":22,"cooldown":30.0,"members":[["ram",1,0.0],["militia",4,-40.0]],"art":["ram","militia"],"count":1,"hp":1500.0,"damage":360.0,"interval":2.4,"range":47.0,"speed":20.0}
 }
 
 # Behaviour fields a card may carry (read by battle.gd; a new card only needs the fields):
@@ -215,13 +215,17 @@ const PRESETS := [
 	["farmer","mob","ox","ram","hunter","fire","scarecrow","militia"]
 ]
 const PRESET_LORDS := ["harvest","iron","lion"]
+# A new player's deck: the strongest deck of the 2026-11-05 deck search (docs/最強卡組搜尋.md).
+# The presets above stay for AI opponents and spectating; the deck screen no longer offers them.
+const DEFAULT_DECK := ["arcane_golem","bandit","barricade","blast_trap","blink_blade","hunter","rolling_boulder","teleport_trap"]
+const DEFAULT_LORD := "mage"
 # Lords are chosen on the deck screen and never enter the hand.
 # All lords have the same tier-A health (producer 2026-10-29): they differ only in attack and skill.
 # Lord speeds (2026-11-03 ten tiers): lion/adventure C 65, mage/underworld/harvest D 50, iron E 36.
 const LORDS := {
 	"rune":{"name":"符文領主","role":"法陣型","faction":"magic","home_card":"crystal","hp":900.0,"damage":70.0,"speed":50.0,"skill":"符文前線","skill_cost":15.0,"skill_desc":"在每條開放路線領地最前方的空格，各召喚一個隨機陷阱法陣；不覆蓋建築。"},
 	"vampire":{"name":"吸血領主","role":"血契型","faction":"dark","home_card":"grave","hp":900.0,"damage":70.0,"speed":50.0,"skill":"鮮血盟約","skill_cost":30.0,"blood_duration":20.0,"skill_desc":"所有友方部隊攻速、移速升一檔（最高 S），持續 %s 秒；造成實際傷害時等量增加自身目前及最大生命，已獲得生命保留。"},
-	"mage":{"name":"法師領主","role":"時空型","faction":"magic","home_card":"crystal","hp":900.0,"damage":70.0,"speed":50.0,"skill":"時空凝滯","skill_cost":15.0,"freeze_duration":10.0,"skill_desc":"空間波動後凍結時間 %s 秒，只有友方軍隊與施法領主可以行動；產金、冷卻、投射物與選單全部暫停。"},
+	"mage":{"name":"法師領主","role":"時空型","faction":"magic","home_card":"crystal","hp":900.0,"damage":70.0,"speed":50.0,"skill":"時空凝滯","skill_cost":20.0,"freeze_duration":10.0,"skill_desc":"空間波動後凍結時間 %s 秒，只有友方軍隊與施法領主可以行動；產金、冷卻、投射物與選單全部暫停。"},
 	"adventure":{"name":"邊境領主","role":"主角型","faction":"normal","hp":900.0,"damage":110.0,"speed":65.0,"skill":"破陣斬","skill_cost":6.0,"skill_cells":3,"skill_damage":600.0,"skill_desc":"向前斬出長 %s 格、寬一格的劍氣，對範圍內敵軍、建築與領主造成 %s 傷害。"},
 	"underworld":{"name":"冥府領主","role":"亡者型","faction":"dark","home_card":"grave","hp":900.0,"damage":70.0,"speed":50.0,"skill":"亡者大軍","skill_cost":20.0,"summon_count":4,"skill_desc":"我方每座墓碑各召喚 %s 隻骷髏兵；沒有墓碑時無法發動。"},
 	"lion":{"name":"紅獅領主","role":"進攻型","faction":"normal","hp":900.0,"damage":70.0,"speed":65.0,"skill":"獅王號令","skill_desc":"每路從己方城門各召喚一名騎士，緩步進軍。"},
@@ -406,7 +410,7 @@ static func card_description(kind: String, cards: Dictionary = CARDS) -> String:
 	match kind:
 		"manor_retainer": lines.append("在本路己方領地巡邏，邊緣折返、遇敵作戰。失去領地便返回最近己方格；整路失守則原地防守。")
 		"axe_thrower": lines.append("投出飛斧，命中時無視護甲減傷；不無視其他減傷效果。")
-		"rolling_boulder": lines.append("以速度 %s 沿本路滾向敵方城門。傷害沿途敵我部隊、建築及領主，每個目標一次；撞門後碎裂，不直接獲勝。" % number(d.roll_speed))
+		"rolling_boulder": lines.append("只能放在每路我方第一格，以速度 %s 從我方領主身前滾完整路到敵方城門（不會撞到我方領主）。傷害沿途敵我部隊、建築及領主，每個目標一次；撞門後碎裂，不直接獲勝。" % number(d.roll_speed))
 		"summon_trap": lines.append("敵方地面部隊踩入 %s 範圍時，召喚 %d 隻%s；共可觸發 %d 次。同一名敵兵只觸發一次，同時踩入的一群只消耗一次。飛行與相位單位不觸發。" % [number(d.trigger_radius),d.summon_count,cards[d.summon_kind].name,d.charges])
 		"chimera": lines.append("由召喚法陣召喚的地面近戰部隊；不能直接加入牌組。")
 		"dark_wizard": lines.append("致命傷害時吞噬 3×3 格內最近的友方部隊，以其最大生命續命，可反覆觸發。領主、建築與未登場者除外。")

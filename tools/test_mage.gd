@@ -9,7 +9,7 @@ func _initialize() -> void:
 func run() -> void:
 	assert(B.validate().is_empty(),str(B.validate()))
 	assert(B.lord_faction("mage") == "magic" and B.home_card("mage") == "crystal")
-	assert(D.pool("mage").size() == 21 and not "crystal" in D.pool("mage"))
+	assert(D.pool("mage").size() == 24 and not "crystal" in D.pool("mage"))
 	assert(not "crystal" in D.pool("lion"))
 	assert(D.valid(D.fit_to_lord(B.PRESETS[0],"mage"),"mage"))
 	# Test Mage AI skill decision requires accumulated army
@@ -37,7 +37,7 @@ func run() -> void:
 		m.ink[team] = B.skill_cost("mage")
 		var p := L.cell_center(Vector2i(4,2))
 		var ally: Dictionary = m.spawn_unit(team,2,"militia",p)
-		var enemy: Dictionary = m.spawn_unit(1-team,2,"knight",p+Vector2(30,0))
+		var enemy: Dictionary = m.spawn_unit(1-team,2,"knight",p+Vector2(30 if team == 0 else -30,0)) # in front: troops do not hit behind
 		var walker: Dictionary = m.spawn_unit(team,0,"militia",L.cell_center(Vector2i(3,0)))
 		var walker_start: Vector2 = walker.pos
 		var enemy_start: Vector2 = enemy.pos

@@ -21,10 +21,6 @@ func _initialize():
 			assert(m.hand_cd[team][slot] == B.CARDS[before[4]].cooldown)
 			assert(m.decks[team].slice(4) == [before[5],before[6],before[7],before[slot]])
 	var style = preload("res://command_style.gd")
-	for kind in B.CARDS:
-		var count = 0
-		for role in style.ROLES:
-			if kind in style.ROLES[role]: count += 1
-		assert(count == 1,kind)
-	print("Fixed slots, cooldowns, queue order and card roles: PASS")
+	for kind in B.CARDS: assert(style.TINTS.has(B.card_faction(kind)),"card background by faction: "+kind)
+	print("Fixed slots, cooldowns, queue order and faction card colours: PASS")
 	quit()

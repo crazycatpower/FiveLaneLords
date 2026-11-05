@@ -1,17 +1,13 @@
 extends RefCounted
-const ROLES := {
- "economy":["crystal","farm","grave","farmer","mill","harvest"],
- "melee":["bandit","militia","mob","knight","shieldguard","corpse_giant","skeleton","ghoul","reaper","ox","ram","spearbow","raven"],
- "ranged":["arcane_tower","hunter","catapult","tower","rain","fire"],
- "support":["artificer","healer","drummer","necromancer","guard"],
- "control":["teleport_trap","blast_trap","barricade","curse","plague","bonewall","scarecrow"]
-}
+const B = preload("res://balance.gd")
+# Card background by faction (producer 2026-11-05; was by role). TAGS colour the small faction
+# label on the card face so both read as one colour family.
+const TINTS := {"normal":Color("c6dba0"),"dark":Color("bba3bd"),"magic":Color("a9c3ec"),"":Color("efe3c8")}
+const TAGS := {"normal":Color("55722f"),"dark":Color("5b4366"),"magic":Color("38598f"),"":Color("7d7466")}
 static func card_tint(kind: String) -> Color:
-	if kind == "manor_retainer": return Color("e7ac9b")
-	if kind in ["axe_thrower","rolling_boulder"]: return Color("a9cbe6")
-	for role: String in ROLES:
-		if kind in ROLES[role]: return {"economy":Color("f3d079"),"melee":Color("e7ac9b"),"ranged":Color("a9cbe6"),"support":Color("b2d5a2"),"control":Color("cbb0df")}[role]
-	return Color.WHITE
+	return TINTS.get(B.card_faction(kind),TINTS[""])
+static func tag_color(kind: String) -> Color:
+	return TAGS.get(B.card_faction(kind),TAGS[""])
 static func type_frame(g, r: Rect2, type: String) -> void:
 	var box := Rect2(r.position+r.size*Vector2(0.09,0.17),r.size*Vector2(0.82,0.48))
 	var p := box.position

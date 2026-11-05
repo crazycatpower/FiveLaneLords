@@ -266,6 +266,11 @@ func play_check(team: int, slot: int, pos: Vector2) -> Refusal:
 	if card.get("summon_only",false): return Refusal.NO_CARD
 	if slot_cd(team,slot) > 0.00001: return Refusal.COOLDOWN
 	if ink[team] < card.cost: return Refusal.GOLD
+	if card.get("rolling",false):
+		# Rolled from the start of a lane (the cell in front of our own gate) all the way to the enemy gate.
+		var start_cell := cell_at(pos)
+		if start_cell.x != (0 if team == 0 else L.GRID_COLUMNS-1) or not start_cell.y in active_lanes: return Refusal.OFF_GRID
+		return Refusal.OK
 	if card.type == "spell":
 		var lane := int((pos.y-L.GRID_ORIGIN.y)/L.CELL_SIZE.y)
 		if not lane in active_lanes or pos.x < L.FIELD_FRAME.position.x or pos.x > L.FIELD_FRAME.end.x:

@@ -22,7 +22,7 @@ func run() -> void:
 	g.player_lord = "rune"
 	g.player_deck = g.DeckStore.fit_to_lord(g.player_deck,"rune")
 	g.show_deck()
-	for i: int in range(g.B.LORDS.size()): assert(g.lord_rect(i).end.y < g.pool_rect(0,g.tab_size()).position.y,"Lord buttons overlap card pool")
+	for i: int in range(g.B.LORDS.size()): assert(g.lord_rect(i).position.y > g.ARMY.end.y,"Lord cards sit below the army frame")
 	await snap("deck")
 	g.watch_lords = ["rune","vampire"]
 	g.show_watch()

@@ -30,10 +30,16 @@ static func patrol(m, u: Dictionary, dt: float) -> void:
 	u.face = direction
 	u.pos.x = move_toward(u.pos.x,hi if direction > 0 else lo,m.movement_speed(u)*dt)
 
+# Where the rock starts: just past our lord's patrol zone behind the gate, so it can never
+# roll over our own lord, and from there the whole lane to the enemy gate.
+static func start_x(team: int) -> float:
+	var reach: float = B.LORD_ZONE_DEPTH+B.CARDS.rolling_boulder.radius+1
+	return L.GRID_ORIGIN.x+reach if team == 0 else L.GRID_ORIGIN.x+L.GRID_SIZE.x-reach
+
 static func launch(m, s: Dictionary) -> void:
 	var lane := clampi(floori((s.pos.y-L.GRID_ORIGIN.y)/L.CELL_SIZE.y),0,L.GRID_ROWS-1)
 	var direction := 1.0 if s.team == 0 else -1.0
-	var pos := Vector2(clampf(s.pos.x,L.gate_stop(0),L.gate_stop(1)),L.cell_center(Vector2i(0,lane)).y)
+	var pos := Vector2(start_x(s.team),L.cell_center(Vector2i(0,lane)).y) # always the whole lane
 	m.projectiles.append({"rolling":true,"pos":pos,"start":pos,"team":s.team,"kind":s.kind,"lane":lane,"direction":direction,"remaining":100.0,"hit_ids":[],"angle":0.0})
 
 static func roll(m, stone: Dictionary, dt: float) -> void:

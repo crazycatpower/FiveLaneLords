@@ -736,8 +736,8 @@ func test_screens() -> void:
 	check(bad_random == 0,"random spectate decks hold eight different cards with at least three troops (200 seeds)")
 	game.show_watch()
 	check(game.screen == "watch" and DS.valid(game.watch_decks[0]) and DS.valid(game.watch_decks[1]),"spectate setup starts with two valid decks")
-	game.set_watch_source(1,2)
-	check(game.watch_decks[1] == B.PRESETS[1] and game.watch_lords[1] == B.PRESET_LORDS[1],"a side can switch to a preset deck and its lord")
+	game.set_watch_source(1,1)
+	check(game.watch_lords[1] == game.player_lord and DS.valid(game.watch_decks[1],game.watch_lords[1]),"a side can switch to my deck and its lord")
 	var before_card: String = game.watch_decks[0][0]
 	game.cycle_watch_card(0,0)
 	check(game.watch_decks[0][0] != before_card and DS.valid(game.watch_decks[0]) and game.watch_source[0] == -1,"clicking a card swaps it and keeps the deck valid")
@@ -750,7 +750,7 @@ func test_screens() -> void:
 	var dealt_red: Array = game.model.decks[0].duplicate()
 	dealt_red.sort()
 	red_deck.sort()
-	check(dealt_red == red_deck and game.model.lords[0].lord == "harvest" and game.model.lords[1].lord == B.PRESET_LORDS[1],"spectate battle uses the decks and lords set up for each side")
+	check(dealt_red == red_deck and game.model.lords[0].lord == "harvest" and game.model.lords[1].lord == game.watch_lords[1],"spectate battle uses the decks and lords set up for each side")
 	game.free()
 	DirAccess.remove_absolute("user://test-ui-deck.json")
 	finished["screens"] = true

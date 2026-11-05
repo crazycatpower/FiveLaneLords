@@ -35,7 +35,7 @@ static func load_full(path: String = "user://deck.json") -> Dictionary:
 		var parsed = JSON.parse_string(FileAccess.get_file_as_string(path))
 		if parsed is Dictionary and parsed.get("cards") is Array and B.LORDS.has(parsed.get("lord","")) and valid(parsed.cards,parsed.lord):
 			return {"cards":parsed.cards,"lord":parsed.lord}
-	return {"cards":B.PRESETS[1].duplicate(),"lord":B.PRESET_LORDS[1]}
+	return {"cards":B.DEFAULT_DECK.duplicate(),"lord":B.DEFAULT_LORD}
 static func average(deck: Array) -> float:
 	var total := 0.0
 	for kind: String in deck: total += B.CARDS[kind].cost
