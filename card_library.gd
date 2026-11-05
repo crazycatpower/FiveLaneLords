@@ -61,7 +61,7 @@ func show_catalog() -> void:
 	game.title_button(Rect2(670,802,140,46),"下一頁",func(): page += 1; show_catalog()).disabled = (page+1)*12 >= list.size()
 	var lord := selected.begins_with("lord_")
 	var rules: String = B.skill_text(selected.trim_prefix("lord_")) if lord else B.card_description(selected)
-	text_box(Rect2(955,429,535,162),rules,20)
+	text_box(Rect2(955,429,535,178),rules,19)
 	text_box(Rect2(955,645,535,130),Lore.TEXT.get(selected,""),23)
 	game.queue_redraw()
 

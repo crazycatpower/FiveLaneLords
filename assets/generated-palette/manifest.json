@@ -23,6 +23,12 @@
 		"size": 384.0,
 		"source": "res://assets/manuscript-v1/artificer.png"
 	},
+	"axe_thrower": {
+		"revision": "team-material-v1",
+		"sha256": "f8fb4ab0323aa4f8ecb20ecc700887d91af0c267efb9f79cdc8987f0aefce541",
+		"size": 384,
+		"source": "res://assets/manuscript-v1/axe_thrower.png"
+	},
 	"bandit": {
 		"revision": "team-material-v1",
 		"sha256": "145a1f4f36f8786940f47f43106ad9973f1b30f9fd4477e97a012c46ff4a091d",
@@ -110,7 +116,7 @@
 	"dark_wizard": {
 		"revision": "team-material-v1",
 		"sha256": "11d9dd60d3ee0686dfd19a2bd0f1b01b283749788e5354e97af4b873b53e26d6",
-		"size": 384,
+		"size": 384.0,
 		"source": "res://assets/manuscript-v1/dark_wizard.png"
 	},
 	"drummer": {
@@ -203,6 +209,12 @@
 		"size": 384.0,
 		"source": "res://assets/manuscript-v1/lord-vampire.png"
 	},
+	"manor_retainer": {
+		"revision": "team-material-v1",
+		"sha256": "f2a0e85fea0f181e886eb08c8d0965027dcaf17388b51b21af29843f69f8ae46",
+		"size": 384,
+		"source": "res://assets/manuscript-v1/manor_retainer.png"
+	},
 	"militia": {
 		"revision": "team-material-v1",
 		"sha256": "a3493881af632dc739f5f904dd78c0cd47e7b60e56cf37a4ce6ce3cb9fd23a07",
@@ -262,6 +274,12 @@
 		"sha256": "a4778772d341050d31162cce87d062d690c86d131ac9a2f6c4cd20422c9d8898",
 		"size": 384.0,
 		"source": "res://assets/manuscript-v1/reaper.png"
+	},
+	"rolling_boulder": {
+		"revision": "team-material-v1",
+		"sha256": "a28ada209920767fa763aeb2199d9e2ced921c9e50bb73f2e8cb32c67d8fb043",
+		"size": 384,
+		"source": "res://assets/manuscript-v1/rolling_boulder.png"
 	},
 	"scarecrow": {
 		"revision": "team-material-v1",

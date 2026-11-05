@@ -1,4 +1,5 @@
 extends RefCounted
+const Frontier = preload("res://frontier_cards.gd")
 const DarkSorcery = preload("res://dark_sorcery.gd")
 const LordExpansion = preload("res://lord_expansion.gd")
 const Arcane = preload("res://arcane_mechanics.gd")
@@ -418,7 +419,7 @@ func damage(target: Dictionary, amount: float, team: int, kind: String, source: 
 	if not target.get("phased",false): target.stealthed = false
 	if not sacrifice:
 		amount *= 1.0-Arcane.resonance(self,target)
-		if target.get("armor",0.0) > 0: amount = maxf(1.0,amount-target.armor)
+		if target.get("armor",0.0) > 0 and not B.CARDS.get(source.get("kind",""),{}).get("ignore_armor",false): amount = maxf(1.0,amount-target.armor)
 	var dealt := minf(amount,target.hp)
 	target.hp -= amount
 	if not sacrifice:
@@ -715,6 +716,9 @@ func shoot(source: Dictionary, target: Dictionary, amount: float) -> void:
 
 func update_projectiles(dt: float) -> void:
 	for arrow: Dictionary in projectiles:
+		if arrow.get("rolling",false):
+			Frontier.roll(self,arrow,dt)
+			continue
 		arrow.remaining -= dt
 		if arrow.get("piercing",false):
 			Arcane.advance_piercing_arrow(self,arrow)
@@ -911,6 +915,14 @@ func update_unit(u: Dictionary, dt: float) -> bool:
 			u.drum_cd += B.CARDS.drummer.get("inspire_period",10.0)
 			trigger_drum(u)
 	heal(u,dt)
+	if data.get("patrol",false):
+		var foes: Array = lane_foes[u.team][u.lane]+lane_foe_buildings[u.team][u.lane]
+		var patrol_target := nearest(u.pos,u.team,data.range,foes,-1,false)
+		if not patrol_target.is_empty():
+			u.face = 1.0 if patrol_target.pos.x >= u.pos.x else -1.0
+			if u.cd <= 0: attack(u,patrol_target)
+		else: Frontier.patrol(self,u,dt)
+		return false
 	if u.kind == "catapult":
 		var target := catapult_target(u)
 		if not target.is_empty():
@@ -1040,6 +1052,9 @@ func remove_dead() -> void:
 
 func cast_spell(s: Dictionary) -> void:
 	var data: Dictionary = B.CARDS[s.kind]
+	if data.get("rolling",false):
+		Frontier.launch(self,s)
+		return
 	event("spell",s.pos,s.team,{"card":s.kind,"radius":data.radius})
 	if s.kind == "curse":
 		for u: Dictionary in units:
@@ -1096,7 +1111,7 @@ func snapshot(team: int) -> Dictionary:
 				var cell := Vector2i(col,row)
 				var pos := L.cell_center(cell)
 				if can_play(team,slot,pos): candidates.append({"slot":slot,"kind":kind_at(team,slot),"pos":pos,"cell":cell})
-	return {"team":team,"ink":ink[team],"enemy_ink":ink[1-team],"difficulty":difficulty,"elapsed":elapsed,"wave_until":wave_until[team],"memory":memory[team].duplicate(),"recent":recent_lanes[team].duplicate(),"saving":ai_save[team],"params":ai_params[team],"units":units,"buildings":buildings,"gates":gates,"candidates":candidates,"owned_cells":territory.count(team),"active_lanes":active_lanes.duplicate()}
+	return {"team":team,"ink":ink[team],"enemy_ink":ink[1-team],"difficulty":difficulty,"elapsed":elapsed,"wave_until":wave_until[team],"memory":memory[team].duplicate(),"recent":recent_lanes[team].duplicate(),"saving":ai_save[team],"params":ai_params[team],"units":units,"buildings":buildings,"lords":lords.filter(func(l: Dictionary) -> bool: return lord_active[l.team]),"gates":gates,"candidates":candidates,"owned_cells":territory.count(team),"active_lanes":active_lanes.duplicate()}
 
 func update_ai(dt: float) -> void:
 	if elapsed < ai_start: return

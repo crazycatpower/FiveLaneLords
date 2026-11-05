@@ -5,9 +5,9 @@ const DS = preload("res://deck_store.gd")
 
 static func run(t: SceneTree) -> void:
 	for faction: String in B.FACTIONS:
-		t.check(B.CARDS.keys().filter(func(k: String) -> bool: return B.card_faction(k) == faction and not B.CARDS[k].get("summon_only",false)).size() == {"":12,"normal":10,"dark":11,"magic":11}[faction],"faction card count: "+faction) # magic becomes 10 with docs/法師新單位.md
+		t.check(B.CARDS.keys().filter(func(k: String) -> bool: return B.card_faction(k) == faction and not B.CARDS[k].get("summon_only",false)).size() == {"":14,"normal":11,"dark":11,"magic":11}[faction],"faction card count: "+faction)
 	for lord: String in B.LORDS:
-		t.check(DS.pool(lord).size() == (22 if B.lord_faction(lord) in ["magic","dark"] else 21),"lord rotating pool: "+lord)
+		t.check(DS.pool(lord).size() == 24,"lord rotating pool: "+lord)
 	var p := L.cell_center(Vector2i(3,2))
 	var m = t.bare(42)
 	m.lord_active = [false,false]

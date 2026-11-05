@@ -7,6 +7,8 @@ const ROLES := {
  "control":["teleport_trap","blast_trap","barricade","curse","plague","bonewall","scarecrow"]
 }
 static func card_tint(kind: String) -> Color:
+	if kind == "manor_retainer": return Color("e7ac9b")
+	if kind in ["axe_thrower","rolling_boulder"]: return Color("a9cbe6")
 	for role: String in ROLES:
 		if kind in ROLES[role]: return {"economy":Color("f3d079"),"melee":Color("e7ac9b"),"ranged":Color("a9cbe6"),"support":Color("b2d5a2"),"control":Color("cbb0df")}[role]
 	return Color.WHITE

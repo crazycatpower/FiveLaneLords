@@ -873,7 +873,23 @@ func draw_battle() -> void:
 		if model.alarm[lane] > 0: draw_arc(Vector2(gx,y-8),40+4*pulse,0,TAU,28,Color(RED,0.5+0.4*pulse),3)
 		elif model.building_alarm[lane] > 0: draw_arc(Vector2(gx,y-8),40,0,TAU,28,Color(0.85,0.6,0.1,0.7),2)
 	for arrow: Dictionary in model.projectiles:
-		if arrow.has("impact"):
+		if arrow.get("rolling",false):
+			var stone_pos: Vector2 = arrow.pos-Vector2(0,32)
+			draw_set_transform(arrow.pos+Vector2(0,6),0,Vector2(1,0.25))
+			draw_circle(Vector2.ZERO,37,Color(0.2,0.16,0.10,0.25))
+			draw_set_transform(Vector2.ZERO)
+			for i: int in range(4):
+				draw_circle(arrow.pos-Vector2(arrow.direction*(35+i*12),-4),6-i,Color(0.65,0.55,0.38,0.3-i*0.05))
+			draw_set_transform(stone_pos,arrow.angle)
+			draw_texture_rect(art("rolling_boulder"),Rect2(-50,-50,100,100),false)
+			draw_set_transform(Vector2.ZERO)
+		elif arrow.kind == "axe_thrower":
+			draw_set_transform(arrow.pos,(1-arrow.remaining/B.ARROW_TIME)*TAU*2*arrow.get("direction",1.0))
+			draw_line(Vector2(-9,0),Vector2(9,0),Color("78512d"),3,true)
+			draw_colored_polygon(PackedVector2Array([Vector2(3,-8),Vector2(12,-5),Vector2(12,5),Vector2(3,8)]),Color("a9a8a0"))
+			draw_polyline(PackedVector2Array([Vector2(3,-8),Vector2(12,-5),Vector2(12,5),Vector2(3,8)]),INK,1.5,true)
+			draw_set_transform(Vector2.ZERO)
+		elif arrow.has("impact"):
 			var flight: float = clampf(1-arrow.remaining/arrow.flight,0,1)
 			var shadow_pos: Vector2 = arrow.start.lerp(arrow.impact,flight)
 			draw_circle(shadow_pos,5.0*flight,Color(0.2,0.16,0.10,0.35))
@@ -1049,12 +1065,31 @@ func draw_preview() -> void:
 	var data: Dictionary = B.CARDS[kind]
 	var color := Color(0.2,0.7,0.3,0.35) if model.can_play(0,selected,pos) else Color(0.8,0.1,0.1,0.35)
 	if data.type == "spell":
+		if data.get("rolling",false):
+			var lane := clampi(floori((pos.y-L.GRID_ORIGIN.y)/L.CELL_SIZE.y),0,4)
+			var start := Vector2(clampf(pos.x,L.gate_stop(0),L.gate_stop(1)),L.cell_center(Vector2i(0,lane)).y)
+			var finish := Vector2(L.gate_stop(1),start.y)
+			draw_line(start,finish,Color(0.8,0.3,0.1,0.18),data.radius*2)
+			draw_line(start,finish,color,3)
+			for actor: Dictionary in model.units+model.buildings+model.lords:
+				if actor.hp > 0 and actor.team == 0 and actor.pos.x >= start.x-data.radius and absf(actor.pos.y-start.y) <= data.radius:
+					draw_arc(actor.pos,32,0,TAU,24,Color(1,0.15,0.1,0.85),3,true)
+			draw_circle(start,data.radius,color,false,2)
+			return
 		draw_circle(pos,data.radius,color)
 		return
 	var cell: Vector2i = model.cell_at(pos)
 	if cell.x < 0: return
 	draw_card_art(kind,Rect2(L.cell_center(cell)-Vector2(45,40),Vector2(90,80)),0,Color(1,1,1,0.5))
 	if data.type == "unit":
+		if data.get("patrol",false):
+			var left := cell.x
+			var right := cell.x
+			while left > 0 and model.territory_owner(Vector2i(left-1,cell.y)) == 0: left -= 1
+			while right < L.GRID_COLUMNS-1 and model.territory_owner(Vector2i(right+1,cell.y)) == 0: right += 1
+			var y: float = L.cell_center(cell).y
+			draw_line(Vector2(L.GRID_ORIGIN.x+left*L.CELL_SIZE.x+12,y),Vector2(L.GRID_ORIGIN.x+(right+1)*L.CELL_SIZE.x-12,y),color,4)
+			return
 		var lanes: Array = [cell.y]
 		if data.get("spread",false):
 			var middle := clampi(cell.y,1,3)

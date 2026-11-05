@@ -8,6 +8,7 @@ static func key(actor: Dictionary) -> String:
 
 static func style(kind: String) -> String:
 	match kind:
+		"axe_thrower": return "throw"
 		"hunter", "arcane_archer": return "bow"
 		"tower": return "tower"
 		"lord_rune", "arcane_tower", "chronomancer": return "cast"
@@ -79,6 +80,9 @@ static func sample(mode: String, progress: float) -> Dictionary:
 		"cast":
 			offset.y = -4*settle
 			angle = 0.07*hit
+		"throw":
+			offset.x = 8*hit
+			angle = -0.18*sin(progress*TAU)
 		"heavy":
 			offset.x = 12*hit
 			angle = 0.15*hit

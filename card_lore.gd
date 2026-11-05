@@ -1,6 +1,9 @@
 extends RefCounted
 # Human-crafted witty flavor text preserving all implicit lore threads, puns, and dark humor.
 const TEXT := {
+	"manor_retainer":"他每天巡到第五根界樁就回頭。昨天有人把界樁搬遠了，今天他要求補發鞋錢。",
+	"axe_thrower":"盔甲匠替他磨斧頭，收了兩份錢。藍袖子的士兵決定先問清楚是哪兩份。",
+	"rolling_boulder":"第五聲鼓響，巨石準時滾下來。撤退的命令是第六聲。",
 	"dark_wizard":"他答應讓每個人都活在他的心裡。藍袖子的士兵問能不能改成名冊，他說太晚了。",
 	"summon_trap":"工匠說一個法陣能看三次門。軍需官問看門的要幾份薪水，他看了看那三個腦袋，決定裝沒聽見。",
 	"chimera":"獅子要肉，山羊要草，蛇說稅單上只寫了一張嘴。牠們唯一同意的事，是藍袖子不好吃。",

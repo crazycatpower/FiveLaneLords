@@ -155,6 +155,17 @@ static func decide(s: Dictionary) -> Dictionary:
 							best = c.duplicate()
 					continue
 			if s.get("saving",false) and defend < 0: continue # holding gold for the lord's skill
+			if data.get("rolling",false):
+				var value := 0.0
+				for actor: Dictionary in s.units+s.buildings+s.get("lords",[]):
+					if actor.hp <= 0 or absf(actor.pos.y-c.pos.y) > data.radius or (actor.pos.x-c.pos.x)*forward < -data.radius: continue
+					value += minf(actor.hp,data.damage)*(1.0 if actor.team != team else -2.0)
+				if value > 0 and (defend < 0 or lane == defend):
+					score = 720+minf(value,1000)*0.15
+					if score > best_score:
+						best_score = score
+						best = c.duplicate()
+				continue
 			var dark_score := dark_card_score(c,s,ours,foes,my_troop_x)
 			if dark_score > best_score:
 				best_score = dark_score
