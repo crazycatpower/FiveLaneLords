@@ -11,3 +11,7 @@ export_templates/
 *.exe
 *.pck
 *.tpz
+
+# Documentation and reference images are not runtime resources.
+docs/**/*.import
+art-direction/**/*.import
