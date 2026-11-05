@@ -18,4 +18,4 @@ Windows 玩家版請到此倉庫的 **Releases** 下載 `FiveLaneLords-Windows.z
 
 規格與開發流程見 `docs/企劃書.md`、`docs/交接給Codex.md`、`AGENTS.md`。
 
-測試：日常開發快速驗證 `godot_console --headless --path . -s tools/quick_test.gd`（< 1.5 秒）；發布全量回歸 `godot_console --headless --path . -s smoke_test.gd`（873 項）。
+測試：日常只跑相關專用測試；共用資料修改可跑 `godot_console --headless --path . -s tools/quick_test.gd`。整版發布才跑 `smoke_test.gd`，詳見 `AGENTS.md`。
